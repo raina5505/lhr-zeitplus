@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.8.0
+// @version      5.9.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -14,7 +14,7 @@
 
 (function () {
     'use strict';
-    const VERSION = '5.8.0';
+    const VERSION = '5.9.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -640,12 +640,13 @@
                 e.stopPropagation();
                 const day = listDays.get(act.dataset.k);
                 if (act.dataset.act === 'mfe' && day) { const d0 = day.first.querySelector('.td_datum_item.popup-link'); if (d0) d0.click(); else toast('Nicht verfügbar', 'Für diesen Tag gibt es keine Mehrfacherfassung.'); }
+                if (act.dataset.act === 'pay') { const img = document.getElementById('img_euro'); if (img) { const a = img.closest('a'); origClick(a || img); } return; }
                 if (act.dataset.act === 'future') { const cur = listState.futureEff; listState.future = !cur; S.futureDays = cur ? 'hide' : 'show'; saveS(); render(); }
                 return;
             }
             if (e.target.closest('.zl-det')) return;
             const row = e.target.closest('.zl-row');
-            if (!row) return;
+            if (!row || !row.dataset.k) return;
             const k = row.dataset.k;
             if (listState.open.has(k)) listState.open.delete(k); else listState.open.add(k);
             render();
@@ -972,6 +973,36 @@
             html += rowHtml(x);
         });
         if (futureDays.length && !showF) html += fBtn();
+        // Monatsabschluss: Zeitausgleich / Periodenschluss / Abrechnung / Übertrag + Auszahlung + Monatssumme
+        safe('Abschluss', () => {
+            const CL = /^(Zeitausgleich|Periodenschluss|Abrechnung|Übertrag|Auszahlung|Vortr)/i;
+            const closeRows = [];
+            for (const [, rows] of d.days) rows.forEach(r => {
+                const sp = r.querySelector('td.td_zeitdaten .td_text1_isnotDate') || r.querySelector('td.td_zeitdaten');
+                const lab = sp ? sp.textContent.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim() : '';
+                if (lab && CL.test(lab) && !/^Vortr/i.test(lab)) closeRows.push({ r, lab, img: r.querySelector('img') });
+            });
+            const nrOf = k => k === 'ist' ? '2' : k === 'tg' ? '73' : k === 'sal' ? '3' : k.slice(1);
+            const val = (r, nr) => { const c = r.querySelector('td[data-zsp-nr="' + nr + '"]'); return c ? c.textContent.replace(/\s+/g, ' ').trim() : ''; };
+            const cell = (v, extra) => `<span class="zl-n num ${extra || ''}${/^-/.test(v) ? ' bad' : ''}">${v ? esc(v) : '<span class="mut">–</span>'}</span>`;
+            const tlCell = tlCol ? '<div></div>' : '';
+            const doneD = days.filter(x => x.past || x.isT);
+            const istS = doneD.reduce((a, x) => a + (x.ist || 0), 0), sollS = days.reduce((a, x) => a + x.soll, 0), sollD = doneD.reduce((a, x) => a + x.soll, 0);
+            const tgS = doneD.reduce((a, x) => a + (x.tg || 0), 0);
+            let out = `<div class="zl-wk cl">Monatsabschluss</div>`;
+            out += `<div class="zl-row close sum"><div class="zl-cl"><b>Summe</b><span class="zl-tag">Soll ${dur(sollD)}${sollS !== sollD ? ' bis heute · ' + dur(sollS) + ' Monat' : ''}</span></div>${tlCell}${VC.map(vc =>
+                vc.key === 'ist' ? `<span class="zl-n num ist"><b>${dur(istS)}</b></span>` : vc.key === 'tg' ? `<span class="zl-n num ${sc(tgS)}"><b>${dur(tgS, true)}</b></span>` : vc.key === 'sal' ? `<span class="zl-n num ${sc(c.saldo || 0)}"><b>${c.saldo != null ? dur(c.saldo, true) : '–'}</b></span>` : '<span class="zl-n mut">–</span>').join('')}<span></span></div>`;
+            closeRows.forEach(({ r, lab, img }) => {
+                let btn = '';
+                if (img) {
+                    const tt = img.getAttribute('title') || 'Stunden auszahlen';
+                    const no = /nein/i.test(img.getAttribute('src') || '') || /keine/i.test(tt);
+                    btn = `<button type="button" class="zl-pay${no ? ' no' : ''}" data-act="pay" title="${esc(tt)}"><img src="${esc(img.src)}" alt="">${no ? esc(tt) : 'Stunden auszahlen'}</button>`;
+                }
+                out += `<div class="zl-row close"><div class="zl-cl"><b>${esc(lab)}</b>${btn}</div>${tlCell}${VC.map(vc => cell(val(r, nrOf(vc.key)), vc.key === 'ist' ? 'ist' : '')).join('')}<span></span></div>`;
+            });
+            html += out;
+        });
         rowsBox.innerHTML = html;
     }
 
@@ -1819,6 +1850,17 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zl-st small{color:var(--zp-muted);margin-left:6px}
 .zl-tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:99px;font-size:11.5px;font-weight:650;background:var(--zp-surf2);color:var(--zp-muted)}
 .zl-tag.ok{background:color-mix(in srgb,var(--zp-ok) 15%,transparent);color:var(--zp-ok)}
+.zl-wk.cl{margin-top:10px;color:var(--zp-text)}
+.zl-row.close{cursor:default;min-height:38px}
+.zl-row.close:hover{background:transparent}
+.zl-cl{grid-column:1 / 3;display:flex;align-items:center;gap:12px;min-width:0}
+.zl-cl b{font-size:12.5px;white-space:nowrap;min-width:92px}
+.zl-row.close.sum{background:var(--zp-surf);box-shadow:inset 0 0 0 1px var(--zp-line)}
+.zl-row.close.sum .zl-cl b{color:var(--zp-accent)}
+.zl-pay{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 12px 0 4px;border-radius:99px;border:1px solid color-mix(in srgb,var(--zp-ok) 50%,var(--zp-line));background:color-mix(in srgb,var(--zp-ok) 14%,var(--zp-surf));color:var(--zp-text);font-weight:600;font-size:12.5px;transition:.15s}
+.zl-pay:hover{border-color:var(--zp-ok)}
+.zl-pay img{width:24px;height:24px;border-radius:50%;background:#fff}
+.zl-pay.no{border-color:var(--zp-line);background:var(--zp-surf);color:var(--zp-muted);font-weight:500}
 .zl-tag.br{background:color-mix(in srgb,var(--zp-bad) 20%,transparent);color:var(--zp-bad);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 45%,transparent)}
 .zl-tag.br.e{background:var(--zp-bad);color:var(--zp-onbad,#fff);box-shadow:none}
 .zl-row.br{background:color-mix(in srgb,var(--zp-bad) 9%,transparent)}
