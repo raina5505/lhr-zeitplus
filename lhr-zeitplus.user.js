@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.16.2
+// @version      5.17.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.16.2';
+    const VERSION = '5.17.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -239,6 +239,7 @@
               <nav class="zs-nav">${navHtml}</nav>
               <div class="zs-live num" id="zs-live" data-act="top" title="Nach oben"></div>
               <div class="zs-right">
+                ${updAvail() ? `<button type="button" class="zs-upd" data-act="upd" title="Neue Version ${esc(updState().latest)} – klicken, dann in Tampermonkey auf „Aktualisieren“">${ico('refresh', 15)}<span>Update ${esc(updState().latest)}</span></button>` : ''}
                 <button type="button" class="zp-icon" data-act="theme" title="Theme wechseln (Alt+T)">${ico('palette', 17)}</button>
                 <button type="button" class="zp-icon" data-act="gear" title="Zeit+ Einstellungen (Alt+S)">${ico('sliders', 16)}</button>
                 <button type="button" class="zs-user" data-act="user" title="${esc(u.status)}"><span class="zs-av">${esc(u.initials)}<i class="${u.present ? 'on' : ''}"></i></span><span class="nm">${esc(u.name)}${u.nr ? `<small class="num">${esc(u.nr)}</small>` : ''}</span>${ico('chevron', 14)}</button>
@@ -287,6 +288,8 @@
         if (act === 'new') { openPop(t, `<h5>Neu erfassen</h5>${shell.menu.map((m, i) => `<button type="button" class="zs-mi" data-mi="${i}">${ico(/pause/i.test(m.label) ? 'utensils' : /notiz/i.test(m.label) ? 'file' : /abwesen/i.test(m.label) ? 'sun' : /umbuch/i.test(m.label) ? 'refresh' : /mehrfach/i.test(m.label) ? 'rows' : 'plus', 15)}${esc(m.label[0].toUpperCase() + m.label.slice(1))}</button>`).join('')}`, 250); return; }
         if (act === 'pdf') { openPop(t, `<h5>Report drucken</h5>${shell.pdf.map((m, i) => `<button type="button" class="zs-mi" data-pdf="${i}">${ico('pdf', 15)}${esc(m.label)}</button>`).join('')}<div class="zs-sepl"></div><button type="button" class="zs-mi" data-act="pdfyear">${ico('calendar', 15)}Ganzes Jahr herunterladen…</button>`, 250); return; }
         if (act === 'pdfyear') { closePops(); openYearPdf(); return; }
+        if (act === 'upd') { closePops(); openUpdate(); return; }
+        if (act === 'updcheck') { closePops(); checkUpdate(true); return; }
         if (act === 'theme') { cycleTheme(); return; }
         if (act === 'gear') { openModal(); return; }
         if (act === 'cd') { openModal('extra'); return; }
@@ -299,6 +302,7 @@
             openPop(t, `<h5>${esc(u.name)}${u.nr ? ' · ' + esc(u.nr) : ''}${u.status ? ' · ' + esc(u.status) : ''}</h5>
                 ${link('change_pw', 'user', 'Benutzerdaten ändern')}${link('call_hilfe', 'help', 'Hilfe', '', true)}
                 ${langs ? `<div class="zs-sepl"></div><h5>${ico('globe', 12)} Sprache</h5><div class="zs-langs">${langs}</div>` : ''}
+                <div class="zs-sepl"></div><button type="button" class="zs-mi" data-act="${updAvail() ? 'upd' : 'updcheck'}">${ico('refresh', 15)}${updAvail() ? 'Update auf ' + esc(updState().latest) + ' installieren' : 'Nach Updates suchen'}<small style="margin-left:auto;opacity:.6">v${VERSION}</small></button>
                 <div class="zs-sepl"></div>${link('logout', 'logout', 'Abmelden', 'danger')}`, 250);
         }
     }
@@ -1780,6 +1784,9 @@ input,select{font-size:13px;margin:0}
 #zs{background:color-mix(in srgb,var(--zp-bg) 84%,transparent);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border-bottom:1px solid var(--zp-line);color:var(--zp-text)}
 .zs-in{max-width:1240px;margin:0 auto;padding:0 16px;box-sizing:content-box}
 .zs-bar{display:flex;align-items:center;gap:14px;height:60px}
+.zs-upd{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:11px;border:1px solid var(--zp-accent);background:color-mix(in srgb,var(--zp-accent) 16%,transparent);color:var(--zp-text);font:600 13px/1 inherit;cursor:pointer;animation:zsupd 2.4s ease-in-out infinite}
+.zs-upd:hover{background:var(--zp-accent);color:var(--zp-onacc,#fff)}
+@keyframes zsupd{50%{box-shadow:0 0 0 4px color-mix(in srgb,var(--zp-accent) 25%,transparent)}}
 .zs-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--zp-text);font-weight:700;font-size:15px;letter-spacing:-.01em;flex:none}
 .zs-brand .zp-logo{width:30px;height:30px}
 .zs-nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0;padding:0 4px}
@@ -2206,6 +2213,32 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 
     /* ════════════════════ FEHLER / TOASTS ════════════════════ */
     let lastErr = null;
+    /* ───── Update-Hinweis: fragt GitHub nach der neuesten Version; Klick öffnet den Link → Tampermonkey zeigt „Aktualisieren“ ───── */
+    const RAW_URL = 'https://raw.githubusercontent.com/raina5505/lhr-zeitplus/main/lhr-zeitplus.user.js';
+    const vNum = v => String(v || '0').split('.').map(n => parseInt(n, 10) || 0);
+    const vNewer = (a, b) => { const x = vNum(a), y = vNum(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+    const updState = () => { try { return JSON.parse(localStorage.getItem('zplus_upd') || '{}') || {}; } catch (e) { return {}; } };
+    const updAvail = () => { const u = updState(); return !!(u.latest && vNewer(u.latest, VERSION)); };
+    function openUpdate() {
+        window.open(RAW_URL, '_blank');
+        toast('Update öffnet sich', 'Im neuen Tab auf <b>„Aktualisieren“</b> klicken, danach diese Seite neu laden.', { icon: 'refresh', ms: 12000 });
+    }
+    function checkUpdate(manual) {
+        const u = updState();
+        if (!manual && u.checked && Date.now() - u.checked < 3 * 3600e3) { if (updAvail() && SH) renderShell(); return; }
+        fetch(RAW_URL + '?t=' + Date.now(), { cache: 'no-store' }).then(r => r.ok ? r.text() : Promise.reject(r.status)).then(txt => {
+            const m = txt.match(/@version\s+([\d.]+)/); if (!m) throw 'keine Version';
+            const latest = m[1], had = u.latest;
+            try { localStorage.setItem('zplus_upd', JSON.stringify({ latest, checked: Date.now() })); } catch (e) { }
+            if (SH) safe('App-Leiste', renderShell);
+            if (vNewer(latest, VERSION)) {
+                if (manual || had !== latest) {
+                    const box = overlay(); toast('Update verfügbar: ' + latest, 'Du hast ' + VERSION + '. Hier klicken → dann in Tampermonkey „Aktualisieren“.', { icon: 'refresh', ms: 15000 });
+                    const ts = box.getElementById('zp-toasts'), t = ts && ts.lastElementChild; if (t) t.addEventListener('click', openUpdate);
+                }
+            } else if (manual) toast('Alles aktuell', 'Du hast die neueste Version ' + VERSION + '.', { icon: 'check', ms: 5000 });
+        }).catch(() => { if (manual) openUpdate(); });
+    }
     function toast(title, text, opts) {
         opts = opts || {};
         if (!document.body) return;
@@ -4003,6 +4036,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         safe('Farben', watchColors);
         safe('Abstand', collapseGaps); setTimeout(() => safe('Abstand', collapseGaps), 1500); setInterval(() => { if (!document.hidden) safe('Abstand', collapseGaps); }, 3000);
         safe('Spalten', watchColMenus);
+        setTimeout(() => safe('Update', () => checkUpdate(false)), 2500); setInterval(() => { if (!document.hidden) safe('Update', () => checkUpdate(false)); }, 30 * 60e3);
         if (PAGE === 'zdl') { safe('Spalten', watchCols); safe('Spalten', dtPopupGuard); }
         safe('Team', watchTeam);
         setInterval(() => safe('Kaffee', checkCoffee), 15000); setTimeout(() => safe('Kaffee', checkCoffee), 3000);
