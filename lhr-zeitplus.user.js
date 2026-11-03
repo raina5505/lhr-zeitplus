@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.14.1
+// @version      5.15.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.14.1';
+    const VERSION = '5.15.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -3400,7 +3400,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         if (list.length > 40000) return;
         for (let i = 0; i < list.length; i++) {
             const x = list[i];
-            if (typeof x.className !== 'string' || CF_SKIP.test(x.tagName) || (x.id && x.id.indexOf('zp-') === 0) || x.closest('svg')) continue;
+            if (typeof x.className !== 'string' || CF_SKIP.test(x.tagName) || (x.id && x.id.indexOf('zp-') === 0) || x.closest('svg') || (BU && BU.contains(x))) continue;
             const sig = x.className + '|' + (x.getAttribute('style') || '') + '|' + dark;
             if (cfSig.get(x) === sig) continue;
             if (x.hasAttribute('data-zp-cf') || x.hasAttribute('data-zp-ink')) { x.removeAttribute('data-zp-cf'); x.removeAttribute('data-zp-ink'); x.style.removeProperty('--zp-cfh'); }
@@ -3761,6 +3761,152 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         }).observe(document.body, { childList: true, subtree: true });
     }
 
+    /* ───── Buchen-Seite: moderne Karte (Original-Formular bleibt, wird nur umgestellt) ───── */
+    let BU = null;
+    const BU_CSS = `
+html.zp-bu section.bearbeitung{max-width:1080px !important;margin:0 auto !important;padding:0 !important;background:none !important;border:0 !important;box-shadow:none !important;text-align:left !important}
+html.zp-bu .zpb-x,html.zp-bu section.bearbeitung > br,html.zp-bu #live_time_clock,html.zp-bu section.stundenuebersicht{display:none !important}
+#zp-bu{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr);gap:18px;align-items:start;margin:8px 0 28px;font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
+@media (max-width:880px){#zp-bu{grid-template-columns:1fr}}
+#zp-bu .zpb-card{background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:20px;box-shadow:var(--zp-shadow);padding:24px 26px;min-width:0}
+#zp-bu .zpb-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;padding-bottom:20px;margin-bottom:20px;border-bottom:1px solid var(--zp-line)}
+#zp-bu .zpb-time{font:700 56px/1 'Segoe UI Variable Display','Segoe UI',system-ui,sans-serif;font-variant-numeric:tabular-nums;letter-spacing:-.02em;color:var(--zp-text)}
+#zp-bu .zpb-time small{font-size:24px;font-weight:600;color:var(--zp-muted);margin-left:2px}
+#zp-bu .zpb-date{margin-top:8px;font-size:14px;color:var(--zp-muted)}
+#zp-bu .zpb-st{display:inline-flex;align-items:center;gap:8px;padding:7px 13px;border-radius:99px;font-size:13px;font-weight:600;background:var(--zp-surf2);border:1px solid var(--zp-line);color:var(--zp-muted)}
+#zp-bu .zpb-st i{width:9px;height:9px;border-radius:50%;background:var(--zp-muted)}
+#zp-bu .zpb-st.on{color:var(--zp-ok);border-color:color-mix(in srgb,var(--zp-ok) 40%,transparent);background:color-mix(in srgb,var(--zp-ok) 10%,transparent)}
+#zp-bu .zpb-st.on i{background:var(--zp-ok);box-shadow:0 0 0 4px color-mix(in srgb,var(--zp-ok) 22%,transparent)}
+#zp-bu .zpb-lbl,#zp-bu label[for=code],#zp-bu label[for=notiz],#zp-bu label[for=RKABR_ZWECK],#zp-bu label[for=RKABR_REISETYP]{display:block !important;font-size:12px !important;font-weight:700 !important;letter-spacing:.06em;text-transform:uppercase;color:var(--zp-muted) !important;margin:0 0 9px !important}
+#zp-bu .table_center[style*="none"],#zp-bu [id^=RKABR_][style*="none"]{display:none !important}
+#zp-bu .table_center:not([style*="none"]){display:block !important;}
+#zp-bu .table_center{text-align:left !important;margin:0 0 18px !important;width:auto !important;max-width:none !important}
+#zp-bu .table_center:empty{display:none !important}
+#zp-bu .table_center > br,#zp-bu #abwesenheitenContainer > br,#zp-bu #abwesenheitenContainer > label{display:none !important}
+#zp-bu .zpb-chips{display:flex;flex-wrap:wrap;gap:8px}
+#zp-bu .zpb-chip{display:inline-flex;align-items:center;gap:8px;padding:10px 15px;border-radius:13px;border:1px solid var(--zp-line);background:var(--zp-surf2);color:var(--zp-text);font:600 14px/1 inherit;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
+#zp-bu .zpb-chip:hover{border-color:var(--zp-accent)}
+#zp-bu .zpb-chip:active{transform:scale(.97)}
+#zp-bu .zpb-chip.on{background:var(--zp-accent);border-color:var(--zp-accent);color:var(--zp-onacc,#fff)}
+html.zp-bu #zp-bu #bb_dropdown_abwesenheiten.zpb-sel{position:absolute !important;width:1px !important;height:1px !important;opacity:0 !important;pointer-events:none !important}
+html.zp-bu #zp-bu input[type=text]{width:100% !important;max-width:none !important;min-height:44px !important;border-radius:12px !important;padding:8px 13px !important;font-size:15px !important;box-sizing:border-box}
+html.zp-bu #zp-bu input#notiz.hidden,html.zp-bu #zp-bu label.hidden{display:none !important}
+#zp-bu .table_around{display:flex;gap:10px;flex-wrap:wrap}
+#zp-bu .table_around > .inlineblock{display:flex;align-items:center;gap:12px;padding:11px 14px;border-radius:13px;background:var(--zp-surf2);border:1px solid var(--zp-line);cursor:pointer}
+#zp-bu .table_around > [style*="none"]{display:none !important}
+#zp-bu .table_around label{font-weight:600;font-size:14px;color:var(--zp-text) !important;cursor:pointer;margin:0 !important}
+#zp-bu .table_around small{display:block;font-size:12px;font-weight:400;color:var(--zp-muted);margin-top:2px}
+html.zp-bu #zp-bu input[type=checkbox]{appearance:none;-webkit-appearance:none;flex:none;width:42px;height:24px;margin:0 !important;border-radius:99px;background:var(--zp-line) !important;border:0 !important;position:relative;cursor:pointer;transition:background .18s}
+html.zp-bu #zp-bu input[type=checkbox]::before{content:'';position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .18s}
+html.zp-bu #zp-bu input[type=checkbox]:checked{background:var(--zp-accent) !important}
+html.zp-bu #zp-bu input[type=checkbox]:checked::before{transform:translateX(18px)}
+#zp-bu .zpb-code{display:flex;align-items:stretch;gap:12px}
+#zp-bu #b_code{margin:0 !important;flex:none;display:flex !important;align-items:center;justify-content:center;padding:6px 12px;border-radius:13px;background:#fff;border:1px solid var(--zp-line);min-height:44px}
+#zp-bu #b_code img{display:block;max-height:46px}
+html.zp-bu #zp-bu input#code{flex:1;min-height:58px !important;font:700 24px/1 ui-monospace,'Cascadia Mono',Consolas,monospace !important;letter-spacing:.32em;text-align:center}
+#zp-bu .zpb-hint{font-size:12px;color:var(--zp-muted);margin-top:8px}
+#zp-bu .zpb-hint kbd{font:600 11px ui-monospace,Consolas,monospace;padding:1px 6px;border-radius:5px;border:1px solid var(--zp-line);background:var(--zp-surf2)}
+html.zp-bu #zp-bu #buttons{display:grid !important;grid-template-columns:minmax(0,1.4fr) minmax(0,1.1fr);gap:10px;margin:4px 0 0 !important;padding:0 !important}
+html.zp-bu #zp-bu #buttons button{display:inline-flex !important;align-items:center;justify-content:center;gap:9px;height:56px;margin:0 !important;padding:0 18px !important;border-radius:15px !important;white-space:nowrap;font:650 16px/1 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;cursor:pointer;background-image:none !important;transition:filter .15s,transform .1s,box-shadow .15s;width:auto !important}
+html.zp-bu #zp-bu #bu_submit{background:var(--zp-accent) !important;color:var(--zp-onacc,#fff) !important;border:1px solid var(--zp-accent) !important;box-shadow:0 8px 22px color-mix(in srgb,var(--zp-accent) 35%,transparent)}
+html.zp-bu #zp-bu #bu_submit_abmelden{background:var(--zp-surf2) !important;color:var(--zp-text) !important;border:1px solid var(--zp-line) !important}
+html.zp-bu #zp-bu #buttons button:hover{filter:brightness(1.08)}
+html.zp-bu #zp-bu #buttons button:active{transform:scale(.98)}
+@media (max-width:520px){html.zp-bu #zp-bu #buttons{grid-template-columns:1fr}#zp-bu .zpb-code{flex-direction:column}}
+#zp-bu .zpb-sh{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:16px}
+#zp-bu .zpb-sh h3{margin:0;font-size:17px;font-weight:700;color:var(--zp-text)}
+#zp-bu .zpb-sh span{font-size:13px;color:var(--zp-muted)}
+#zp-bu .zpb-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+#zp-bu .zpb-t{padding:13px 15px;border-radius:14px;background:var(--zp-surf2);border:1px solid var(--zp-line);min-width:0}
+#zp-bu .zpb-t span{display:block;font-size:12px;font-weight:600;color:var(--zp-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#zp-bu .zpb-t b{display:block;margin-top:5px;font-size:23px;font-weight:700;font-variant-numeric:tabular-nums;color:var(--zp-text)}
+#zp-bu .zpb-t.big{grid-column:1/-1;background:color-mix(in srgb,var(--zp-accent) 11%,var(--zp-surf2));border-color:color-mix(in srgb,var(--zp-accent) 35%,transparent)}
+#zp-bu .zpb-t.big b{font-size:30px}
+#zp-bu .zpb-t b.pos{color:var(--zp-ok)}
+#zp-bu .zpb-t b.neg{color:var(--zp-bad)}
+#zp-bu .zpb-empty{font-size:13px;color:var(--zp-muted)}
+`;
+    function buildBuchen() {
+        const sec = document.querySelector('section.bearbeitung'), form = document.getElementById('buReiseDummyForm') || (document.getElementById('bu_submit') || {}).form;
+        if (!sec || !form || document.getElementById('zp-bu')) return false;
+        const st = document.createElement('style'); st.id = 'zp-bu-css'; st.textContent = BU_CSS; (document.head || document.documentElement).appendChild(st);
+        document.documentElement.classList.add('zp-bu');
+        const wrap = el('div'); wrap.id = 'zp-bu'; BU = wrap;
+        const main = el('div', 'zpb-card zpb-main'), side = el('aside', 'zpb-card zpb-side');
+        wrap.append(main, side);
+        // Uhr (Serverzeit aus #uhrzeit, damit sie zur LHR-Zeit passt)
+        let off = 0;
+        const su = (document.getElementById('uhrzeit') || {}).textContent || '', sm = su.match(/(\d{2})\.(\d{2})\.(\d{4})\s+(\d{1,2}):(\d{2}):(\d{2})/);
+        if (sm) { const t = new Date(+sm[3], +sm[2] - 1, +sm[1], +sm[4], +sm[5], +sm[6]).getTime(), d = t - Date.now(); if (Math.abs(d) < 12 * 3600e3) off = d; }
+        const u = userInfo();
+        const hero = el('div', 'zpb-hero', `<div><div class="zpb-time"></div><div class="zpb-date"></div></div><div class="zpb-st ${u.present ? 'on' : ''}" title="${esc(u.status)}"><i></i>${u.present ? 'Anwesend' : 'Abwesend'}</div>`);
+        main.appendChild(hero);
+        const tick = () => { const n = new Date(Date.now() + off); hero.querySelector('.zpb-time').innerHTML = pad(n.getHours()) + ':' + pad(n.getMinutes()) + '<small>:' + pad(n.getSeconds()) + '</small>'; hero.querySelector('.zpb-date').textContent = n.toLocaleDateString('de-AT', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); };
+        tick(); setInterval(() => { if (!document.hidden) tick(); }, 1000);
+        // Original-Elemente in die Karte holen (Reihenfolge bleibt, Zeitende kommt vor das Formular)
+        const kids = [...sec.children];
+        sec.insertBefore(wrap, sec.firstChild);
+        let around = null;
+        kids.forEach(k => {
+            if (k.id === 'uhrzeit' || k.id === 'live_time_clock' || k.tagName === 'BR' || k.matches('section.stundenuebersicht')) return;
+            if (k.tagName === 'P' && k.classList.contains('hidden')) return;
+            if (k.querySelector && k.querySelector('.table_around')) { around = k; return; }
+            const has = (k.textContent || '').trim() || k.querySelector('input:not([type=hidden]),select,textarea,img,button,table');
+            if (!has && k !== form) { k.classList.add('zpb-x'); return; }
+            main.appendChild(k);
+        });
+        if (around) main.insertBefore(around, form.parentNode === main ? form : null);
+        // Zeitende: Erklärung sichtbar machen
+        main.querySelectorAll('.table_around > .inlineblock').forEach(d => {
+            const cb = d.querySelector('input[type=checkbox]'), lb = d.querySelector('label');
+            if (!cb || !lb) return;
+            if (cb.title && cb.title !== lb.textContent.trim() && !lb.querySelector('small')) lb.insertAdjacentHTML('beforeend', `<small>${esc(cb.title.replace(/^kann gesetzt werden, wenn /i, 'Wenn '))}</small>`);
+            d.addEventListener('click', e => { if (e.target === d) cb.click(); });
+        });
+        // Buchungsart als Chips (setzt das Original-Dropdown + löst LHRs onchange aus)
+        const sel = document.getElementById('bb_dropdown_abwesenheiten');
+        if (sel && sel.options.length) {
+            const box = sel.closest('#abwesenheitenContainer') || sel.parentNode;
+            const lbl = el('div', 'zpb-lbl', 'Art der Buchung'), chips = el('div', 'zpb-chips');
+            const icn = t => /normal/i.test(t) ? 'clock' : /dienstgang/i.test(t) ? 'door' : /fahrzeit/i.test(t) ? 'send' : /arzt/i.test(t) ? 'plus' : /seminar|kurs/i.test(t) ? 'file' : 'pointer';
+            [...sel.options].forEach(o => { const b = el('button', 'zpb-chip', ico(icn(o.text), 15) + esc(o.text.trim())); b.type = 'button'; b.dataset.v = o.value; chips.appendChild(b); });
+            const sync = () => chips.querySelectorAll('.zpb-chip').forEach(b => b.classList.toggle('on', b.dataset.v === sel.value));
+            chips.addEventListener('click', e => { const b = e.target.closest('.zpb-chip'); if (!b || sel.value === b.dataset.v) return; sel.value = b.dataset.v; sel.dispatchEvent(new Event('change', { bubbles: true })); sync(); });
+            sel.addEventListener('change', sync);
+            sel.classList.add('zpb-sel'); sel.tabIndex = -1;
+            box.insertBefore(chips, box.firstChild); box.insertBefore(lbl, chips); sync();
+        }
+        // Code-Feld: Bild + Eingabe nebeneinander, Cursor direkt drin
+        const code = document.getElementById('code'), cimg = document.getElementById('b_code');
+        if (code && cimg) {
+            const row = el('div', 'zpb-code'); const cl = form.querySelector('label[for=code]');
+            cimg.parentNode.insertBefore(row, cimg); row.append(cimg, code);
+            if (cl) row.parentNode.insertBefore(cl, row);
+            [...row.parentNode.children].forEach(c => { if (c.tagName === 'BR') c.classList.add('zpb-x'); });
+            row.insertAdjacentHTML('afterend', '<div class="zpb-hint"><kbd>Enter</kbd> bucht sofort</div>');
+            code.placeholder = 'Code'; code.setAttribute('autocapitalize', 'off'); code.spellcheck = false;
+            setTimeout(() => { if (!document.activeElement || document.activeElement === document.body) code.focus({ preventScroll: true }); }, 60);
+        }
+        form.querySelectorAll(':scope > br').forEach(b => b.classList.add('zpb-x'));
+        const b1 = document.getElementById('bu_submit'), b2 = document.getElementById('bu_submit_abmelden');
+        if (b1) b1.innerHTML = ico('pointer', 19) + '<span>' + esc(b1.textContent.trim() || 'Buchen') + '</span>';
+        if (b2) b2.innerHTML = ico('logout', 17) + '<span>' + esc(b2.textContent.trim().replace(/&amp;/g, '&') || 'Buchen & Abmelden') + '</span>';
+        // Stundenübersicht als Kacheln
+        const tab = sec.querySelector('section.stundenuebersicht table');
+        const rows = tab ? [...tab.querySelectorAll('tr')].map(tr => ({ k: (tr.querySelector('th') || {}).textContent || '', t: (tr.querySelector('th') || { title: '' }).title || '', v: ((tr.querySelector('td') || {}).textContent || '').trim() })) : [];
+        const stich = (rows.find(r => /stichtag/i.test(r.k)) || {}).v || '';
+        const vals = rows.filter(r => !/stichtag/i.test(r.k) && r.v);
+        const g = k => { const r = rows.find(x => x.k.trim() === k); return r ? parseDur(r.v) : null; };
+        const parts = ['Saldo', 'ZA', '50%p', '50%f', '100%p', '100%f'].map(g).filter(v => v != null);
+        const sc = (r, v) => /saldo|\+\/-|tg/i.test(r) ? (v > 0 ? 'pos' : v < 0 ? 'neg' : '') : '';
+        let tiles = '';
+        if (parts.length > 1) { const tot = parts.reduce((a, b) => a + b, 0); tiles += `<div class="zpb-t big" title="Saldo + ZA + Überstunden 50 % / 100 %"><span>Gesamt · Saldo + ZA + Üst</span><b class="num ${tot > 0 ? 'pos' : tot < 0 ? 'neg' : ''}">${dur(tot, true)}</b></div>`; }
+        tiles += vals.map(r => { const v = parseDur(r.v); return `<div class="zpb-t" title="${esc(r.t)}"><span>${esc(r.t || r.k)}</span><b class="num ${v != null ? sc(r.k, v) : ''}">${esc(r.v.replace(/^-/, '−'))}</b></div>`; }).join('');
+        side.innerHTML = `<div class="zpb-sh"><h3>Stand</h3>${stich ? `<span>${esc(stich)}</span>` : ''}</div>` + (tiles ? `<div class="zpb-tiles">${tiles}</div>` : '<div class="zpb-empty">Keine Stundenwerte vorhanden.</div>');
+        if (!tab) side.remove();
+        return true;
+    }
+
     function init() {
         PAGE = document.getElementById('zdlBody') ? 'zdl' : document.getElementById('kalendertab') ? 'kal' : 'other';
         document.documentElement.classList.toggle('zp-zdl', PAGE === 'zdl');
@@ -3773,6 +3919,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const hasShell = !!safe('App-Leiste', buildShell);
         if (hasShell) { applyTheme(); setInterval(() => { if (!document.hidden) safe('App-Leiste', () => { readShellSource(); if (!$('zs-pop') || !$('zs-pop').innerHTML) renderShell(); }); }, 6000); setTimeout(() => safe('App-Leiste', () => { readShellSource(); renderShell(); }), 1800); }
         if (PAGE === 'kal' && safe('Kalender', buildKal)) applyTheme();
+        if (PAGE === 'other' && document.getElementById('bu_submit')) safe('Buchen', buildBuchen);
         const hasTable = !!tbody(), hasToday = hasTable && !!readDay(), content = document.getElementById('content');
         document.documentElement.classList.toggle('zp-zdl', hasTable);
         if (hasToday && content) {
