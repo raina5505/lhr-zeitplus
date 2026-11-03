@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.11.0
+// @version      5.12.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.11.0';
+    const VERSION = '5.12.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -756,6 +756,12 @@
                 e.stopPropagation();
                 const day = listDays.get(act.dataset.k);
                 if (act.dataset.act === 'mfe' && day) { const d0 = day.first.querySelector('.td_datum_item.popup-link'); if (d0) d0.click(); else toast('Nicht verfügbar', 'Für diesen Tag gibt es keine Mehrfacherfassung.'); }
+                if (/^eins[-+0]$/.test(act.dataset.act)) {
+                    const dd = listDays.get(act.dataset.k), E = dd && dd.eins; if (!E) return;
+                    const a2 = act.dataset.act;
+                    einsSet(act.dataset.k, a2 === 'eins0' ? null : Math.max(0, Math.min(20, E.n + (a2 === 'eins+' ? 1 : -1))));
+                    render(); return;
+                }
                 if (act.dataset.act === 'pay') { const img = document.getElementById('img_euro'); if (img) { const a = img.closest('a'); origClick(a || img); } return; }
                 if (act.dataset.act === 'future') { const cur = listState.futureEff; listState.future = !cur; S.futureDays = cur ? 'hide' : 'show'; saveS(); render(); }
                 return;
@@ -942,6 +948,33 @@
         }
         if (!days.length) { rowsBox.innerHTML = ''; return; }
         safe('Bereitschaft', () => rememberBR(d.days));
+        // Einsätze: Buchungen an Bereitschaftstagen ohne Soll (+ Fortsetzung nach Mitternacht). Lücke < 10 min = gleicher Einsatz.
+        safe('Einsatz', () => {
+            const es = einsStore(), GAP = 10 * M;
+            const endOf = (sg, x) => sg.e != null ? sg.e : (x.isT ? now : sg.s);
+            const isMidnight = t => { const q = new Date(t); return q.getHours() === 0 && q.getMinutes() === 0; };
+            days.forEach((x, i) => {
+                const prev = days[i - 1];
+                let segs = [], cont = null;
+                if (x.br && !x.soll) segs = x.segs.slice();
+                else if (prev && prev.eins && prev.eins.segs.length && x.segs.length) {
+                    const pl = prev.eins.segs[prev.eins.segs.length - 1];
+                    const fs = x.segs[0], ps = new Date(fs.s);
+                    if (pl.e != null && (isMidnight(pl.e) || /24:00/.test(pl.tb)) && ps.getHours() === 0 && ps.getMinutes() < 5) { segs = [fs]; cont = prev.k; }
+                }
+                if (!segs.length) return;
+                const groups = [];
+                segs.forEach((sg, j) => {
+                    const g = groups[groups.length - 1];
+                    if (g && sg.s - g.e < GAP) { g.e = endOf(sg, x); g.segs.push(sg); } else groups.push({ s: sg.s, e: endOf(sg, x), segs: [sg] });
+                });
+                const total = segs.reduce((a, sg) => a + (endOf(sg, x) - sg.s), 0);
+                let auto = groups.length;
+                if (cont && prev.eins) { auto = Math.max(0, auto - 1); prev.eins.carry = (prev.eins.carry || 0) + (endOf(segs[0], x) - segs[0].s); }
+                const n = es[x.k] != null ? +es[x.k] : auto;
+                x.eins = { segs, groups, auto, n, total, cont, set: es[x.k] != null };
+            });
+        });
 
         // Kopf
         const m0 = days[days.length - 1].dt;
@@ -955,10 +988,11 @@
             ${(() => { const gs = safe('Gesamt', () => gesamt(d.days, c.saldo)); return gs ? `<span class="zl-pill" title="${esc(gs.tip)}">Gesamt <b class="num ${sc(gs.total)}">${dur(gs.total, true)}</b></span>` : ''; })()}` +
             (() => {
                 const brd = days.filter(x => x.br); if (!brd.length) return '';
-                const eins = brd.filter(x => !x.soll && x.segs.length && !x.future);
-                const eh = eins.reduce((a, x) => a + x.segs.reduce((b, sg) => b + ((sg.e != null ? sg.e : sg.s) - sg.s), 0), 0);
+                const ed = days.filter(x => x.eins && !x.future);
+                const en = ed.reduce((a, x) => a + x.eins.n, 0), eh = ed.reduce((a, x) => a + x.eins.total, 0);
+                const eins = { length: en };
                 const nx = brd.find(x => x.isT || x.future);
-                return `<span class="zl-pill br" title="Bereitschaftstage: ${esc(brd.map(x => WD[x.dt.getDay()] + ' ' + pad(x.dt.getDate()) + '.').join(', '))}">${ico('zap', 13)} ${brd.length} Bereitschaft${brd.length > 1 ? 'en' : ''}${eins.length ? ` · <b class="num">${eins.length}</b> Einsatz${eins.length > 1 ? 'e' : ''} <b class="num">${dur(eh)}</b>` : ''}${nx ? ` · ${nx.isT ? '<b>heute</b>' : 'nächste <b>' + WD[nx.dt.getDay()] + ' ' + pad(nx.dt.getDate()) + '.' + pad(nx.dt.getMonth() + 1) + '.</b>'}` : ''}</span>`;
+                return `<span class="zl-pill br" title="Bereitschaftstage: ${esc(brd.map(x => WD[x.dt.getDay()] + ' ' + pad(x.dt.getDate()) + '.').join(', '))}">${ico('zap', 13)} ${brd.length} Bereitschaft${brd.length > 1 ? 'en' : ''}${eins.length ? ` · <b class="num">${eins.length}</b> ${eins.length === 1 ? 'Einsatz' : 'Einsätze'} <b class="num">${dur(eh)}</b>` : ''}${nx ? ` · ${nx.isT ? '<b>heute</b>' : 'nächste <b>' + WD[nx.dt.getDay()] + ' ' + pad(nx.dt.getDate()) + '.' + pad(nx.dt.getMonth() + 1) + '.</b>'}` : ''}</span>`;
             })() +
             (missing ? `<span class="zl-pill w">${ico('alert', 13)} ${missing} Tag${missing > 1 ? 'e' : ''} unvollständig</span>` : ''));
         const vb = $('zl-view'); if (vb) vb.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === S.tableView));
@@ -1018,7 +1052,8 @@
                     const isLive = live && sg.e == null && i === x.segs.length - 1;
                     const part = (t, h, lbl) => h ? `<span class="zl-p" data-href="${esc(h)}" title="${lbl} ${t} bearbeiten">${t}</span>` : `<span class="zl-p off">${t}</span>`;
                     const endTxt = isLive ? '<b>läuft</b>' : sg.e != null ? strip(sg.tb) : '?';
-                    const chip = `<span class="zl-b num${isLive ? ' live' : ''}">${part(strip(sg.ta), sg.ha, 'Kommen')}<em>–</em>${isLive || sg.e == null ? `<span class="zl-p${sg.hb ? '' : ' off'}"${sg.hb ? ` data-href="${esc(sg.hb)}"` : ''}>${endTxt}</span>` : part(endTxt, sg.hb, 'Gehen')}</span>`;
+                    const eg = x.eins ? x.eins.groups.findIndex(g => g.segs.includes(sg)) : -1;
+                    const chip = (eg >= 0 && (x.eins.groups[eg].segs[0] === sg) ? `<span class="zl-en" title="Einsatz ${eg + 1}${x.eins.cont && eg === 0 ? ' (Fortsetzung)' : ''}">${x.eins.cont && eg === 0 ? '↪' : eg + 1 - (x.eins.cont ? 1 : 0)}</span>` : '') + `<span class="zl-b num${isLive ? ' live' : ''}${eg >= 0 ? ' ein' : ''}">${part(strip(sg.ta), sg.ha, 'Kommen')}<em>–</em>${isLive || sg.e == null ? `<span class="zl-p${sg.hb ? '' : ' off'}"${sg.hb ? ` data-href="${esc(sg.hb)}"` : ''}>${endTxt}</span>` : part(endTxt, sg.hb, 'Gehen')}</span>`;
                     const lu = lunch && lunch.i === i + 1 ? `<span class="zl-lunch${ded ? '' : ' ok'}" title="${esc(dedFull)}">${ico('utensils', 12)}${ll}′${ded ? `<b>−${ded}′</b>` : ''}</span>` : '';
                     return chip + lu;
                 }).join('');
@@ -1027,9 +1062,11 @@
             else if (x.we) st = `<span class="zl-tag">Wochenende</span>`;
             else if (x.future) st = '';
             else st = '';
-            if (x.br) {
-                const eins = !x.soll && x.segs.length ? x.segs.reduce((a, sg) => a + ((sg.e != null ? sg.e : (live ? now : sg.s)) - sg.s), 0) : 0;
-                st = `<span class="zl-tag br" title="Bereitschaft (Arbeitsmodell ${esc(zmOf(d.days.get(x.k) || []))})${x.soll ? ' · Soll ' + dur(x.soll) : ''}">${ico('zap', 12)} Bereitschaft${x.soll ? ' · ' + dur(x.soll) : ''}</span>${eins ? `<span class="zl-tag br e" title="Einsatz während der Bereitschaft – LHR rechnet das als Überstunden">${ico('alert', 12)} Einsatz ${dur(eins)}</span>` : ''}` + st;
+            if (x.br || x.eins) {
+                const E = x.eins;
+                const eTip = E ? E.groups.map((g, gi) => `${gi + 1}. ${clock(g.s)}–${clock(g.e) === '00:00' && g.e > g.s ? '24:00' : clock(g.e)} (${dur(g.e - g.s)})`).join('\n') + (E.cont ? '\n(Fortsetzung vom Vortag)' : '') + '\nAnzahl stimmt nicht? Tag aufklappen → − / +' : '';
+                const eTag = E ? `<span class="zl-tag br e" title="${esc(eTip)}">${ico('alert', 12)} ${E.n ? E.n + (E.n === 1 ? ' Einsatz' : ' Einsätze') : 'Fortsetzung'} · ${dur(E.total)}${E.set ? ' ✎' : ''}</span>` : '';
+                st = (x.br ? `<span class="zl-tag br" title="Bereitschaft (Arbeitsmodell ${esc(zmOf(d.days.get(x.k) || []))})${x.soll ? ' · Soll ' + dur(x.soll) : ''}">${ico('zap', 12)} Bereitschaft${x.soll ? ' · ' + dur(x.soll) : ''}</span>` : '') + eTag + st;
             }
             if (x.segs.length && !lunch && ded) st += `<span class="zl-lunch" title="${esc(dedFull)}">${ico('utensils', 12)}<b>−${ded}′</b></span>`;
             if (x.segs.length && x.fehl) st += ` <span class="zl-tag warn">${ico('alert', 12)}</span>`;
@@ -1055,8 +1092,13 @@
                 const meta = [];
                 if (x.soll) meta.push('Soll ' + dur(x.soll));
                 if (lunch || ded) meta.push(`<span class="${ded ? 'w' : ''}">${ico('utensils', 12)} ${esc(dedFull)}</span>`);
-                if (gapN) meta.push(gapN + ' kurze Pausen · ' + mins(gapSum) + ' min');
+                if (gapN && !x.eins) meta.push(gapN + ' kurze Pausen · ' + mins(gapSum) + ' min');
                 if (x.note) meta.push('Notiz: ' + esc(x.note));
+                if (x.eins) {
+                    const E = x.eins;
+                    parts.push(`<span class="zl-ecnt" title="Wie viele Einsätze waren es wirklich?">${ico('alert', 12)} Einsätze <button type="button" data-act="eins-" data-k="${x.k}">−</button><b class="num">${E.n}</b><button type="button" data-act="eins+" data-k="${x.k}">+</button>${E.set ? `<button type="button" class="r" data-act="eins0" data-k="${x.k}" title="Automatisch (${E.auto})">auto</button>` : ''}</span>`);
+                    meta.push(E.groups.map((g, gi) => `${gi + 1}. ${clock(g.s)}–${clock(g.e) === '00:00' && g.e > g.s ? '24:00' : clock(g.e)} · ${dur(g.e - g.s)}`).join('  ·  ') + (E.cont ? ' (Fortsetzung vom Vortag)' : ''));
+                }
                 det = `<div class="zl-det">${parts.join('')}${meta.length ? `<span class="meta">${meta.join(' · ')}</span>` : ''}</div>`;
             }
             return `<div class="${cls}" data-k="${x.k}" style="${x.edge ? '--edge:' + x.edge : ''}">
@@ -1989,6 +2031,13 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zl-pay img{width:24px;height:24px;border-radius:50%;background:#fff}
 .zl-pay.no{border-color:var(--zp-line);background:var(--zp-surf);color:var(--zp-muted);font-weight:500}
 .zl-tag.br{background:color-mix(in srgb,var(--zp-bad) 20%,transparent);color:var(--zp-bad);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 45%,transparent)}
+.zl-b.ein{border-color:color-mix(in srgb,var(--zp-bad) 60%,var(--zp-line));background:color-mix(in srgb,var(--zp-bad) 16%,var(--zp-surf2))}
+.zl-en{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:99px;background:var(--zp-bad);color:var(--zp-onbad,#fff);font-size:10.5px;font-weight:800;margin-right:-2px}
+.zl-ecnt{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 6px 0 10px;border-radius:99px;border:1px solid color-mix(in srgb,var(--zp-bad) 50%,var(--zp-line));color:var(--zp-bad);font-size:12px;font-weight:600}
+.zl-ecnt button{width:22px;height:22px;border-radius:50%;background:var(--zp-surf2);color:var(--zp-text);font-weight:700}
+.zl-ecnt button:hover{background:var(--zp-bad);color:var(--zp-onbad,#fff)}
+.zl-ecnt button.r{width:auto;padding:0 8px;border-radius:99px;font-size:11px}
+.zl-ecnt b{min-width:14px;text-align:center;color:var(--zp-text)}
 .zl-tag.br.e{background:var(--zp-bad);color:var(--zp-onbad,#fff);box-shadow:none}
 .zl-row.br{background:color-mix(in srgb,var(--zp-bad) 9%,transparent)}
 .zl-row.br::after{content:'';position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:3px;background:var(--zp-bad)}
@@ -2207,7 +2256,9 @@ button.zk-li:hover{border-color:var(--zp-accent)}
     const brList = () => String(S.brZM || 'EITBR').split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
     const zmOf = rows => { for (const r of rows) { const c = r.querySelector('td.td_zm'); const t = c && c.textContent.trim(); if (t) return t.toUpperCase(); } return ''; };
     const isBR = rows => { const z = zmOf(rows); return !!z && brList().includes(z); };
-    const BR_KEY = 'zplus_br';
+    const BR_KEY = 'zplus_br', EINS_KEY = 'zplus_einsatz';
+    const einsStore = () => { try { return JSON.parse(localStorage.getItem(EINS_KEY) || '{}') || {}; } catch (e) { return {}; } };
+    const einsSet = (k, n) => { const st = einsStore(); if (n == null) delete st[k]; else st[k] = n; try { localStorage.setItem(EINS_KEY, JSON.stringify(st)); } catch (e) { } };
     const brStore = () => { try { return JSON.parse(localStorage.getItem(BR_KEY) || '{}') || {}; } catch (e) { return {}; } };
     function rememberBR(days) {                 // Bereitschaftstage merken (für den Kalender)
         try {
