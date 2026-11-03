@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.14.0
+// @version      5.14.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.14.0';
+    const VERSION = '5.14.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1587,6 +1587,10 @@ html.zp-zdl table.tabelle tbody tr.zp-br > td:first-child{box-shadow:inset 3px 0
 
 /* In der Zeit+ Liste gibt es „Spalten“ – den LHR-„…“-Knopf dann ausblenden */
 html.zp-hidetable img.zp-colbtn,html.zp-hidetable #colHide{display:none !important}
+
+/* leere LHR-Reste unter der App-Leiste */
+html.zp-shell body > .zp-gap{display:none !important}
+html.zp-shell body > p{margin:0 !important}
 `;
 
     /* ════════════════════ CSS: OBERFLÄCHE (im Shadow DOM, isoliert) ════════════════════ */
@@ -3570,6 +3574,20 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         window.addEventListener('resize', () => safe('Spalten', fitColMenus));
         run();
     }
+    /* Leere LHR-Reste zwischen App-Leiste und Inhalt einklappen (leere <p>, leere Info-Kästen) */
+    function collapseGaps() {
+        if (!document.body || !SH) return;
+        for (const e of document.body.children) {
+            if (e.id === 'content' || (e.id || '').startsWith('zp-') || /^(SCRIPT|STYLE|LINK|INPUT|HEADER|NAV)$/.test(e.tagName)) continue;
+            if (e.classList.contains('zp-hide-orig')) continue;
+            const had = e.classList.contains('zp-gap');
+            if (had) e.classList.remove('zp-gap');
+            const txt = (e.innerText || '').replace(/\s+/g, '').length > 0;
+            const ctl = [...e.querySelectorAll('input[type=button],input[type=submit],button,img,select,a[href]')].some(x => x.offsetWidth > 0 && x.offsetHeight > 0);
+            const empty = !txt && !ctl;
+            if (empty) e.classList.add('zp-gap');
+        }
+    }
     function watchColors() {       // Klassen-/Style-Wechsel (Markieren, Filtern, Nachladen) sofort nachfärben
         if (!document.body) return;
         new MutationObserver(ms => {
@@ -3797,6 +3815,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         safe('Dialog', watchDialog);
         safe('Farben', watchTints);
         safe('Farben', watchColors);
+        safe('Abstand', collapseGaps); setTimeout(() => safe('Abstand', collapseGaps), 1500); setInterval(() => { if (!document.hidden) safe('Abstand', collapseGaps); }, 3000);
         safe('Spalten', watchColMenus);
         if (PAGE === 'zdl') { safe('Spalten', watchCols); safe('Spalten', dtPopupGuard); }
         safe('Team', watchTeam);
