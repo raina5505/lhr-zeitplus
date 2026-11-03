@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.16.1
+// @version      5.16.2
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.16.1';
+    const VERSION = '5.16.2';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -818,8 +818,8 @@
         return map;
     }
     const normT = t => String(t || '').replace(/\s+/g, ' ').trim();
-    /* Gesamtstunden = Saldo + ZA + Überstunden 50 % (p/f) + 100 % (p/f) */
-    const GES_COLS = [[/^ZA\b/i, 'ZA'], [/^50%p/i, 'Üst 50% pfl.'], [/^50%f/i, 'Üst 50% frei'], [/^100%p/i, 'Üst 100% pfl.'], [/^100%f/i, 'Üst 100% frei']];
+    /* Gesamtstunden = Saldo + ZA + Überstunden 50 % ×1,5 + 100 % ×2 (so viel ZA ergeben sie) */
+    const GES_COLS = [[/^ZA\b/i, 'ZA', 1], [/^50%p/i, 'Üst 50% pfl.', 1.5], [/^50%f/i, 'Üst 50% frei', 1.5], [/^100%p/i, 'Üst 100% pfl.', 2], [/^100%f/i, 'Üst 100% frei', 2]];
     const parseHrs = t => { t = String(t || '').trim(); if (!t || t === '-' || t === '–') return null; const d = parseDur(t); if (d != null) return d; const m = t.match(/^(-?)(\d+)(?:[.,](\d+))?$/); if (!m) return null; const v = (+m[2] + (m[3] ? +('0.' + m[3]) : 0)) * H; return m[1] ? -v : v; };
     function gesamt(days, saldo) {
         if (saldo == null || !days) return null;
@@ -842,10 +842,10 @@
             // Konto (steht wie der Saldo an fast jedem Tag) → letzter Stand; sonst einzelne Tageswerte → Summe
             const running = vals.length >= 3 && vals.length / span >= .8;
             const v = !vals.length ? 0 : running ? vals[vals.length - 1] : vals.reduce((a, b) => a + b, 0);
-            parts.push({ name: g[1], v });
+            parts.push({ name: g[1], v: v * g[2], raw: v, f: g[2] });
         }
         if (!found) return null;
-        return { total: parts.reduce((a, p) => a + p.v, 0), parts, tip: parts.map(p => p.name + ' ' + dur(p.v, true)).join(' + ') };
+        return { total: parts.reduce((a, p) => a + p.v, 0), parts, tip: parts.map(p => p.name + ' ' + (p.f && p.f !== 1 && p.raw ? dur(p.raw, true) + ' ×' + String(p.f).replace('.', ',') + ' = ' + dur(p.v, true) : dur(p.v, true))).join(' + ') };
     }
     function syncDtPopup() {
         if (PAGE !== 'zdl') return;
@@ -3935,10 +3935,10 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         const stich = (rows.find(r => /stichtag/i.test(r.k)) || {}).v || '';
         const vals = rows.filter(r => !/stichtag/i.test(r.k) && r.v);
         const g = k => { const r = rows.find(x => x.k.trim() === k); return r ? parseDur(r.v) : null; };
-        const parts = ['Saldo', 'ZA', '50%p', '50%f', '100%p', '100%f'].map(g).filter(v => v != null);
+        const parts = [['Saldo', 1], ['ZA', 1], ['50%p', 1.5], ['50%f', 1.5], ['100%p', 2], ['100%f', 2]].map(([k, f]) => { const v = g(k); return v == null ? null : v * f; }).filter(v => v != null);
         const sc = (r, v) => /saldo|\+\/-|tg/i.test(r) ? (v > 0 ? 'pos' : v < 0 ? 'neg' : '') : '';
         let tiles = '';
-        if (parts.length > 1) { const tot = parts.reduce((a, b) => a + b, 0); tiles += `<div class="zpb-t big" title="Saldo + ZA + Überstunden 50 % / 100 %"><span>Gesamt · Saldo + ZA + Üst</span><b class="num ${tot > 0 ? 'pos' : tot < 0 ? 'neg' : ''}">${dur(tot, true)}</b></div>`; }
+        if (parts.length > 1) { const tot = parts.reduce((a, b) => a + b, 0); tiles += `<div class="zpb-t big" title="Saldo + ZA + Üst 50 % ×1,5 + Üst 100 % ×2"><span>Gesamt · Saldo + ZA + Üst</span><b class="num ${tot > 0 ? 'pos' : tot < 0 ? 'neg' : ''}">${dur(tot, true)}</b></div>`; }
         tiles += vals.map(r => { const v = parseDur(r.v); return `<div class="zpb-t" title="${esc(r.t)}"><span>${esc(r.t || r.k)}</span><b class="num ${v != null ? sc(r.k, v) : ''}">${esc(r.v.replace(/^-/, '−'))}</b></div>`; }).join('');
         side.innerHTML = `<div class="zpb-sh"><h3>Stand</h3>${stich ? `<span>${esc(stich)}</span>` : ''}</div>` + (tiles ? `<div class="zpb-tiles">${tiles}</div>` : '<div class="zpb-empty">Keine Stundenwerte vorhanden.</div>');
         if (!tab) side.remove();
