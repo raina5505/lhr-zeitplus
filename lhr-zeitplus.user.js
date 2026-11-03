@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.17.3
+// @version      5.17.4
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.17.3';
+    const VERSION = '5.17.4';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1960,11 +1960,11 @@ input,select{font-size:13px;margin:0}
 .zk-d.today{box-shadow:0 0 0 2px var(--zp-accent),0 0 14px color-mix(in srgb,var(--zp-accent) 45%,transparent);color:var(--zp-accent);font-weight:800;z-index:1}
 .zk-d.abs.today{color:var(--ink)}
 .zk-d.bridge:not(.abs){box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--zp-accent2) 75%,transparent);background:color-mix(in srgb,var(--zp-accent2) 12%,transparent)}
-.zk-d.brd{box-shadow:inset 0 0 0 2.5px var(--zp-bad),0 0 0 2px color-mix(in srgb,var(--zp-bad) 30%,transparent);font-weight:800}
-.zk-d.brd:not(.abs){background:color-mix(in srgb,var(--zp-bad) 16%,transparent);color:color-mix(in srgb,var(--zp-bad) 70%,var(--zp-text))}
+.zk-d.brd{box-shadow:inset 0 0 0 1.5px var(--zp-bad);font-weight:800}
+.zk-d.brd:not(.abs){background:color-mix(in srgb,var(--zp-bad) 10%,transparent);color:color-mix(in srgb,var(--zp-bad) 70%,var(--zp-text))}
 .zk-d.brd.past{opacity:1 !important;filter:none !important}
 .zk-d.brd::before{content:'';position:absolute;top:3px;left:4px;width:5px;height:5px;border-radius:50%;background:var(--zp-bad)}
-.zk-d.brd.abs{box-shadow:inset 0 0 0 2.5px var(--zp-bad),inset 0 0 0 4px var(--zp-surf),0 0 0 2px color-mix(in srgb,var(--zp-bad) 30%,transparent)}
+.zk-d.brd.abs{box-shadow:inset 0 0 0 1.5px var(--zp-bad),inset 0 0 0 2.5px var(--zp-surf)}
 .zk-sw.brs{box-shadow:inset 0 0 0 2px var(--zp-bad);background:color-mix(in srgb,var(--zp-bad) 12%,transparent)}
 .zk-tog{cursor:pointer;user-select:none}
 .zk-tog .sp{flex:1}
