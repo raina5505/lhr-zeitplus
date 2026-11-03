@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.15.0
+// @version      5.15.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.15.0';
+    const VERSION = '5.15.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -3784,10 +3784,10 @@ html.zp-bu .zpb-x,html.zp-bu section.bearbeitung > br,html.zp-bu #live_time_cloc
 #zp-bu .table_center:empty{display:none !important}
 #zp-bu .table_center > br,#zp-bu #abwesenheitenContainer > br,#zp-bu #abwesenheitenContainer > label{display:none !important}
 #zp-bu .zpb-chips{display:flex;flex-wrap:wrap;gap:8px}
-#zp-bu .zpb-chip{display:inline-flex;align-items:center;gap:8px;padding:10px 15px;border-radius:13px;border:1px solid var(--zp-line);background:var(--zp-surf2);color:var(--zp-text);font:600 14px/1 inherit;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
-#zp-bu .zpb-chip:hover{border-color:var(--zp-accent)}
+html.zp-bu #zp-bu button.zpb-chip{display:inline-flex !important;align-items:center;gap:8px;margin:0 !important;width:auto !important;min-width:0 !important;height:auto !important;min-height:0 !important;padding:10px 15px !important;border-radius:13px !important;border:1px solid var(--zp-line) !important;background:var(--zp-surf2) !important;background-image:none !important;color:var(--zp-text) !important;font:600 14px/1 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;white-space:nowrap;text-shadow:none !important;box-shadow:none !important;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
+html.zp-bu #zp-bu button.zpb-chip:hover{border-color:var(--zp-accent) !important}
 #zp-bu .zpb-chip:active{transform:scale(.97)}
-#zp-bu .zpb-chip.on{background:var(--zp-accent);border-color:var(--zp-accent);color:var(--zp-onacc,#fff)}
+html.zp-bu #zp-bu button.zpb-chip.on{background:var(--zp-accent) !important;border-color:var(--zp-accent) !important;color:var(--zp-onacc,#fff) !important}
 html.zp-bu #zp-bu #bb_dropdown_abwesenheiten.zpb-sel{position:absolute !important;width:1px !important;height:1px !important;opacity:0 !important;pointer-events:none !important}
 html.zp-bu #zp-bu input[type=text]{width:100% !important;max-width:none !important;min-height:44px !important;border-radius:12px !important;padding:8px 13px !important;font-size:15px !important;box-sizing:border-box}
 html.zp-bu #zp-bu input#notiz.hidden,html.zp-bu #zp-bu label.hidden{display:none !important}
@@ -3801,8 +3801,8 @@ html.zp-bu #zp-bu input[type=checkbox]::before{content:'';position:absolute;top:
 html.zp-bu #zp-bu input[type=checkbox]:checked{background:var(--zp-accent) !important}
 html.zp-bu #zp-bu input[type=checkbox]:checked::before{transform:translateX(18px)}
 #zp-bu .zpb-code{display:flex;align-items:stretch;gap:12px}
-#zp-bu #b_code{margin:0 !important;flex:none;display:flex !important;align-items:center;justify-content:center;padding:6px 12px;border-radius:13px;background:#fff;border:1px solid var(--zp-line);min-height:44px}
-#zp-bu #b_code img{display:block;max-height:46px}
+html.zp-bu #zp-bu #b_code,html.zp-bu #zp-bu #b_code.table_center{margin:0 !important;flex:none !important;display:flex !important;align-items:center;justify-content:center;width:auto !important;min-width:130px;padding:6px 14px !important;border-radius:13px;background:#fff !important;border:1px solid var(--zp-line);box-sizing:border-box;overflow:hidden}
+html.zp-bu #zp-bu #b_code img{display:block !important;width:auto !important;height:auto !important;max-width:none !important;max-height:50px !important;margin:0 !important;position:static !important}
 html.zp-bu #zp-bu input#code{flex:1;min-height:58px !important;font:700 24px/1 ui-monospace,'Cascadia Mono',Consolas,monospace !important;letter-spacing:.32em;text-align:center}
 #zp-bu .zpb-hint{font-size:12px;color:var(--zp-muted);margin-top:8px}
 #zp-bu .zpb-hint kbd{font:600 11px ui-monospace,Consolas,monospace;padding:1px 6px;border-radius:5px;border:1px solid var(--zp-line);background:var(--zp-surf2)}
@@ -3824,8 +3824,37 @@ html.zp-bu #zp-bu #buttons button:active{transform:scale(.98)}
 #zp-bu .zpb-t.big b{font-size:30px}
 #zp-bu .zpb-t b.pos{color:var(--zp-ok)}
 #zp-bu .zpb-t b.neg{color:var(--zp-bad)}
+html.zp-bu #zp-bu .zpb-msg{display:flex !important;align-items:center;gap:12px;margin:0 0 18px !important;padding:12px 16px !important;border-radius:14px;background:color-mix(in srgb,var(--zp-ok) 12%,var(--zp-surf2)) !important;border:1px solid color-mix(in srgb,var(--zp-ok) 42%,transparent) !important;color:var(--zp-text) !important;text-align:left !important;width:auto !important}
+html.zp-bu #zp-bu .zpb-msg.bad{background:color-mix(in srgb,var(--zp-bad) 12%,var(--zp-surf2)) !important;border-color:color-mix(in srgb,var(--zp-bad) 45%,transparent) !important}
+html.zp-bu #zp-bu .zpb-msg > .zpb-mi{flex:none;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--zp-ok);color:var(--zp-onacc,#fff)}
+html.zp-bu #zp-bu .zpb-msg.bad > .zpb-mi{background:var(--zp-bad);color:var(--zp-onbad,#fff)}
+html.zp-bu #zp-bu .zpb-msg > .zpb-mt{display:block;flex:1;min-width:0;font-size:13px;color:var(--zp-muted)}
+html.zp-bu #zp-bu .zpb-msg > .zpb-mt b{display:block;font-size:15px;color:var(--zp-text);margin-bottom:2px}
+html.zp-bu #zp-bu .zpb-msg .zpb-mo,html.zp-bu #zp-bu .zpb-msg .zpb-mo *{display:inline !important;background:none !important;border:0 !important;padding:0 !important;margin:0 !important;box-shadow:none !important;color:inherit !important;font:inherit !important;width:auto !important;height:auto !important}
+html.zp-bu #zp-bu .zpb-msg .zpb-mo img{display:none !important}
+html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;background:none !important;border:0 !important;color:var(--zp-muted) !important;cursor:pointer;padding:4px !important;display:grid;place-items:center}
 #zp-bu .zpb-empty{font-size:13px;color:var(--zp-muted)}
 `;
+    // LHR-Meldung nach dem Buchen (z.B. „Buchung wird verzögert verarbeitet“): Text ohne Eingabefelder
+    const isBuMsg = k => {
+        if (!k || k.nodeType !== 1 || /^(SCRIPT|STYLE|LINK|BR|FORM)$/.test(k.tagName) || k.id === 'uhrzeit' || k.id === 'live_time_clock' || (k.id || '').startsWith('zp-')) return false;
+        if (k.classList.contains('hidden') || /display:\s*none/.test(k.getAttribute('style') || '') || k.matches('section.stundenuebersicht') || k.querySelector('.rkc_brd,.table_around,form,table,section')) return false;
+        if (k.querySelector('input:not([type=hidden]),select,textarea,button')) return false;
+        return (k.textContent || '').replace(/\s+/g, ' ').trim().length > 2;
+    };
+    function buMsg(k, hero) {
+        const txt = (k.textContent || '').replace(/\s+/g, ' ').trim();
+        const bad = /fehler|ungültig|ungueltig|falsch|nicht (möglich|erlaubt|korrekt)|abgelehnt|error/i.test(txt + ' ' + k.className + ' ' + (k.innerHTML.match(/class="[^"]*"/g) || []).join(' ')) && !/success/i.test(k.className);
+        const late = /verzögert|verzoegert/i.test(txt);
+        const title = bad ? 'Buchung nicht durchgeführt' : late ? 'Buchung angenommen' : 'Hinweis';
+        const sub = late ? 'LHR verarbeitet sie im Hintergrund, in der Zeitdatenliste taucht sie gleich auf.' : '';
+        k.classList.add('zpb-msg'); if (bad) k.classList.add('bad');
+        const orig = el('span', 'zpb-mo'); while (k.firstChild) orig.appendChild(k.firstChild);
+        k.innerHTML = `<span class="zpb-mi">${ico(bad ? 'alert' : 'check', 18)}</span><span class="zpb-mt"><b>${title}</b></span><button type="button" title="Ausblenden">${ico('x', 16)}</button>`;
+        const mt = k.querySelector('.zpb-mt'); mt.appendChild(orig); if (sub) mt.appendChild(document.createTextNode(' · ' + sub));
+        k.querySelector('button').onclick = () => k.remove();
+        hero.after(k);
+    }
     function buildBuchen() {
         const sec = document.querySelector('section.bearbeitung'), form = document.getElementById('buReiseDummyForm') || (document.getElementById('bu_submit') || {}).form;
         if (!sec || !form || document.getElementById('zp-bu')) return false;
@@ -3846,16 +3875,19 @@ html.zp-bu #zp-bu #buttons button:active{transform:scale(.98)}
         // Original-Elemente in die Karte holen (Reihenfolge bleibt, Zeitende kommt vor das Formular)
         const kids = [...sec.children];
         sec.insertBefore(wrap, sec.firstChild);
-        let around = null;
+        let around = null; const msgs = [];
         kids.forEach(k => {
             if (k.id === 'uhrzeit' || k.id === 'live_time_clock' || k.tagName === 'BR' || k.matches('section.stundenuebersicht')) return;
             if (k.tagName === 'P' && k.classList.contains('hidden')) return;
             if (k.querySelector && k.querySelector('.table_around')) { around = k; return; }
+            if (isBuMsg(k)) { msgs.push(k); return; }
             const has = (k.textContent || '').trim() || k.querySelector('input:not([type=hidden]),select,textarea,img,button,table');
             if (!has && k !== form) { k.classList.add('zpb-x'); return; }
             main.appendChild(k);
         });
         if (around) main.insertBefore(around, form.parentNode === main ? form : null);
+        msgs.forEach(m => buMsg(m, hero));
+        new MutationObserver(ms => ms.forEach(m => m.addedNodes.forEach(n => { if (n.nodeType === 1 && n !== wrap && isBuMsg(n)) buMsg(n, hero); }))).observe(sec, { childList: true });
         // Zeitende: Erklärung sichtbar machen
         main.querySelectorAll('.table_around > .inlineblock').forEach(d => {
             const cb = d.querySelector('input[type=checkbox]'), lb = d.querySelector('label');
