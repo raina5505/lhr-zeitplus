@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.17.2
+// @version      5.17.3
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.17.2';
+    const VERSION = '5.17.3';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -412,7 +412,45 @@
             }
         });
         renderKal();
+        setTimeout(() => safe('Bereitschaft', syncBRKal), 1200);
         return true;
+    }
+
+    /* Bereitschaftstage für den Kalender direkt aus den Zeitdatenlisten holen (im Hintergrund, aktueller Monat zuletzt) */
+    let brSyncing = false;
+    async function syncBRKal() {
+        if (brSyncing || !kalData) return; brSyncing = true;
+        try {
+            const y = kalData.y, now = new Date(), cy = now.getFullYear(), cm = now.getMonth();
+            let seen = {}; try { seen = JSON.parse(localStorage.getItem('zplus_brm') || '{}') || {}; } catch (e) { }
+            const list = [];
+            for (let m = 0; m < 12; m++) {
+                const idx = (y - cy) * 12 + (m - cm);          // 0 = aktueller Monat
+                if (idx > 1) continue;                        // Zukunft: nur nächster Monat
+                const per = pad(m + 1) + '.' + y, age = Date.now() - (seen[per] || 0);
+                const maxAge = idx >= -1 ? 3 * 3600e3 : 20 * 86400e3;
+                if (age > maxAge) list.push({ per, idx });
+            }
+            if (!list.length) return;
+            list.sort((a, b) => (a.idx === 0) - (b.idx === 0));
+            const nav = document.getElementById('zm_zeitdatenliste');
+            const base = nav ? nav.getAttribute('href') : '/Self/zeiterfassung/zdliste?modulId=0&periode=';
+            let changed = false;
+            for (const { per } of list) {
+                let html = '';
+                try { const u = new URL(base, location.href); u.searchParams.set('periode', per); const r = await fetch(u.pathname + u.search, { credentials: 'same-origin' }); if (!r.ok) continue; html = await r.text(); } catch (e) { continue; }
+                const doc = new DOMParser().parseFromString(html, 'text/html'), map = new Map();
+                doc.querySelectorAll('tr[data-periode]').forEach(r => { const k = r.getAttribute('data-periode'); if (!/^\d\d\.\d\d\.\d{4}$/.test(k) || k.slice(3) !== per) return; if (!map.has(k)) map.set(k, []); map.get(k).push(r); });
+                if (map.size) {
+                    const before = localStorage.getItem(BR_KEY) || '';
+                    rememberBR(map);
+                    if ((localStorage.getItem(BR_KEY) || '') !== before) changed = true;
+                }
+                seen[per] = Date.now();
+                try { localStorage.setItem('zplus_brm', JSON.stringify(seen)); } catch (e) { }
+            }
+            if (changed) { kalLastSig = ''; renderKal(); }
+        } finally { brSyncing = false; }
     }
 
     function renderKal() {
@@ -1922,9 +1960,11 @@ input,select{font-size:13px;margin:0}
 .zk-d.today{box-shadow:0 0 0 2px var(--zp-accent),0 0 14px color-mix(in srgb,var(--zp-accent) 45%,transparent);color:var(--zp-accent);font-weight:800;z-index:1}
 .zk-d.abs.today{color:var(--ink)}
 .zk-d.bridge:not(.abs){box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--zp-accent2) 75%,transparent);background:color-mix(in srgb,var(--zp-accent2) 12%,transparent)}
-.zk-d.brd{box-shadow:inset 0 0 0 2px var(--zp-bad);color:var(--zp-bad)}
+.zk-d.brd{box-shadow:inset 0 0 0 2.5px var(--zp-bad),0 0 0 2px color-mix(in srgb,var(--zp-bad) 30%,transparent);font-weight:800}
+.zk-d.brd:not(.abs){background:color-mix(in srgb,var(--zp-bad) 16%,transparent);color:color-mix(in srgb,var(--zp-bad) 70%,var(--zp-text))}
+.zk-d.brd.past{opacity:1 !important;filter:none !important}
 .zk-d.brd::before{content:'';position:absolute;top:3px;left:4px;width:5px;height:5px;border-radius:50%;background:var(--zp-bad)}
-.zk-d.brd.abs{box-shadow:inset 0 0 0 2px var(--zp-bad),inset 0 0 0 3px var(--zp-surf)}
+.zk-d.brd.abs{box-shadow:inset 0 0 0 2.5px var(--zp-bad),inset 0 0 0 4px var(--zp-surf),0 0 0 2px color-mix(in srgb,var(--zp-bad) 30%,transparent)}
 .zk-sw.brs{box-shadow:inset 0 0 0 2px var(--zp-bad);background:color-mix(in srgb,var(--zp-bad) 12%,transparent)}
 .zk-tog{cursor:pointer;user-select:none}
 .zk-tog .sp{flex:1}
