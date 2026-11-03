@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.10.0
+// @version      5.11.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -14,7 +14,8 @@
 
 (function () {
     'use strict';
-    const VERSION = '5.10.0';
+    if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
+    const VERSION = '5.11.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -284,7 +285,8 @@
         if (act === 'recalc' && P && P.recalc) { location.href = P.recalc.getAttribute('href'); return; }
         if (act === 'fertig' && P && P.fertig) { origClick(P.fertig); return; }
         if (act === 'new') { openPop(t, `<h5>Neu erfassen</h5>${shell.menu.map((m, i) => `<button type="button" class="zs-mi" data-mi="${i}">${ico(/pause/i.test(m.label) ? 'utensils' : /notiz/i.test(m.label) ? 'file' : /abwesen/i.test(m.label) ? 'sun' : /umbuch/i.test(m.label) ? 'refresh' : /mehrfach/i.test(m.label) ? 'rows' : 'plus', 15)}${esc(m.label[0].toUpperCase() + m.label.slice(1))}</button>`).join('')}`, 250); return; }
-        if (act === 'pdf') { openPop(t, `<h5>Report drucken</h5>${shell.pdf.map((m, i) => `<button type="button" class="zs-mi" data-pdf="${i}">${ico('pdf', 15)}${esc(m.label)}</button>`).join('')}`, 230); return; }
+        if (act === 'pdf') { openPop(t, `<h5>Report drucken</h5>${shell.pdf.map((m, i) => `<button type="button" class="zs-mi" data-pdf="${i}">${ico('pdf', 15)}${esc(m.label)}</button>`).join('')}<div class="zs-sepl"></div><button type="button" class="zs-mi" data-act="pdfyear">${ico('calendar', 15)}Ganzes Jahr herunterladen…</button>`, 250); return; }
+        if (act === 'pdfyear') { closePops(); openYearPdf(); return; }
         if (act === 'theme') { cycleTheme(); return; }
         if (act === 'gear') { openModal(); return; }
         if (act === 'cd') { openModal('extra'); return; }
@@ -557,6 +559,120 @@
                </div>`;
     }
 
+
+    /* ════════════════════ JAHRES-PDF: alle 12 Monate der Zeitdatenliste ════════════════════ */
+    const PDF_FN = /^javascript:\s*([A-Za-z_$][\w$]*)\s*\((.*)\)\s*;?\s*$/;
+    const parseArgs = a => { try { return JSON.parse('[' + a.replace(/'/g, '"') + ']'); } catch (e) { return null; } };
+    const savePdf = (blob, name) => { const u = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = u; a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(u); a.remove(); }, 4000); };
+    let yearRun = null;
+    function openYearPdf() {
+        const root = overlay();
+        let dlg = root.getElementById('zp-ypdf');
+        if (dlg) dlg.remove();
+        const cy = new Date().getFullYear(), cm = new Date().getMonth() + 1;
+        const fmts = shell.pdf.length ? shell.pdf.map(x => x.label) : ['Standardformat'];
+        let year = (shell.per && shell.per.y) || cy;
+        dlg = el('div', 'zp-font'); dlg.id = 'zp-ypdf';
+        root.appendChild(dlg);
+        const draw = () => {
+            const maxM = year < cy ? 12 : year === cy ? cm : 0;
+            dlg.innerHTML = `<div class="zy-box">
+                <div class="zy-h"><b>${ico('pdf', 17)} Zeitdatenliste – ganzes Jahr</b><button type="button" class="zp-icon" data-y="x" title="Schließen">${ico('x', 15)}</button></div>
+                <div class="zy-yr"><button type="button" class="zp-icon" data-y="-">${ico('left', 16)}</button><b class="num">${year}</b><button type="button" class="zp-icon" data-y="+"${year >= cy ? ' disabled' : ''}>${ico('right', 16)}</button></div>
+                <label class="zy-l">Format</label>
+                <div class="zp-segc zy-f">${fmts.map((f, i) => `<button type="button" data-f="${i}" class="${(S.ypdfFmt || 0) === i ? 'on' : ''}">${esc(f.replace(/format$/i, '').trim() || f)}</button>`).join('')}</div>
+                <div class="zy-ms">${MONTHS.map((n, i) => `<span class="zy-m${i + 1 > maxM ? ' off' : ''}" data-m="${i + 1}"><i></i>${n.slice(0, 3)}</span>`).join('')}</div>
+                <p class="zy-t" id="zy-t">${maxM ? `${maxM} PDF${maxM > 1 ? 's' : ''} (${maxM === 12 ? 'Jänner–Dezember' : 'Jänner–' + MONTHS[maxM - 1]}) werden nacheinander heruntergeladen. Chrome fragt evtl. einmal, ob mehrere Downloads erlaubt sind – „Zulassen“.` : 'Für dieses Jahr gibt es noch keine Monate.'}</p>
+                <div class="zy-b"><button type="button" class="zp-btn" data-y="x">Abbrechen</button><button type="button" class="zp-btn pri" data-y="go"${maxM ? '' : ' disabled'}>${ico('pdf', 15)} ${maxM} PDFs herunterladen</button></div>
+              </div>`;
+        };
+        draw();
+        dlg.addEventListener('click', async e => {
+            if (e.target === dlg && !yearRun) { dlg.remove(); return; }
+            const f = e.target.closest('[data-f]'); if (f && !yearRun) { S.ypdfFmt = +f.dataset.f; saveS(); draw(); return; }
+            const b = e.target.closest('[data-y]'); if (!b) return;
+            const a = b.dataset.y;
+            if (a === 'x') { if (yearRun) yearRun.stop = true; dlg.remove(); return; }
+            if (yearRun) return;
+            if (a === '-') { year--; draw(); }
+            if (a === '+' && year < cy) { year++; draw(); }
+            if (a === 'go') { const maxM = year < cy ? 12 : cm; await runYearPdf(year, maxM, S.ypdfFmt || 0, dlg); }
+        });
+    }
+    function monthUrl(per) {
+        try {
+            const src = (shell.per && (shell.per.back || shell.per.fwd)) ? (shell.per.back || shell.per.fwd).getAttribute('href') : '/Self/zeiterfassung/zdliste?modulId=0';
+            const u = new URL(src, location.href); u.searchParams.set('periode', per); return u.pathname + u.search;
+        } catch (e) { return '/Self/zeiterfassung/zdliste?modulId=0&periode=' + encodeURIComponent(per); }
+    }
+    function oneMonthPdf(per, fmt) {
+        return new Promise(resolve => {
+            const fr = document.createElement('iframe');
+            fr.name = 'zp-pdf-' + Date.now();
+            fr.style.cssText = 'position:fixed;left:-4000px;top:0;width:1200px;height:900px;opacity:0;pointer-events:none';
+            let phase = 0, done = false, timer = null;
+            const finish = (ok, msg) => { if (done) return; done = true; clearTimeout(timer); setTimeout(() => fr.remove(), 1500); resolve({ ok, msg }); };
+            const grab = async url => {
+                try {
+                    const r = await fetch(url, { credentials: 'include' });
+                    const bl = await r.blob();
+                    if (!r.ok || !/pdf|octet/i.test(bl.type || r.headers.get('content-type') || '')) return finish(false, 'kein PDF erhalten');
+                    savePdf(bl, 'Zeitdatenliste_' + per.replace('.', '-') + '.pdf'); finish(true);
+                } catch (e) { finish(false, 'Download fehlgeschlagen'); }
+            };
+            fr.addEventListener('load', () => {
+                let w, doc;
+                try { w = fr.contentWindow; doc = fr.contentDocument; } catch (e) { return finish(false, 'kein Zugriff'); }
+                if (phase === 0) {
+                    phase = 1;
+                    const links = [...doc.querySelectorAll('#pdflst a')];
+                    const a = links[fmt] || links[0];
+                    if (!a) return finish(false, 'kein PDF-Menü im Monat');
+                    const href = a.getAttribute('href') || '';
+                    try { w.open = url => { if (url) grab(new URL(url, w.location.href).href); return null; }; } catch (e) { }
+                    try {          // LHR speichert selbst (Link mit download / blob:) → sofort weiter
+                        const oc = w.HTMLAnchorElement.prototype.click;
+                        w.HTMLAnchorElement.prototype.click = function () { const r = oc.apply(this, arguments); if (this.download || /^blob:|^data:/.test(this.href || '')) setTimeout(() => finish(true, 'per LHR gespeichert'), 1200); return r; };
+                    } catch (e) { }
+                    const m = href.match(PDF_FN);
+                    try {
+                        if (m && typeof w[m[1]] === 'function') { const args = parseArgs(m[2]); w[m[1]].apply(w, args || []); }
+                        else if (/^javascript:/i.test(href)) w.eval(href.replace(/^javascript:/i, ''));
+                        else if (href) return grab(new URL(href, w.location.href).href);
+                    } catch (e) { return finish(false, 'LHR-Fehler: ' + e.message); }
+                    timer = setTimeout(() => finish(true, 'per LHR gespeichert'), 9000);      // LHR lädt selbst herunter (AJAX)
+                } else {
+                    // Rahmen hat zur PDF-Adresse gewechselt → abholen und speichern
+                    let url = ''; try { url = w.location.href; } catch (e) { }
+                    const ct = (doc && doc.contentType) || '';
+                    if (url && /pdf/i.test(ct)) grab(url);
+                    else if (url && !/zdliste/i.test(url)) grab(url);
+                }
+            });
+            fr.src = monthUrl(per);
+            document.body.appendChild(fr);
+            setTimeout(() => finish(false, 'Zeitüberschreitung'), 45000);
+        });
+    }
+    async function runYearPdf(year, maxM, fmt, dlg) {
+        yearRun = { stop: false };
+        const t = dlg.querySelector('#zy-t'), go = dlg.querySelector('[data-y="go"]');
+        if (go) go.disabled = true;
+        let ok = 0;
+        for (let m = 1; m <= maxM; m++) {
+            if (yearRun.stop) break;
+            const per = pad(m) + '.' + year;
+            const chip = dlg.querySelector(`.zy-m[data-m="${m}"]`); if (chip) chip.className = 'zy-m run';
+            if (t) t.textContent = `${MONTHS[m - 1]} ${year} wird erstellt … (${m}/${maxM})`;
+            const r = await oneMonthPdf(per, fmt);
+            if (chip) { chip.className = 'zy-m ' + (r.ok ? 'ok' : 'bad'); chip.title = r.msg || 'fertig'; }
+            if (r.ok) ok++;
+            await sleep(800);
+        }
+        if (t) t.textContent = yearRun.stop ? 'Abgebrochen.' : `Fertig: ${ok} von ${maxM} PDFs. Sie liegen in deinem Download-Ordner.`;
+        if (go) { go.disabled = false; go.innerHTML = ico('check', 15) + ' Nochmal'; }
+        yearRun = null;
+    }
     /* ════════════════════ MONATSLISTE ════════════════════ */
     const listState = { open: new Set(), future: null };
     let listDays = new Map();
@@ -1932,6 +2048,20 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 #zp-sticky b{font-weight:650}
 #zp-sticky .m{color:var(--zp-muted)}
 
+ #zp-ypdf{position:fixed;inset:0;z-index:2147483002;background:rgba(4,6,12,.55);backdrop-filter:blur(5px);display:grid;place-items:center}
+.zy-box{width:min(460px,94vw);background:var(--zp-bg);color:var(--zp-text);border:1px solid var(--zp-line);border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.5);padding:18px;display:grid;gap:12px}
+.zy-h{display:flex;align-items:center;justify-content:space-between}.zy-h b{display:flex;align-items:center;gap:8px;font-size:15px}.zy-h .ic{color:var(--zp-accent)}
+.zy-yr{display:flex;align-items:center;justify-content:center;gap:14px}.zy-yr b{font-size:26px;font-weight:700;min-width:80px;text-align:center}
+.zy-l{font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--zp-muted)}
+.zy-f{justify-self:start}
+.zy-ms{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+.zy-m{display:flex;align-items:center;justify-content:center;gap:6px;height:32px;border-radius:9px;background:var(--zp-surf);border:1px solid var(--zp-line);font-size:12.5px;font-weight:600}
+.zy-m i{width:7px;height:7px;border-radius:50%;background:var(--zp-muted)}
+.zy-m.off{opacity:.35}.zy-m.run i{background:var(--zp-accent);animation:zpspin2 .8s ease-in-out infinite alternate}.zy-m.ok{border-color:color-mix(in srgb,var(--zp-ok) 55%,var(--zp-line))}.zy-m.ok i{background:var(--zp-ok)}.zy-m.bad i{background:var(--zp-bad)}.zy-m.bad{border-color:var(--zp-bad)}
+@keyframes zpspin2{to{transform:scale(1.8);opacity:.4}}
+.zy-t{margin:0;font-size:12.5px;color:var(--zp-muted);line-height:1.45}
+.zy-b{display:flex;justify-content:flex-end;gap:8px}
+.zp-btn:disabled{opacity:.5;cursor:default}
 #zp-modal{position:fixed;inset:0;z-index:2147483001;background:rgba(4,6,12,.55);backdrop-filter:blur(5px);display:grid;place-items:center}
 .zp-dlg{width:min(760px,95vw);height:min(660px,90vh);display:grid;grid-template-columns:190px minmax(0,1fr);background:var(--zp-bg);color:var(--zp-text);
   border:1px solid var(--zp-line);border-radius:calc(var(--zp-r) + 6px);box-shadow:0 40px 100px rgba(0,0,0,.5);overflow:hidden;animation:zpIn .22s cubic-bezier(.2,.8,.2,1)}
