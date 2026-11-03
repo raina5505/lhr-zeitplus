@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.15.1
+// @version      5.16.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.15.1';
+    const VERSION = '5.16.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -235,7 +235,7 @@
         const keepLive = box.classList.contains('live-on');
         box.innerHTML = `<div class="zs-in">
             <div class="zs-bar">
-              <a class="zs-brand" href="/Self?modulId=0" title="Hauptseite">${LOGO}<span>Zeit+</span></a>
+              <a class="zs-brand" href="/Self?modulId=0" title="Hauptseite">${LOGO}<span>LHR Zeit+</span></a>
               <nav class="zs-nav">${navHtml}</nav>
               <div class="zs-live num" id="zs-live" data-act="top" title="Nach oben"></div>
               <div class="zs-right">
@@ -2387,7 +2387,11 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         const eff = Math.max(0, gross - dedNow);
         const kz = br ? null : kernEnd();
         const finish = (target, useKern) => {
-            if (eff >= target) return { done: true, at: now - (eff - target), need: 0 };
+            if (eff >= target) {         // Ziel schon erreicht – mit Kernzeit trotzdem erst ab Kernzeit-Ende Feierabend
+                const reached = now - (eff - target);
+                if (useKern && kz && reached < kz) return { done: now >= kz, at: kz, need: 0, kzHit: true };
+                return { done: true, at: reached, need: 0 };
+            }
             const long = target > sixH;
             const G = long ? target + dedFinal : target;
             const need = Math.max(0, G - gross) + (long && lunchUpcoming ? plannedLen : 0);
@@ -2436,7 +2440,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         dash.innerHTML = `
 <canvas id="zp-fx"></canvas>
 <div class="zp-head">
-  <div class="zp-brand">${LOGO}<span class="zp-name">Zeit+</span><span class="zp-status"><span class="zp-dot" id="zp-dot"></span><span id="zp-status"></span></span></div>
+  <div class="zp-brand">${LOGO}<span class="zp-name">LHR Zeit+</span><span class="zp-status"><span class="zp-dot" id="zp-dot"></span><span id="zp-status"></span></span></div>
   <div class="zp-mini num" id="zp-mini"></div>
   <div class="zp-actions">
     <span class="zp-timer-pill num" id="zp-tpill"><span id="zp-tleft">00:00</span><button id="zp-tstop" title="Timer stoppen">${ico('x', 13)}</button></span>
@@ -2613,8 +2617,10 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 
     /* ════════════════════ RENDER ════════════════════ */
     let BASE_TITLE = null, prevDone = null;
+    const APP_TITLE = 'LHR Zeit+';
     function cd(f, isOpen, now) {
         if (f.done) return { t: ico('check', 14) + 'erreicht – seit ' + human(now - f.at), ok: true };
+        if (f.kzHit && f.need <= 0) return { t: 'Stunden erfüllt · Kernzeit bis ' + clock(f.at) + (isOpen ? ' (in ' + human(f.at - now) + ')' : ''), ok: false };
         if (!isOpen) return { t: 'fehlen noch ' + human(f.need), ok: false };
         return { t: 'in ' + human(f.at - now) + (f.kzHit ? ' · Kernzeit' : ''), ok: false };
     }
@@ -2786,7 +2792,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
                 wb.innerHTML = ico('alert', 16) + '<span>Fehlende Buchungen an: ' + d.missingDays.map(r => `<a data-id="${r.id}">${r.getAttribute('data-periode').slice(0, 6)}</a>`).join(', ') + '</span>';
                 wb.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { const r = document.getElementById(a.dataset.id); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
             } else wb.style.display = 'none';
-            if (BASE_TITLE == null) BASE_TITLE = document.title || 'SelfService';
+            if (BASE_TITLE == null) BASE_TITLE = APP_TITLE;
             document.title = S.title && has ? `${dur(c.eff)} · ±0 ${clock(c.salF.at)}${c.salF.done ? ' ✓' : ''} – ${BASE_TITLE}` : BASE_TITLE;
         });
 
@@ -3943,6 +3949,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         PAGE = document.getElementById('zdlBody') ? 'zdl' : document.getElementById('kalendertab') ? 'kal' : 'other';
         document.documentElement.classList.toggle('zp-zdl', PAGE === 'zdl');
         document.documentElement.classList.add('zp-p-' + PAGE);
+        try { document.title = APP_TITLE; } catch (e) { }
         killOldScript();
         injectPageCss();
         applyTheme();
