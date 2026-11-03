@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.7.0
+// @version      5.8.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -14,7 +14,7 @@
 
 (function () {
     'use strict';
-    const VERSION = '5.7.0';
+    const VERSION = '5.8.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -342,6 +342,7 @@
             return same.find(l => !!l.color === !!col) || null;
         };
         const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+        const brs = brStore();
         const months = [];
         tab.querySelectorAll('tbody > tr').forEach((tr, idx) => {
             const nm = ((tr.querySelector('[id="monatsname"]') || tr.children[0] || {}).textContent || '').trim();
@@ -368,7 +369,7 @@
                     we: wd === 0 || wd === 6 || /kalTag_sa/.test(cls),
                     hol: (/kalTag_so_fe/.test(cls) && wd !== 0) || letter === 'F',
                     past: dt < t0, today: /kalTagHeute/.test(cls) || dt.getTime() === t0.getTime(),
-                    href: a ? a.getAttribute('href') : null
+                    href: a ? a.getAttribute('href') : null, br: brs[dayKey(dt)] || 0
                 });
             });
             months.push({ mi, name: MONTHS[mi], days });
@@ -482,6 +483,7 @@
             if (d.kind === 'abs') { cls += ' abs'; style = `--c:${cssRgb(d.col)};--ink:${inkOf(d.col)}`; tip += ' · ' + d.name; }
             else if (d.kind === 'work') { cls += ' work'; tip += ' · ' + d.name; }
             if (d.pend) { cls += ' pend'; tip += ' (beantragt)'; }
+            if (d.br) { cls += ' brd'; tip += ' · Bereitschaft'; }
             if (bridgeDays.has(d.key)) { cls += ' bridge'; tip += ' · Brückentag-Tipp'; }
             if (d.href) { cls += ' add'; tip += '\nKlicken: Urlaub / Abwesenheit eintragen'; }
             const inner = strip ? (d.kind === 'abs' ? `<b>${esc(d.letter)}</b>` : '') : `<b>${d.d}</b>${d.kind === 'abs' ? `<i>${esc(d.letter)}</i>` : ''}`;
@@ -523,6 +525,7 @@
                 return `<${l.cb ? 'button type="button"' : 'span'} class="zk-li${off ? ' off' : ''}"${l.cb ? ` data-cb="${i}" title="${off ? 'Im Kalender einblenden' : 'Im Kalender ausblenden'}"` : ''}>${sw}<span>${esc(l.name)}</span><em class="num">${esc(l.tage || '0')} T${l.std ? ' · ' + esc(l.std) + ' h' : ''}</em>${l.cb ? ico(off ? 'x' : 'eye', 13) : ''}</${l.cb ? 'button' : 'span'}>`;
             }).join('')}
             ${hasF ? `<span class="zk-li"><span class="zk-sw" style="--c:rgb(255,192,0);--ink:#17130e">F</span><span>Feiertag</span></span>` : ''}
+            ${all.some(d => d.br) ? `<span class="zk-li ghost" title="Aus der Zeitdatenliste übernommen – Monate, die du dort geöffnet hast"><span class="zk-sw brs"></span><span>Bereitschaft (${all.filter(d => d.br).length})</span></span>` : ''}
             <span class="zk-li ghost"><span class="zk-sw we"></span><span>Wochenende</span></span>
             <span class="zk-li ghost"><span class="zk-sw hol"></span><span>Feiertag (kommend)</span></span>
             <span class="zk-li ghost"><span class="zk-sw pend"></span><span>beantragt</span></span>
@@ -535,7 +538,7 @@
             <span class="sp"></span>
             <div class="zp-segc">${[['months', 'Monate'], ['strip', 'Leiste'], ['orig', 'Original']].map(([v, l]) => `<button type="button" data-kv="${v}" class="${view === v ? 'on' : ''}">${l}</button>`).join('')}</div>
           </div>`;
-        const sig = view + '|' + bridges.length + '|' + k.ru + '|' + k.legend.map(l => l.tage + (l.cb && l.cb.checked)).join(',') + '|' + (SH && S.shell) + '|' + all.length + '|' + t0.getTime();
+        const sig = view + '|' + bridges.length + '|' + all.filter(d => d.br).length + '|' + k.ru + '|' + k.legend.map(l => l.tage + (l.cb && l.cb.checked)).join(',') + '|' + (SH && S.shell) + '|' + all.length + '|' + t0.getTime();
         if (sig === kalLastSig && box.innerHTML) return;
         kalLastSig = sig;
         box.classList.toggle('orig', view === 'orig');
@@ -814,13 +817,14 @@
             const dow = dt.getDay();
             const day = {
                 k, dt, isT, past, future: !past && !isT, we: dow === 0 || dow === 6, segs, info: infos[0] || '', fehl: fehl && past, note, pause, editHref,
-                soll: sollOf(rows), edge: rows[0].style.getPropertyValue('--zp-edge') || '', first: rows[0],
+                soll: sollOf(rows), edge: rows[0].style.getPropertyValue('--zp-edge') || '', first: rows[0], br: isBR(rows),
                 ist: isT ? c.eff : lastVal(rows, 2), tg: isT ? c.tg : lastVal(rows, 73), sal: isT ? c.saldo : lastVal(rows, 3)
             };
             listDays.set(k, day);
             days.push(day);
         }
         if (!days.length) { rowsBox.innerHTML = ''; return; }
+        safe('Bereitschaft', () => rememberBR(d.days));
 
         // Kopf
         const m0 = days[days.length - 1].dt;
@@ -832,6 +836,13 @@
         setHtml('zl-sum', `<span class="zl-pill">Ist${days.some(x => x.isT) || days.some(x => x.future) ? ' bis heute' : ''} <b class="num">${dur(istSum)}</b> / ${dur(sollSum)}</span>
             ${c.saldo != null ? `<span class="zl-pill">Saldo <b class="num ${sc(c.saldo)}">${dur(c.saldo, true)}</b></span>` : ''}
             ${(() => { const gs = safe('Gesamt', () => gesamt(d.days, c.saldo)); return gs ? `<span class="zl-pill" title="${esc(gs.tip)}">Gesamt <b class="num ${sc(gs.total)}">${dur(gs.total, true)}</b></span>` : ''; })()}` +
+            (() => {
+                const brd = days.filter(x => x.br); if (!brd.length) return '';
+                const eins = brd.filter(x => !x.soll && x.segs.length && !x.future);
+                const eh = eins.reduce((a, x) => a + x.segs.reduce((b, sg) => b + ((sg.e != null ? sg.e : sg.s) - sg.s), 0), 0);
+                const nx = brd.find(x => x.isT || x.future);
+                return `<span class="zl-pill br" title="Bereitschaftstage: ${esc(brd.map(x => WD[x.dt.getDay()] + ' ' + pad(x.dt.getDate()) + '.').join(', '))}">${ico('zap', 13)} ${brd.length} Bereitschaft${brd.length > 1 ? 'en' : ''}${eins.length ? ` · <b class="num">${eins.length}</b> Einsatz${eins.length > 1 ? 'e' : ''} <b class="num">${dur(eh)}</b>` : ''}${nx ? ` · ${nx.isT ? '<b>heute</b>' : 'nächste <b>' + WD[nx.dt.getDay()] + ' ' + pad(nx.dt.getDate()) + '.' + pad(nx.dt.getMonth() + 1) + '.</b>'}` : ''}</span>`;
+            })() +
             (missing ? `<span class="zl-pill w">${ico('alert', 13)} ${missing} Tag${missing > 1 ? 'e' : ''} unvollständig</span>` : ''));
         const vb = $('zl-view'); if (vb) vb.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === S.tableView));
         if (S.tableView !== 'list') { rowsBox.innerHTML = ''; return; }
@@ -877,11 +888,11 @@
             const open = listState.open.has(x.k);
             const ll = lunch ? mins(lunch.len) : 0;
             let ded = x.pause != null ? mins(x.pause) : null;
-            if (ded == null && x.isT) ded = c.lunchUpcoming ? null : mins(c.dedFinal || 0);
+            if (ded == null && x.isT) ded = c.lunchUpcoming ? null : mins(c.dedShown || 0);
             if (ded == null && x.segs.length && x.segs.every(sg => sg.e != null)) { const g = x.segs.reduce((a, sg) => a + (sg.e - sg.s), 0); ded = g > S.abH * H ? Math.max(0, S.pflicht - ll) : 0; }
             const dedTip = lunch ? `Mittag ${clock(lunch.s)}–${clock(lunch.e)} = ${ll} min` : 'keine Mittagspause gestempelt';
             const dedFull = ded ? `${dedTip}. Pflicht ${S.pflicht} min → ${ded} min werden als Pause abgezogen (keine Arbeitszeit).` : dedTip + (lunch ? '. Pflichtpause erfüllt.' : '');
-            const cls = ['zl-row', x.isT ? 'today' : '', x.future ? 'future' : '', x.future && calc ? 'calc' : '', x.we && !x.segs.length ? 'we' : '', x.edge && !x.isT ? 'edge' : '', open ? 'open' : ''].join(' ');
+            const cls = ['zl-row', x.br ? 'br' : '', x.isT ? 'today' : '', x.future ? 'future' : '', x.future && calc ? 'calc' : '', x.we && !x.segs.length ? 'we' : '', x.edge && !x.isT ? 'edge' : '', open ? 'open' : ''].join(' ');
             let st;
             const live = x.isT && c.open;
             if (x.segs.length) {
@@ -899,6 +910,10 @@
             else if (x.we) st = `<span class="zl-tag">Wochenende</span>`;
             else if (x.future) st = '';
             else st = '';
+            if (x.br) {
+                const eins = !x.soll && x.segs.length ? x.segs.reduce((a, sg) => a + ((sg.e != null ? sg.e : (live ? now : sg.s)) - sg.s), 0) : 0;
+                st = `<span class="zl-tag br" title="Bereitschaft (Arbeitsmodell ${esc(zmOf(d.days.get(x.k) || []))})${x.soll ? ' · Soll ' + dur(x.soll) : ''}">${ico('zap', 12)} Bereitschaft${x.soll ? ' · ' + dur(x.soll) : ''}</span>${eins ? `<span class="zl-tag br e" title="Einsatz während der Bereitschaft – LHR rechnet das als Überstunden">${ico('alert', 12)} Einsatz ${dur(eins)}</span>` : ''}` + st;
+            }
             if (x.segs.length && !lunch && ded) st += `<span class="zl-lunch" title="${esc(dedFull)}">${ico('utensils', 12)}<b>−${ded}′</b></span>`;
             if (x.segs.length && x.fehl) st += ` <span class="zl-tag warn">${ico('alert', 12)}</span>`;
             let bar = '';
@@ -969,7 +984,7 @@
         earliest: '06:30', maxDay: 10, kern: true, kzMoDo: '15:00', kzFr: '12:00',
         notif: { saldo: { on: true, lead: 5 }, soll: { on: false, lead: 5 }, max: { on: true, lead: 15 }, lunch: { on: false, at: '12:00' }, sound: true },
         confetti: true, title: true, sticky: true, hideEmpty: false, todayHl: true, tl: true, legend: true,
-        fxScope: 'page', view: 'full', hideNav: true, pretty: true, dimFuture: true, tableView: 'list', shell: true, kalView: 'months', futureDays: 'auto', cdOn: true, cdName: 'Weihnachtsfeier', cdDate: '', contrast: 'hoch', tlMode: 'auto', colOrder: [], colHidden: [], favs: [],
+        fxScope: 'page', view: 'full', hideNav: true, pretty: true, dimFuture: true, tableView: 'list', shell: true, kalView: 'months', futureDays: 'auto', brZM: 'EITBR', cdOn: true, cdName: 'Weihnachtsfeier', cdDate: '', contrast: 'hoch', tlMode: 'auto', colOrder: [], colHidden: [], favs: [],
         wish: '16:30', collapsed: false, seen: 0
     };
     function normalize(s) {
@@ -1389,6 +1404,11 @@ html.zp-p-other #content td.zp-me{box-shadow:inset 0 0 0 2px var(--zp-accent,#4f
 td.zp-flash{animation:zpflash 1.2s ease-out}
 @keyframes zpflash{0%{box-shadow:inset 0 0 0 3px var(--zp-accent)}100%{box-shadow:inset 0 0 0 0 transparent}}
 #zp-fav-host{display:block;margin:0 0 12px}
+
+/* Bereitschaft in der Original-Tabelle (nur Farben) */
+html.zp-zdl table.tabelle tbody tr.zp-br > td{background-color:color-mix(in srgb,var(--zp-bad,#dc2626) 16%,var(--zp-td,#fff)) !important}
+html.zp-zdl table.tabelle tbody tr.zp-br > td.td_zm{color:var(--zp-bad,#dc2626) !important;font-weight:700}
+html.zp-zdl table.tabelle tbody tr.zp-br > td:first-child{box-shadow:inset 3px 0 0 var(--zp-bad,#dc2626) !important}
 `;
 
     /* ════════════════════ CSS: OBERFLÄCHE (im Shadow DOM, isoliert) ════════════════════ */
@@ -1704,6 +1724,10 @@ input,select{font-size:13px;margin:0}
 .zk-d.today{box-shadow:0 0 0 2px var(--zp-accent),0 0 14px color-mix(in srgb,var(--zp-accent) 45%,transparent);color:var(--zp-accent);font-weight:800;z-index:1}
 .zk-d.abs.today{color:var(--ink)}
 .zk-d.bridge:not(.abs){box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--zp-accent2) 75%,transparent);background:color-mix(in srgb,var(--zp-accent2) 12%,transparent)}
+.zk-d.brd{box-shadow:inset 0 0 0 2px var(--zp-bad);color:var(--zp-bad)}
+.zk-d.brd::before{content:'';position:absolute;top:3px;left:4px;width:5px;height:5px;border-radius:50%;background:var(--zp-bad)}
+.zk-d.brd.abs{box-shadow:inset 0 0 0 2px var(--zp-bad),inset 0 0 0 3px var(--zp-surf)}
+.zk-sw.brs{box-shadow:inset 0 0 0 2px var(--zp-bad);background:color-mix(in srgb,var(--zp-bad) 12%,transparent)}
 .zk-sub{font-size:12px;color:var(--zp-muted)}
 .zk-brs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
 .zk-br{display:grid;gap:3px;text-align:left;padding:11px 14px;border-radius:var(--zp-r);background:var(--zp-surf);border:1px solid var(--zp-line);transition:.15s;color:var(--zp-text)}
@@ -1750,6 +1774,8 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zl-title .ic{color:var(--zp-accent)}
 .zl-pill{font-size:12px;color:var(--zp-muted);background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:99px;height:26px;padding:0 11px;display:inline-flex;align-items:center;gap:5px}
 .zl-pill b{color:var(--zp-text);font-weight:650}
+.zp-fi.br span,.zp-fi.br b{color:var(--zp-bad)}
+.zp-fi.br{background:color-mix(in srgb,var(--zp-bad) 12%,var(--zp-surf)) !important;box-shadow:inset 3px 0 0 var(--zp-bad)}
 .zp-fi.g small{font-size:10.5px;color:var(--zp-muted);margin-left:4px}
 .zl-pill b.ok{color:var(--zp-ok)}.zl-pill b.bad{color:var(--zp-bad)}.zl-pill.w{color:var(--zp-warn);border-color:color-mix(in srgb,var(--zp-warn) 35%,var(--zp-line))}
 .zl-head .sp{flex:1}
@@ -1793,6 +1819,13 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zl-st small{color:var(--zp-muted);margin-left:6px}
 .zl-tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:99px;font-size:11.5px;font-weight:650;background:var(--zp-surf2);color:var(--zp-muted)}
 .zl-tag.ok{background:color-mix(in srgb,var(--zp-ok) 15%,transparent);color:var(--zp-ok)}
+.zl-tag.br{background:color-mix(in srgb,var(--zp-bad) 20%,transparent);color:var(--zp-bad);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 45%,transparent)}
+.zl-tag.br.e{background:var(--zp-bad);color:var(--zp-onbad,#fff);box-shadow:none}
+.zl-row.br{background:color-mix(in srgb,var(--zp-bad) 9%,transparent)}
+.zl-row.br::after{content:'';position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:3px;background:var(--zp-bad)}
+.zl-row.br.today{background:color-mix(in srgb,var(--zp-bad) 14%,transparent)}
+.zl-pill.br{color:var(--zp-bad);border-color:color-mix(in srgb,var(--zp-bad) 45%,var(--zp-line));background:color-mix(in srgb,var(--zp-bad) 10%,var(--zp-surf))}
+.zl-pill.br b{color:var(--zp-bad)}
 .zl-tag.warn{background:color-mix(in srgb,var(--zp-warn) 15%,transparent);color:var(--zp-warn)}
 .zl-tag.info{background:color-mix(in srgb,var(--edge,var(--zp-accent2)) 18%,transparent);color:var(--edge,var(--zp-accent2))}
 .zl-tl{position:relative;height:10px;border-radius:5px;background:var(--zp-surf2)}
@@ -1987,6 +2020,21 @@ button.zk-li:hover{border-color:var(--zp-accent)}
     }
     const lastVal = (rows, nr) => { let v = null; rows.forEach(r => { const c = r.querySelector('td[data-zsp-nr="' + nr + '"]'); const x = c && parseDur(c.textContent); if (x != null) v = x; }); return v; };
     const sollOf = rows => { const c = rows[0] && rows[0].querySelector('td.td_soll_pause_uz'); return parseDur(c && c.textContent) || 0; };
+    /* Bereitschaft: Arbeitsmodell (ZM) z.B. „EITBR“ – Soll meist 5:00, Einsatz = Buchungen an Bereitschaftstagen ohne Soll */
+    const brList = () => String(S.brZM || 'EITBR').split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
+    const zmOf = rows => { for (const r of rows) { const c = r.querySelector('td.td_zm'); const t = c && c.textContent.trim(); if (t) return t.toUpperCase(); } return ''; };
+    const isBR = rows => { const z = zmOf(rows); return !!z && brList().includes(z); };
+    const BR_KEY = 'zplus_br';
+    const brStore = () => { try { return JSON.parse(localStorage.getItem(BR_KEY) || '{}') || {}; } catch (e) { return {}; } };
+    function rememberBR(days) {                 // Bereitschaftstage merken (für den Kalender)
+        try {
+            const st = brStore(); let ch = false; const ym = new Set();
+            for (const [k] of days) ym.add(k.slice(3));
+            Object.keys(st).forEach(k => { if (ym.has(k.slice(3))) { delete st[k]; ch = true; } });   // Monat neu einlesen
+            for (const [k, rows] of days) if (isBR(rows)) { st[k] = sollOf(rows) ? 1 : 2; ch = true; }
+            if (ch) localStorage.setItem(BR_KEY, JSON.stringify(st));
+        } catch (e) { }
+    }
     const keyDate = k => { const p = k.split('.').map(Number); return new Date(p[2], p[1] - 1, p[0]); };
 
     function readDay() {
@@ -2103,6 +2151,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         const plannedLen = lunchUpcoming ? S.planLunch * M : 0;
         const lunchLen = lunch ? lunch.len : plannedLen;
         const dedFinal = sysDed != null ? sysDed : Math.max(0, pflicht - lunchLen);
+        const dedShown = sysDed != null ? sysDed : ((gross > sixH || d.soll > sixH) ? Math.max(0, pflicht - lunchLen) : 0);   // Anzeige: nur wenn > 6 h zu erwarten
         const dedNow = sysDed != null ? sysDed : (gross > sixH ? Math.max(0, pflicht - (lunch ? lunch.len : 0)) : 0);
         const eff = Math.max(0, gross - dedNow);
         const kz = kernEnd();
@@ -2124,7 +2173,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         };
         const tg = eff - d.soll;
         return {
-            segs, open, broken, gross, eff, gaps, lunch, smoke, smokeSum, sysDed, dedNow, dedFinal, lunchUpcoming, plannedLen, wF, wT,
+            segs, open, broken, gross, eff, gaps, lunch, smoke, smokeSum, sysDed, dedNow, dedFinal, dedShown, lunchUpcoming, plannedLen, wF, wT,
             sollF: finish(d.soll, true), salF: finish(d.soll - d.carry, true), maxF: finish(S.maxDay * H, false),
             tg, saldo: d.carry + tg, effAt, windowOver: now >= wT
         };
@@ -2364,7 +2413,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         safe('Status', () => {
             $('zp-dot').classList.toggle('on', !!c.open);
             const last = has ? c.segs[c.segs.length - 1] : null;
-            setText('zp-status', wd + ' ' + pad(dt.getDate()) + '.' + pad(dt.getMonth() + 1) + '. · ' +
+            setText('zp-status', wd + ' ' + pad(dt.getDate()) + '.' + pad(dt.getMonth() + 1) + '. · ' + (isBR(d.rows) ? 'Bereitschaft · ' : '') +
                 (c.open ? 'eingestempelt seit ' + clock(c.open.s) : last ? 'ausgestempelt um ' + clock(last.e) : (d.info || 'noch nicht eingestempelt')));
         });
 
@@ -2389,15 +2438,17 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             const kz = kernEnd();
             if (kz) foot.push(fi('Kernzeit bis', clock(kz)));
             foot.push(fi('Übertrag', dur(d.carry, true)));
+            { const t0 = new Date(); t0.setHours(0, 0, 0, 0); let nb = null; for (const [k, rows] of d.days) { if (keyDate(k) >= t0 && isBR(rows)) { nb = k; break; } }
+              if (nb) { const nd = keyDate(nb); foot.push(`<div class="zp-fi br"><span>${nb === todayKey() ? 'Heute Bereitschaft' : 'Nächste Bereitschaft'}</span><b class="num">${nb === todayKey() ? (d.soll ? 'Soll ' + dur(d.soll) : 'ganztags') : ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][nd.getDay()] + ' ' + nb.slice(0, 6)}</b></div>`); } }
             { const gs = safe('Gesamt', () => gesamt(d.days, c.saldo)); if (gs) foot.push(`<div class="zp-fi g" title="${esc(gs.tip)}"><span>Gesamt <small>Saldo+ZA+Üst</small></span><b class="num ${signCls(gs.total)}">${dur(gs.total, true)}</b></div>`); }
-            if (has && c.dedFinal > 0 && !c.lunchUpcoming) foot.push(fi(c.lunch ? 'Mittag ' + mins(c.lunch.len) + ' min → Abzug' : 'Pausen-Abzug', '−' + mins(c.dedFinal) + ' min', 1));
+            if (has && c.dedShown > 0 && !c.lunchUpcoming) foot.push(fi(c.lunch ? 'Mittag ' + mins(c.lunch.len) + ' min → Abzug' : 'Pausen-Abzug', '−' + mins(c.dedShown) + ' min', 1));
             if (c.broken) foot.push(fi('Offene Buchungen', c.broken, 1));
             setHtml('zp-foot', foot.join(''));
             const cs = (k, v, cls) => `<div class="zp-cs"><span>${k}</span><b class="num ${cls || ''}">${v}</b></div>`;
             const wk = readWeek(d.days, c.eff);
             const gs = safe('Gesamt', () => gesamt(d.days, c.saldo));
             setHtml('zp-cstats', cs('Heute netto', dur(c.eff)) + cs('Saldo', dur(c.saldo, true), signCls(c.saldo)) + cs('Woche', dur(wk.ist) + ' / ' + dur(wk.soll)) +
-                (has && c.dedFinal > 0 && !c.lunchUpcoming ? cs('Pausen-Abzug', mins(c.dedFinal) + ' min', 'warn') : '') + (kz ? cs('Kernzeit bis', clock(kz)) : '') + (gs ? `<div title="${esc(gs.tip)}">${cs('Gesamt', dur(gs.total, true), signCls(gs.total))}</div>` : ''));
+                (has && c.dedShown > 0 && !c.lunchUpcoming ? cs('Pausen-Abzug', mins(c.dedShown) + ' min', 'warn') : '') + (kz ? cs('Kernzeit bis', clock(kz)) : '') + (gs ? `<div title="${esc(gs.tip)}">${cs('Gesamt', dur(gs.total, true), signCls(gs.total))}</div>` : ''));
         });
 
         safe('Heute', () => {
@@ -2429,7 +2480,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             const chips = $('zp-chips');
             chips.innerHTML = '';
             if (c.lunch) {
-                const L = mins(c.lunch.len), miss = mins(c.dedFinal);
+                const L = mins(c.lunch.len), miss = mins(c.dedShown);
                 setHtml('zp-pause', L + '<small>min</small>'); valClass('zp-pause', miss > 0 ? 'warn' : 'ok');
                 setHtml('zp-pause-sub', `${clock(c.lunch.s)} – ${clock(c.lunch.e)} gestempelt<br>` +
                     (miss > 0 ? `<span class="w">+${miss} min ${c.sysDed != null ? 'abgezogen' : 'werden abgezogen'}</span> auf ${S.pflicht} min` : `${S.pflicht} min erfüllt`));
@@ -2632,6 +2683,8 @@ ${row('Timeline', 'Tagesverlauf mit Mittag, Raucherpausen und Feierabend-Markern
 ${row('Legende unter der Timeline', '', tgl('legend'))}
 <div class="zp-btns" style="margin-top:10px"><button type="button" class="zp-btn" id="zp-lay-edit">${ico('pencil', 14)} Im Dashboard anordnen</button><button type="button" class="zp-btn" id="zp-lay-reset">Standard-Layout</button></div>`,
             calc: `
+<div class="zp-sec">Bereitschaft</div>
+${row('Arbeitsmodell für Bereitschaft', 'Kürzel aus der Spalte ZM, mehrere mit Komma (z.B. EITBR)', '<input type="text" class="zp-in" style="width:160px" data-k="brZM" placeholder="EITBR">')}
 <div class="zp-sec">Mittagspause</div>
 ${row('Pflichtpause (min)', 'Was zur Pflichtpause fehlt, zieht das System ab', num('pflicht', 0, 120))}
 ${row('Pflicht ab Arbeitszeit (h)', '', num('abH', 0, 12, .5))}
@@ -3253,8 +3306,11 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     function markRows(body) {
         const t0 = new Date(); t0.setHours(0, 0, 0, 0);
         const tk = todayKey();
+        const brDays = new Set();
+        body.querySelectorAll('tr[data-periode]').forEach(r => { const c = r.querySelector('td.td_zm'); const z = c && c.textContent.trim().toUpperCase(); if (z && brList().includes(z)) brDays.add(r.getAttribute('data-periode')); });
         body.querySelectorAll('tr[data-periode]').forEach(r => {
             const k = r.getAttribute('data-periode');
+            r.classList.toggle('zp-br', brDays.has(k));
             if (k === tk) r.classList.add('zp-today');
             else if (/^\d\d\.\d\d\.\d{4}$/.test(k) && keyDate(k) > t0) r.classList.add('zp-future');
         });
