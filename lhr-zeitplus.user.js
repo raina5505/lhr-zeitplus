@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.5.1
+// @version      5.5.2
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -14,7 +14,7 @@
 
 (function () {
     'use strict';
-    const VERSION = '5.5.1';
+    const VERSION = '5.5.2';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -815,7 +815,8 @@
         if (zlBox) {
             zlBox.classList.toggle('tl-in', tlIn);
             zlBox.classList.toggle('many', nx > 4);
-            zlBox.style.setProperty('--zl-grid', `92px minmax(260px,1fr)${tlCol ? ' 190px' : ''} ${VC.map(v => v.base ? v.w : 'minmax(50px,max-content)').join(' ')} 20px`);
+            const lh = document.getElementById('zp-list-host'); if (lh) lh.classList.toggle('xwide', nx > 4);
+            zlBox.style.setProperty('--zl-grid', `92px minmax(${nx > 6 ? 220 : 260}px,1fr)${tlCol ? ' 190px' : ''} ${VC.map(v => v.base ? v.w : 'minmax(50px,max-content)').join(' ')} 20px`);
             zlBox.style.setProperty('--zl-gridm', `80px 1fr ${VC.filter(v => v.key !== 'ist').map(v => v.key === 'tg' ? '60px' : v.key === 'sal' ? '64px' : 'minmax(50px,max-content)').join(' ')} 18px`);
         }
         setHtml('zl-cols', `<span>Tag</span><span>${tlIn ? 'Buchungen · Verlauf 06–19 Uhr' : 'Buchungen'}</span>${tlCol ? '<span class="tlh" style="white-space:nowrap">Verlauf 06–19 Uhr</span>' : ''}${VC.map(v => `<span class="r zl-vh${v.key === 'ist' ? ' isth' : ''}" draggable="true" data-col="${v.key}" title="${esc(v.title)} – ziehen zum Verschieben">${esc(v.short)}</span>`).join('')}<span></span>`);
@@ -1164,14 +1165,14 @@ html.zp-loading::after{content:'';position:fixed;left:50%;top:46%;width:30px;hei
 @keyframes zpspin{to{transform:rotate(360deg)}}
 html.zp-ready body{animation:zpfade .22s ease-out}
 @keyframes zpfade{from{opacity:0}to{opacity:1}}
-html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="w"]{background-color:var(--zp-surf) !important;background-image:none !important;color:var(--zp-text) !important}
-html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) td[data-zp-cf="w"],html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) tr[data-zp-cf="w"]{background-color:var(--zp-td) !important}
-html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="s"]{background-color:hsl(var(--zp-cfh) 30% 19%) !important;background-image:none !important;color:hsl(var(--zp-cfh) 60% 88%) !important}
-html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="h"]{background-color:hsl(var(--zp-cfh) 18% 13%) !important;background-image:repeating-linear-gradient(135deg,hsl(var(--zp-cfh) 40% 70% / .09) 0 2px,transparent 2px 7px) !important;color:var(--zp-muted) !important}
-html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="v"],html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="v"] *{color:#17130e !important}
-html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="d"],html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="d"] *{color:#fff !important}
-html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-ink]{color:var(--zp-text) !important}
-html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) th[data-zp-cf]{background-color:var(--zp-th) !important;background-image:none !important;color:var(--zp-muted) !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) [data-zp-cf="w"]{background-color:var(--zp-surf) !important;background-image:none !important;color:var(--zp-text) !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) td[data-zp-cf="w"],html.zp-dark body:not(#zp-a):not(#zp-b) tr[data-zp-cf="w"]{background-color:var(--zp-td) !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) [data-zp-cf="s"]{background-color:hsl(var(--zp-cfh) 30% 19%) !important;background-image:none !important;color:hsl(var(--zp-cfh) 60% 88%) !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) [data-zp-cf="h"]{background-color:hsl(var(--zp-cfh) 18% 13%) !important;background-image:repeating-linear-gradient(135deg,hsl(var(--zp-cfh) 40% 70% / .09) 0 2px,transparent 2px 7px) !important;color:var(--zp-muted) !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) [data-zp-cf="v"],html.zp-dark body:not(#zp-a):not(#zp-b) [data-zp-cf="v"] *{color:#17130e !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) [data-zp-cf="d"],html.zp-dark body:not(#zp-a):not(#zp-b) [data-zp-cf="d"] *{color:#fff !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) [data-zp-ink]{color:var(--zp-text) !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) th[data-zp-cf]{background-color:var(--zp-th) !important;background-image:none !important;color:var(--zp-muted) !important}
 /* Kalender: Zeit+ Ansicht statt Original-Tabelle */
 #zp-kal-host{display:block;margin:0 auto 28px;max-width:1240px}
 html.zp-kalview section#content > :not(#zp-kal-host):not(#error_urlaubmaxdate_div){display:none !important}
@@ -1236,7 +1237,7 @@ html.zp-pretty.zp-zdl #content table th{border-color:var(--zp-grid,#e8eaf0) !imp
 /* Original-Tabelle ausblenden, wenn die Zeit+ Liste aktiv ist (bleibt im Layout, damit LHR-Scripts weiter rechnen) */
 html.zp-hidetable section#content{position:absolute !important;left:-30000px !important;top:0 !important;visibility:hidden !important;pointer-events:none !important}
 #zp-list-host{display:block;margin:0 0 28px;max-width:1240px}
-#zp-list-host.wide{max-width:none}
+#zp-list-host.wide,#zp-list-host.xwide{max-width:none}
 /* Navi oben ausblenden */
 html.zp-nonav .nav_main,html.zp-nonav #ul-user-links{display:none !important}
 
@@ -1732,6 +1733,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zl-tl.in i.lunch{top:-1px;bottom:-1px}
 .zl-row.future .zl-tl.in,.zl-row.we .zl-tl.in{display:none}
 #zl.many .zl-cols,#zl.many .zl-row{gap:10px}
+.zl-body{overflow-x:auto;overflow-y:visible}
 #zl.many .zl-vh{font-size:10px;letter-spacing:.03em}
 #zl.many .zl-n{font-size:12.5px}
 .zl-n{font-weight:600;font-size:13px}
@@ -2920,12 +2922,21 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     let cfRuns = 0;
     const CF_SKIP = /^(IMG|SVG|CANVAS|INPUT|SELECT|OPTION|TEXTAREA|SCRIPT|STYLE|LINK|META|BR|HR|PATH|USE|G|IFRAME|VIDEO)$/i;
     function fixColors() {
-        if (!document.body || PAGE === 'zdl') return;
+        if (!document.body) return;
         cfRuns++;
         const dark = !!theme().dark;
         cfDirty.forEach(n => { if (n.getElementsByTagName) { const ds = n.getElementsByTagName('*'); if (ds.length < 3000) for (let j = 0; j < ds.length; j++) cfSig.delete(ds[j]); } });
         cfDirty.clear();
-        const list = document.body.getElementsByTagName('*');
+        // Zeitdatenliste: die LHR-Tabelle selbst nie anfassen (pixelgenau), nur Dialoge/Popups daneben (z.B. Mehrfacherfassung)
+        let list;
+        if (PAGE === 'zdl') {
+            list = [];
+            [...document.body.children].forEach(c => {
+                if (c.id === 'content' || (c.id || '').startsWith('zp-') || /^(SCRIPT|STYLE|HEADER|NAV)$/.test(c.tagName) || c.classList.contains('navmenu')) return;
+                if (c.querySelector && c.querySelector('#zdlBody')) return;
+                list.push(c); const ds = c.getElementsByTagName('*'); for (let j = 0; j < ds.length; j++) list.push(ds[j]);
+            });
+        } else list = document.body.getElementsByTagName('*');
         if (list.length > 40000) return;
         for (let i = 0; i < list.length; i++) {
             const x = list[i];
@@ -3104,7 +3115,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         run();
     }
     function watchColors() {       // Klassen-/Style-Wechsel (Markieren, Filtern, Nachladen) sofort nachfärben
-        if (PAGE === 'zdl' || !document.body) return;
+        if (!document.body) return;
         new MutationObserver(ms => {
             let hit = false;
             ms.forEach(m => {
@@ -3117,7 +3128,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             .observe(document.body, { childList: true, subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] });
         setInterval(() => { if (!document.hidden) safe('Farben', fixColors); }, 2500);
     }
-    const fixColorsSoon = () => { if (cfTimer || PAGE === 'zdl') return; cfTimer = setTimeout(() => { cfTimer = null; safe('Farben', fixColors); }, 60); };
+    const fixColorsSoon = () => { if (cfTimer) return; cfTimer = setTimeout(() => { cfTimer = null; safe('Farben', fixColors); }, 60); };
     function markToday() {
         const body = tbody();
         if (!body) return;
