@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.16.0
+// @version      5.16.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.16.0';
+    const VERSION = '5.16.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -235,7 +235,7 @@
         const keepLive = box.classList.contains('live-on');
         box.innerHTML = `<div class="zs-in">
             <div class="zs-bar">
-              <a class="zs-brand" href="/Self?modulId=0" title="Hauptseite">${LOGO}<span>LHR Zeit+</span></a>
+              <a class="zs-brand" href="/Self?modulId=0" title="Hauptseite">${LOGO}<span>LHR Zeit +</span></a>
               <nav class="zs-nav">${navHtml}</nav>
               <div class="zs-live num" id="zs-live" data-act="top" title="Nach oben"></div>
               <div class="zs-right">
@@ -2440,7 +2440,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         dash.innerHTML = `
 <canvas id="zp-fx"></canvas>
 <div class="zp-head">
-  <div class="zp-brand">${LOGO}<span class="zp-name">LHR Zeit+</span><span class="zp-status"><span class="zp-dot" id="zp-dot"></span><span id="zp-status"></span></span></div>
+  <div class="zp-brand">${LOGO}<span class="zp-name">LHR Zeit +</span><span class="zp-status"><span class="zp-dot" id="zp-dot"></span><span id="zp-status"></span></span></div>
   <div class="zp-mini num" id="zp-mini"></div>
   <div class="zp-actions">
     <span class="zp-timer-pill num" id="zp-tpill"><span id="zp-tleft">00:00</span><button id="zp-tstop" title="Timer stoppen">${ico('x', 13)}</button></span>
@@ -2617,7 +2617,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 
     /* ════════════════════ RENDER ════════════════════ */
     let BASE_TITLE = null, prevDone = null;
-    const APP_TITLE = 'LHR Zeit+';
+    const APP_TITLE = 'LHR Zeit +';
     function cd(f, isOpen, now) {
         if (f.done) return { t: ico('check', 14) + 'erreicht – seit ' + human(now - f.at), ok: true };
         if (f.kzHit && f.need <= 0) return { t: 'Stunden erfüllt · Kernzeit bis ' + clock(f.at) + (isOpen ? ' (in ' + human(f.at - now) + ')' : ''), ok: false };
@@ -2793,7 +2793,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
                 wb.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { const r = document.getElementById(a.dataset.id); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
             } else wb.style.display = 'none';
             if (BASE_TITLE == null) BASE_TITLE = APP_TITLE;
-            document.title = S.title && has ? `${dur(c.eff)} · ±0 ${clock(c.salF.at)}${c.salF.done ? ' ✓' : ''} – ${BASE_TITLE}` : BASE_TITLE;
+            if (document.title !== BASE_TITLE) document.title = BASE_TITLE;
         });
 
         if (S.tl) safe('Timeline', () => renderTimeline(c, now, has));
