@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.18.0
+// @version      5.18.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.18.0';
+    const VERSION = '5.18.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -2872,7 +2872,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             const mini = has ? `Heute <b>${dur(c.eff)}</b>  ·  Soll <b>${clock(c.sollF.at)}${c.sollF.done ? ' ✓' : ''}</b>  ·  ±0 <b>${clock(c.salF.at)}${c.salF.done ? ' ✓' : ''}</b>  ·  Saldo <b>${dur(c.saldo, true)}</b>` : '';
             setHtml('zp-mini', mini);
             const st = $('zp-sticky');
-            if (st) st.innerHTML = `<span class="zp-dot${c.open ? ' on' : ''}"></span><span class="num">${mini || 'Zeit+'}</span><span class="m">${ico('arrowUp', 14)}</span>`;
+            if (st) st.innerHTML = `<span class="zp-dot${c.open ? ' on' : ''}"></span><span class="num">${mini || 'LHR Zeit +'}</span><span class="m">${ico('arrowUp', 14)}</span>`;
             const zl2 = $('zs-live'); if (zl2) zl2.innerHTML = `<span class="zp-dot${c.open ? ' on' : ''}"></span>${mini}`;
             const wb = $('zp-warn');
             if (d.missingDays.length) {
@@ -3076,7 +3076,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const oldScroll = m.querySelector('.zp-scroll');
         const scrollTop = oldScroll ? oldScroll.scrollTop : 0;
         m.innerHTML = `<div class="zp-dlg">
-  <div class="zp-side"><div class="ttl">${LOGO}Zeit+</div>${TABS.map(([k, i, n]) => `<button type="button" class="zp-tab${k === modalTab ? ' on' : ''}" data-tab="${k}">${ico(i, 16)}${n}</button>`).join('')}<div class="ver">Version ${VERSION}${lastErr ? '<br>Fehler: ' + esc(lastErr) : ''}</div></div>
+  <div class="zp-side"><div class="ttl">${LOGO}LHR Zeit +</div>${TABS.map(([k, i, n]) => `<button type="button" class="zp-tab${k === modalTab ? ' on' : ''}" data-tab="${k}">${ico(i, 16)}${n}</button>`).join('')}<div class="ver">Version ${VERSION}${lastErr ? '<br>Fehler: ' + esc(lastErr) : ''}</div></div>
   <div class="zp-main"><div class="zp-main-head"><h4>${cur[2]}</h4><button type="button" class="zp-btn pri" id="zp-close">${ico('check', 15)} Fertig</button></div>
   <div class="zp-scroll">${TABS.map(([k]) => `<div class="zp-pane${k === modalTab ? ' on' : ''}" data-pane="${k}">${pane[k]}</div>`).join('')}</div></div></div>`;
         m.querySelector('.zp-scroll').scrollTop = scrollTop;
@@ -3805,7 +3805,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const root = overlay();
         let b = root.getElementById('zp-fab');
         if (!b) {
-            b = el('button', 'zp-font', LOGO + '<span>Zeit+</span>');
+            b = el('button', 'zp-font', LOGO + '<span>LHR Zeit +</span>');
             b.id = 'zp-fab';
             b.type = 'button';
             b.addEventListener('click', () => {
@@ -3820,7 +3820,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             dash: 'Zeit+ aktiv – klicken für Einstellungen',
             month: 'Zeit+ aktiv – Live-Werte gibt es nur im aktuellen Monat. Klicken = zum aktuellen Monat',
             other: 'Zeit+ aktiv – klicken wechselt das Theme'
-        }[state] || 'Zeit+';
+        }[state] || 'LHR Zeit +';
         b.style.display = state === 'dash' ? 'none' : 'flex';
     }
 
