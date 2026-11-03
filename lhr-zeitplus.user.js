@@ -1,0 +1,3370 @@
+// ==UserScript==
+// @name         LHR Zeit+
+// @namespace    lhr-zeitplus
+// @version      5.5.1
+// @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
+// @match        *://lohnselfservice/*
+// @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
+// @updateURL    https://raw.githubusercontent.com/raina5505/lhr-zeitplus/main/lhr-zeitplus.user.js
+// @downloadURL  https://raw.githubusercontent.com/raina5505/lhr-zeitplus/main/lhr-zeitplus.user.js
+// @homepageURL  https://github.com/raina5505/lhr-zeitplus
+// @grant        none
+// @run-at       document-start
+// ==/UserScript==
+
+(function () {
+    'use strict';
+    const VERSION = '5.5.1';
+    try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
+
+    /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
+    const IC = {
+        clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+        scale: '<path d="M12 3v18M7 21h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/>',
+        calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
+        utensils: '<path d="M5 3v7a2 2 0 0 0 4 0V3M7 12v9M17 3c-2 0-3 2.2-3 5s1 5 3 5v8"/>',
+        wind: '<path d="M3 8h10a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7"/>',
+        target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
+        trend: '<path d="M3 17l6-6 4 4 8-8M14 7h7v7"/>',
+        sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+        door: '<path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4M10 17l5-5-5-5M15 12H3"/>',
+        timer: '<circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/>',
+        pencil: '<path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/>',
+        palette: '<circle cx="13.5" cy="6.5" r="1.2"/><circle cx="17.5" cy="10.5" r="1.2"/><circle cx="8.5" cy="7.5" r="1.2"/><circle cx="6.5" cy="12.5" r="1.2"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.3A5.7 5.7 0 0 0 22 9.7C22 5.4 17.5 2 12 2z"/>',
+        sliders: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
+        chevron: '<path d="M6 9l6 6 6-6"/>',
+        x: '<path d="M18 6L6 18M6 6l12 12"/>',
+        eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
+        width: '<path d="M21 12H3M7 8l-4 4 4 4M17 8l4 4-4 4"/>',
+        bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9M10.3 21a1.9 1.9 0 0 0 3.4 0"/>',
+        layout: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+        calc: '<rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h8"/>',
+        zap: '<path d="M13 2L3 14h9l-1 8 10-12h-9z"/>',
+        alert: '<path d="M10.3 3.9L1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/>',
+        check: '<path d="M20 6L9 17l-5-5"/>',
+        up: '<path d="M18 15l-6-6-6 6"/>',
+        down: '<path d="M6 9l6 6 6-6"/>',
+        sparkle: '<path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 15l.9 2.1L22 18l-2.1.9L19 21l-.9-2.1L16 18l2.1-.9z"/>',
+        arrowUp: '<path d="M12 19V5M5 12l7-7 7 7"/>',
+        rows: '<path d="M3 6h18M3 12h18M3 18h18"/>',
+        table: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>',
+        ext: '<path d="M15 3h6v6M10 14L21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+        plus: '<path d="M12 5v14M5 12h14"/>',
+        home: '<path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+        pointer: '<path d="M9 11V5a2 2 0 0 1 4 0v5M13 10V8a2 2 0 0 1 4 0v3M17 11a2 2 0 0 1 4 0v4a7 7 0 0 1-7 7h-1a7 7 0 0 1-6-3.4L4.5 15a2 2 0 0 1 3.4-2.1L9 14.5"/>',
+        file: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h6"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',
+        grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+        planner: '<rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4M7 13h4M13 13h4M7 17h4"/>',
+        left: '<path d="M15 18l-6-6 6-6"/>',
+        right: '<path d="M9 18l6-6-6-6"/>',
+        refresh: '<path d="M21 12a9 9 0 0 1-15.5 6.2L3 16M3 12A9 9 0 0 1 18.5 5.8L21 8M21 3v5h-5M3 21v-5h5"/>',
+        pdf: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15l3 3 3-3"/>',
+        send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4z"/>',
+        user: '<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
+        help: '<circle cx="12" cy="12" r="9"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/>',
+        logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
+        globe: '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/>',
+        minimize: '<path d="M8 3v3a2 2 0 0 1-2 2H3M21 8h-3a2 2 0 0 1-2-2V3M3 16h3a2 2 0 0 1 2 2v3M16 21v-3a2 2 0 0 1 2-2h3"/>',
+        maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>'
+    };
+    const ico = (n, s) => `<svg class="ic" width="${s || 16}" height="${s || 16}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[n] || ''}</svg>`;
+
+    /* ════════════════════ KARTEN ════════════════════ */
+    const CARD_DEFS = {
+        heute:  { name: 'Heute netto',     icon: 'clock',    tip: 'Netto-Arbeitszeit heute (nach Pausen-Abzug), Fortschritt zum Soll' },
+        saldo:  { name: 'Saldo',           icon: 'scale',    tip: 'Gleitzeitsaldo inkl. heute, live' },
+        woche:  { name: 'Woche',           icon: 'calendar', tip: 'Ist/Soll dieser Woche mit Tagesbalken' },
+        pause:  { name: 'Mittagspause',    icon: 'utensils', tip: 'Größte Lücke im Mittagsfenster. Fehlt etwas zur Pflichtpause, zieht das System es ab.' },
+        rauch:  { name: 'Raucherpausen',   icon: 'wind',     tip: 'Alle anderen Ausstempel-Lücken – zählen nicht als Arbeit' },
+        wunsch: { name: 'Gehen um …',      icon: 'target',   tip: 'Was passiert mit dem Saldo, wenn du zu dieser Uhrzeit gehst?' },
+        monat:  { name: 'Monat',           icon: 'trend',    tip: 'Saldo-Verlauf im Monat und Ist/Soll' },
+        urlaub: { name: 'Resturlaub',      icon: 'sun',      tip: 'Wert aus der LHR-Resturlaub-Anzeige' },
+        kommen: { name: 'Stempelblöcke',   icon: 'door',     tip: 'Alle Kommen/Gehen-Blöcke von heute' }
+    };
+    const DEF_LAYOUT = [
+        { id: 'heute', on: true, wide: false }, { id: 'saldo', on: true, wide: false }, { id: 'woche', on: true, wide: false },
+        { id: 'monat', on: true, wide: false }, { id: 'pause', on: false, wide: false }, { id: 'rauch', on: false, wide: false },
+        { id: 'wunsch', on: false, wide: false }, { id: 'urlaub', on: false, wide: false }, { id: 'kommen', on: false, wide: false }
+    ];
+
+    /* ════════════════════ APP-LEISTE ════════════════════ */
+    const NAV_ICON = { zm_buchen: 'pointer', zm_zeitdatenliste: 'rows', anzBn: 'bell', anzOa: 'file', zm_kalender: 'calendar', zm_abw_uebersicht: 'users', zm_tableau: 'grid', zm_planer: 'planner' };
+    const MONTHS = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    const shell = { nav: [], menu: [], pdf: [], per: null };
+    const origClick = elx => { try { elx.click(); } catch (e) { reportError('Aktion', e); } };
+    function readShellSource() {
+        shell.nav = [...document.querySelectorAll('.navmenu a.navmenu_a')].map(a => {
+            const lbEl = a.querySelector('.navmenu_icon_beschriftung');
+            const label = (lbEl ? lbEl.textContent : a.textContent).replace(/\s+/g, ' ').trim();
+            let on = !!(lbEl && lbEl.classList.contains('active'));
+            try { if (!on && new URL(a.href, location.href).pathname === location.pathname) on = true; } catch (e) { }
+            const short = { anzBn: 'Mitteilungen', zm_abw_uebersicht: 'Abwesenheiten' }[a.id] || label.replace(/übersicht$/i, '');
+            return { a, id: a.id, label, short, href: a.getAttribute('href'), on, icon: NAV_ICON[a.id] || 'grid' };
+        }).filter(x => x.label);
+        const seen = new Set();
+        shell.menu = [...document.querySelectorAll('.hbmbutton a, .hbmbutton button, .hbmbutton input[type=button]')].filter(a => { if (seen.has(a)) return false; seen.add(a); return true; })
+            .map(a => ({ a, label: (a.textContent || a.value || '').replace(/\s+/g, ' ').trim() })).filter(x => x.label && !/^men(ü|u)$/i.test(x.label));
+        shell.pdf = [...document.querySelectorAll('#pdflst a')].map(a => ({ a, label: a.textContent.replace(/\s+/g, ' ').trim() })).filter(x => x.label);
+        const per = document.getElementById('periode');
+        if (per) {
+            const back = document.getElementById('periode_a'), fwd = document.getElementById('periode_a2');
+            const pv = (document.getElementById('zdl_periode') || {}).getAttribute ? document.getElementById('zdl_periode').getAttribute('value') : null;
+            const inp = document.getElementById('zdlMonth');
+            const val = pv || (inp && inp.value) || '';
+            const mm = val.match(/(\d{1,2})\.(\d{4})/);
+            const spans = [...per.querySelectorAll('.periode_span')];
+            const fertig = per.querySelector('a[id^="fertigmeld"]');
+            const ym = ((document.getElementById('periode_text') || {}).textContent || '').match(/(\d{4})/);
+            if (ym && !document.getElementById('zdl_periode')) {      // Kalender: Jahres-Navigation statt Monat
+                shell.per = { el: per, back, fwd, yearMode: true, y: +ym[1], status: '', fertig: null, fertigTxt: '', recalc: null };
+                return;
+            }
+            shell.per = {
+                el: per, back, fwd, m: mm ? +mm[1] : new Date().getMonth() + 1, y: mm ? +mm[2] : new Date().getFullYear(),
+                status: spans.length ? spans[0].textContent.replace(/\s+/g, ' ').trim() : '', fertig, fertigTxt: fertig ? fertig.textContent.replace(/\s+/g, ' ').trim() : '',
+                recalc: document.getElementById('periode_pe')
+            };
+        } else shell.per = null;
+    }
+    function periodUrl(val) {
+        const src = (shell.per && (shell.per.back || shell.per.fwd)) ? (shell.per.back || shell.per.fwd).getAttribute('href') : null;
+        try {
+            const u = new URL(src || location.href, location.href);
+            u.searchParams.set('periode', val);
+            return u.pathname + u.search;
+        } catch (e) { return location.pathname + '?modulId=0&periode=' + encodeURIComponent(val); }
+    }
+    function userInfo() {
+        const t = (document.getElementById('welcome_name_text') || {}).textContent || '';
+        const raw = t.replace(/\s+/g, ' ').trim();
+        const nr = (raw.match(/\((\d+)\)/) || [])[1] || '';
+        const name = raw.replace(/\(\d+\)/, '').trim().split(' ').map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w).join(' ');
+        const img = document.getElementById('welcome_name_img');
+        const st = img ? (img.getAttribute('title') || '') : '';
+        return { name: name || 'Benutzer', nr, initials: name.split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('') || '?', present: /anwesend/i.test(st) && !/abwesend/i.test(st), status: st };
+    }
+    function buildShell() {
+        readShellSource();
+        if (!shell.nav.length && !document.getElementById('welcome_name')) return false;
+        const host = el('div');
+        host.id = 'zp-shell-host';
+        document.body.insertBefore(host, document.body.firstChild);
+        SH = mkRoot(host);
+        const box = el('div', 'zp-font');
+        box.id = 'zs';
+        SH.appendChild(box);
+        const pop = el('div'); pop.id = 'zs-pop';   // außerhalb von #zs (backdrop-filter würde position:fixed einfangen)
+        SH.appendChild(pop);
+        pop.addEventListener('click', onShellClick);
+        if (shell.menu.length || !document.querySelector('.hbmbutton')) document.querySelectorAll('.hbmbutton').forEach(x => x.classList.add('zp-hide-orig'));
+        if (shell.per) shell.per.el.classList.add('zp-hide-orig');
+        renderShell();
+        box.addEventListener('click', onShellClick);
+        document.addEventListener('click', e => { if (!inPath(e, box) && !inPath(e, pop)) closePops(); });
+        window.addEventListener('scroll', () => closePops(), { passive: true });
+        return true;
+    }
+    function renderShell() {
+        const box = $('zs');
+        if (!box) return;
+        const u = userInfo(), P = shell.per;
+        const active = shell.nav.find(n => n.on);
+        const navHtml = shell.nav.map((n, i) => {
+            const bgEl = n.a.querySelector('.navmenu_anzahl_bg'), cnt = n.a.querySelector('.navmenu_anzahl');
+            const c = cnt ? cnt.textContent.trim() : '';
+            const badge = bgEl && !bgEl.classList.contains('hidden') && c && c !== '?' && c !== '0' ? `<span class="zs-badge num">${esc(c)}</span>` : '';
+            return `<a href="${esc(n.href || '#')}" class="${n.on ? 'on' : ''}" title="${esc(n.label)}" data-nav="${i}">${ico(n.icon, 17)}<span class="lb">${esc(n.short)}</span>${badge}</a>`;
+        }).join('');
+        let sub = '';
+        if (P && P.yearMode) {
+            const ur = readUrlaub();
+            const urTxt = ur && !/ermittelt/i.test(ur) ? ur.replace(/^Resturlaub\s*/i, '').replace(/^per Ende\s*/i, 'Ende ') : '';
+            sub = `<div class="zs-sub">
+                <div class="zs-title">${esc(active ? active.label : 'Kalender')}</div>
+                <div class="zs-month">
+                  <button type="button" data-act="prev" title="Vorjahr"${P.back && P.back.getAttribute('href') ? '' : ' disabled'}>${ico('left', 16)}</button>
+                  <span class="m num">Jahr ${P.y}</span>
+                  <button type="button" data-act="next" title="Folgejahr"${P.fwd && P.fwd.getAttribute('href') ? '' : ' disabled'}>${ico('right', 16)}</button>
+                  ${P.y !== new Date().getFullYear() ? '<button type="button" class="t" data-act="thisyear">Aktuelles Jahr</button>' : ''}
+                </div>
+                ${urTxt ? `<span class="zs-chip">${ico('sun', 13)}Resturlaub <b class="num">${esc(urTxt)}</b></span>` : ''}
+                <span class="sp"></span>
+                ${shell.menu.length ? `<button type="button" class="zp-btn pri" data-act="new">${ico('plus', 15)} Neu ${ico('chevron', 13)}</button>` : ''}
+              </div>`;
+        } else if (P) {
+            const ur = readUrlaub();
+            const urTxt = ur && !/ermittelt/i.test(ur) ? ur.replace(/^Resturlaub\s*/i, '').replace(/^per Ende\s*/i, 'Ende ') : '';
+            const done = /fertig|genehmigt|abgerechnet/i.test(P.status) && !/bearbeitung/i.test(P.status);
+            sub = `<div class="zs-sub">
+                <div class="zs-title">${esc(active ? active.label : 'Zeitdatenliste')}</div>
+                <div class="zs-month">
+                  <button type="button" data-act="prev" title="Vormonat"${P.back ? '' : ' disabled'}>${ico('left', 16)}</button>
+                  <button type="button" class="m num" data-act="month">${MONTHS[P.m - 1]} ${P.y} ${ico('chevron', 14)}</button>
+                  <button type="button" data-act="next" title="Nächster Monat"${P.fwd && P.fwd.getAttribute('href') ? '' : ' disabled'}>${ico('right', 16)}</button>
+                  <button type="button" class="t" data-act="today">Heute</button>
+                </div>
+                ${P.status ? `<span class="zs-chip st${done ? ' ok' : ''}">${ico(done ? 'check' : 'pencil', 13)}${esc(P.status)}</span>` : ''}
+                ${urTxt ? `<span class="zs-chip ur" title="Resturlaub ${esc(urTxt)}">${ico('sun', 13)}<b class="num">${esc((urTxt.match(/:\s*(-?[\d.,]+\s*\S*)/) || [])[1] || urTxt)}</b></span>` : ''}
+                <span class="sp"></span>
+                ${shell.menu.length ? `<button type="button" class="zp-btn" data-act="new">${ico('plus', 15)} Neu ${ico('chevron', 13)}</button>` : ''}
+                ${P.recalc ? `<button type="button" class="zp-btn" data-act="recalc" title="Berechnung bis Monatsende">${ico('refresh', 15)} Berechnen</button>` : ''}
+                ${shell.pdf.length ? `<button type="button" class="zp-btn" data-act="pdf">${ico('pdf', 15)} PDF ${ico('chevron', 13)}</button>` : ''}
+                ${P.fertig ? `<button type="button" class="zp-btn pri" data-act="fertig">${ico('send', 15)} ${esc(P.fertigTxt ? P.fertigTxt[0].toUpperCase() + P.fertigTxt.slice(1) : 'Fertigmelden')}</button>` : ''}
+              </div>`;
+        }
+        if (!P && shell.menu.length) {      // Seiten ohne Monatsleiste (Kalender, Anträge …): eigenes Menü trotzdem erreichbar
+            sub = `<div class="zs-sub"><div class="zs-title">${esc(active ? active.label : document.title || 'LHR')}</div><span class="sp"></span>
+                <button type="button" class="zp-btn pri" data-act="new">${ico('plus', 15)} Neu ${ico('chevron', 13)}</button></div>`;
+        }
+        const keepLive = box.classList.contains('live-on');
+        box.innerHTML = `<div class="zs-in">
+            <div class="zs-bar">
+              <a class="zs-brand" href="/Self?modulId=0" title="Hauptseite">${LOGO}<span>Zeit+</span></a>
+              <nav class="zs-nav">${navHtml}</nav>
+              <div class="zs-live num" id="zs-live" data-act="top" title="Nach oben"></div>
+              <div class="zs-right">
+                <button type="button" class="zp-icon" data-act="theme" title="Theme wechseln (Alt+T)">${ico('palette', 17)}</button>
+                <button type="button" class="zp-icon" data-act="gear" title="Zeit+ Einstellungen (Alt+S)">${ico('sliders', 16)}</button>
+                <button type="button" class="zs-user" data-act="user" title="${esc(u.status)}"><span class="zs-av">${esc(u.initials)}<i class="${u.present ? 'on' : ''}"></i></span><span class="nm">${esc(u.name)}${u.nr ? `<small class="num">${esc(u.nr)}</small>` : ''}</span>${ico('chevron', 14)}</button>
+              </div>
+            </div>${sub}</div>`;
+        box.classList.toggle('live-on', keepLive);
+    }
+    function closePops() { const p = $('zs-pop'); if (p) p.innerHTML = ''; }
+    function openPop(btn, html, width) {
+        const p = $('zs-pop');
+        if (!p) return;
+        if (p.dataset.for === btn.dataset.act && p.innerHTML) { closePops(); p.dataset.for = ''; return; }
+        p.dataset.for = btn.dataset.act;
+        p.innerHTML = `<div class="zs-pop zp-font">${html}</div>`;
+        const pop = p.firstChild, r = btn.getBoundingClientRect(), w = width || 240;
+        pop.style.minWidth = w + 'px';
+        const left = Math.max(12, Math.min(r.right - w, innerWidth - w - 12));
+        pop.style.left = (r.left + w > innerWidth - 12 ? left : Math.max(12, r.left)) + 'px';
+        pop.style.top = (r.bottom + 8) + 'px';
+    }
+    let pickYear = null;
+    function monthPicker(btn) {
+        const P = shell.per; if (!P) return;
+        if (pickYear == null) pickYear = P.y;
+        const now = new Date();
+        openPop(btn, `<div class="zs-yr"><button type="button" data-act="yr-" title="Vorjahr">${ico('left', 15)}</button><b class="num">${pickYear}</b><button type="button" data-act="yr+" title="Folgejahr">${ico('right', 15)}</button></div>
+            <div class="zs-months">${MONTHS.map((n, i) => `<button type="button" data-month="${i + 1}" class="${P.y === pickYear && P.m === i + 1 ? 'on' : ''}${now.getFullYear() === pickYear && now.getMonth() === i ? ' now' : ''}">${n.slice(0, 3)}</button>`).join('')}</div>`, 250);
+    }
+    function onShellClick(e) {
+        const t = e.target.closest('[data-act],[data-month],[data-mi],[data-pdf],[data-lang]');
+        if (!t) return;
+        const P = shell.per;
+        if (t.dataset.month) { location.href = periodUrl(pad(+t.dataset.month) + '.' + pickYear); return; }
+        if (t.dataset.mi != null) { closePops(); const m = shell.menu[+t.dataset.mi]; if (m) origClick(m.a); return; }
+        if (t.dataset.pdf != null) { closePops(); const m = shell.pdf[+t.dataset.pdf]; if (m) origClick(m.a); return; }
+        if (t.dataset.lang) { closePops(); if (typeof window.changeLang === 'function') window.changeLang(t.dataset.lang); return; }
+        const act = t.dataset.act;
+        if (act === 'yr-' || act === 'yr+') { e.stopPropagation(); pickYear += act === 'yr-' ? -1 : 1; const b = $('zs').querySelector('[data-act="month"]'); const p = $('zs-pop'); p.dataset.for = ''; monthPicker(b); return; }
+        if (act === 'prev' && P && P.back) { location.href = P.back.getAttribute('href'); return; }
+        if (act === 'next' && P && P.fwd && P.fwd.getAttribute('href')) { location.href = P.fwd.getAttribute('href'); return; }
+        if (act === 'today') { location.href = periodUrl(''); return; }
+        if (act === 'thisyear') { try { const u = new URL((P.back || P.fwd).getAttribute('href'), location.href); u.searchParams.delete('jahr'); location.href = u.pathname + u.search; } catch (er) { location.href = location.pathname; } return; }
+        if (act === 'month') { pickYear = null; monthPicker(t); return; }
+        if (act === 'recalc' && P && P.recalc) { location.href = P.recalc.getAttribute('href'); return; }
+        if (act === 'fertig' && P && P.fertig) { origClick(P.fertig); return; }
+        if (act === 'new') { openPop(t, `<h5>Neu erfassen</h5>${shell.menu.map((m, i) => `<button type="button" class="zs-mi" data-mi="${i}">${ico(/pause/i.test(m.label) ? 'utensils' : /notiz/i.test(m.label) ? 'file' : /abwesen/i.test(m.label) ? 'sun' : /umbuch/i.test(m.label) ? 'refresh' : /mehrfach/i.test(m.label) ? 'rows' : 'plus', 15)}${esc(m.label[0].toUpperCase() + m.label.slice(1))}</button>`).join('')}`, 250); return; }
+        if (act === 'pdf') { openPop(t, `<h5>Report drucken</h5>${shell.pdf.map((m, i) => `<button type="button" class="zs-mi" data-pdf="${i}">${ico('pdf', 15)}${esc(m.label)}</button>`).join('')}`, 230); return; }
+        if (act === 'theme') { cycleTheme(); return; }
+        if (act === 'gear') { openModal(); return; }
+        if (act === 'top') { const h = document.getElementById('zp-host'); if (h) h.scrollIntoView({ behavior: 'smooth', block: 'start' }); else window.scrollTo({ top: 0, behavior: 'smooth' }); return; }
+        if (act === 'user') {
+            const u = userInfo();
+            const link = (id, icon, label, cls, blank) => { const a = document.getElementById(id); return a ? `<a class="zs-mi ${cls || ''}" href="${esc(a.getAttribute('href'))}"${blank ? ' target="_blank"' : ''}>${ico(icon, 15)}${label}</a>` : ''; };
+            const sel = document.getElementById('ml_select');
+            const langs = sel ? [...sel.options].map(o => `<button type="button" data-lang="${esc(o.textContent.trim())}" class="${o.selected ? 'on' : ''}">${esc(o.textContent.trim().toUpperCase())}</button>`).join('') : '';
+            openPop(t, `<h5>${esc(u.name)}${u.nr ? ' · ' + esc(u.nr) : ''}${u.status ? ' · ' + esc(u.status) : ''}</h5>
+                ${link('change_pw', 'user', 'Benutzerdaten ändern')}${link('call_hilfe', 'help', 'Hilfe', '', true)}
+                ${langs ? `<div class="zs-sepl"></div><h5>${ico('globe', 12)} Sprache</h5><div class="zs-langs">${langs}</div>` : ''}
+                <div class="zs-sepl"></div>${link('logout', 'logout', 'Abmelden', 'danger')}`, 250);
+        }
+    }
+
+    /* ════════════════════ KALENDER (Jahresübersicht) ════════════════════ */
+    const KAL_NAMES = { U: 'Urlaub', F: 'Feiertag', K: 'Krankenstand', A: 'Arzt', R: 'Remotearbeit', Z: 'Zeitausgleich', S: 'Sonderurlaub', D: 'Dienstreise', P: 'Pflegefreistellung', B: 'Berufsschule', H: 'Homeoffice', G: 'Gleittag' };
+    const WD_LONG = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'];
+    const WD_SHORT = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+    const rgbOf = s => { const m = String(s || '').match(/rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:[,\s/]+([\d.]+%?))?/); if (!m) return null; let a = m[4] == null ? 1 : parseFloat(m[4]); if (/%$/.test(m[4] || '')) a /= 100; else if (a > 1) a /= 255; return { r: +m[1], g: +m[2], b: +m[3], a }; };
+    const lumOf = c => (0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b) / 255;
+    const cssRgb = c => `rgb(${Math.round(c.r)},${Math.round(c.g)},${Math.round(c.b)})`;
+    const colDist = (a, b) => Math.abs(a.r - b.r) + Math.abs(a.g - b.g) + Math.abs(a.b - b.b);
+    const inkOf = c => lumOf(c) > .52 ? '#17130e' : '#fff';
+    let kalData = null, kalLastSig = '';
+
+    function readKal() {
+        const tab = document.getElementById('kalendertab');
+        if (!tab) return null;
+        const y = +((((document.getElementById('periode_text') || {}).textContent || '').match(/(\d{4})/) || [])[1]) || new Date().getFullYear();
+        const legend = [];
+        const sum = document.getElementById('kalendertab_summe');
+        if (sum) sum.querySelectorAll('tbody tr').forEach(tr => {
+            const nmEl = tr.querySelector('[id="kal_td_abwesenheit"]');
+            if (!nmEl) return;
+            const sw = [...tr.children].find(td => td.hasAttribute('style')) || null;
+            const cls = sw ? sw.className : '';
+            const col = sw ? rgbOf(sw.style.backgroundColor) : null;
+            legend.push({
+                name: nmEl.textContent.replace(/\s+/g, ' ').trim(),
+                letter: sw ? sw.textContent.replace(/\s+/g, '').trim() : '',
+                color: col && col.a > .05 ? col : null,
+                tage: ((tr.querySelector('[id="kal_td_tage"]') || {}).textContent || '').trim(),
+                std: ((tr.querySelector('[id="kal_td_stunden"]') || {}).textContent || '').trim(),
+                cb: tr.querySelector('input[type="checkbox"]'),
+                kind: /kalTag_sa/.test(cls) ? 'sa' : /kalTag_so_fe/.test(cls) ? 'so' : 'abs'
+            });
+        });
+        const absLeg = legend.filter(l => l.kind === 'abs');
+        const findLeg = (letter, col) => {
+            const same = absLeg.filter(l => l.letter === letter);
+            if (col) { const m = same.find(l => l.color && colDist(l.color, col) < 30); if (m) return m; }
+            if (!col) { const m = same.find(l => !l.color); if (m) return m; }
+            return same.find(l => !!l.color === !!col) || null;
+        };
+        const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+        const months = [];
+        tab.querySelectorAll('tbody > tr').forEach((tr, idx) => {
+            const nm = ((tr.querySelector('[id="monatsname"]') || tr.children[0] || {}).textContent || '').trim();
+            let mi = MONTHS.indexOf(nm); if (mi < 0) mi = idx;
+            const days = [];
+            [...tr.children].slice(1).forEach((td, i) => {
+                const dt = new Date(y, mi, i + 1);
+                if (dt.getMonth() !== mi) return;
+                const cls = td.className || '';
+                const a = td.querySelector('a[href]');
+                const letter = td.textContent.replace(/\s+/g, '').trim().slice(0, 3);
+                let col = rgbOf(td.style.backgroundColor); if (col && col.a <= .05) col = null;
+                const wd = dt.getDay();
+                const pend = !!td.querySelector('[style*="italic"]');
+                const leg = letter ? findLeg(letter, col) : null;
+                let kind = null, name = '';
+                if (letter) {
+                    if (col || (leg && leg.color)) { kind = 'abs'; col = col || leg.color; }
+                    else kind = 'work';
+                    name = leg ? leg.name : (KAL_NAMES[letter[0]] || letter);
+                }
+                days.push({
+                    d: i + 1, dt, key: dayKey(dt), wd, letter, col, kind, name, pend,
+                    we: wd === 0 || wd === 6 || /kalTag_sa/.test(cls),
+                    hol: (/kalTag_so_fe/.test(cls) && wd !== 0) || letter === 'F',
+                    past: dt < t0, today: /kalTagHeute/.test(cls) || dt.getTime() === t0.getTime(),
+                    href: a ? a.getAttribute('href') : null
+                });
+            });
+            months.push({ mi, name: MONTHS[mi], days });
+        });
+        months.sort((a, b) => a.mi - b.mi);
+        const ru = (document.getElementById('resturlaub_kalender') || {}).textContent || '';
+        return { y, legend, months, ru: ru.replace(/\s+/g, ' ').trim() };
+    }
+
+    function buildKal() {
+        const content = document.getElementById('content');
+        if (!content || !document.getElementById('kalendertab')) return false;
+        const host = el('div');
+        host.id = 'zp-kal-host';
+        const err = document.getElementById('error_urlaubmaxdate_div');
+        if (err && err.parentElement === content) err.after(host); else content.insertBefore(host, content.firstChild);
+        K = mkRoot(host);
+        const box = el('div', 'zp-font');
+        box.id = 'zk';
+        K.appendChild(box);
+        box.addEventListener('click', e => {
+            const v = e.target.closest('[data-kv]');
+            if (v) { S.kalView = v.dataset.kv; saveS(); applyTheme(); return; }
+            const y = e.target.closest('[data-ky]');
+            if (y) { const a = document.getElementById(y.dataset.ky === '-' ? 'periode_a' : 'periode_a2'); if (a && a.getAttribute('href')) location.href = a.getAttribute('href'); return; }
+            const cb = e.target.closest('[data-cb]');
+            if (cb && kalData) { const l = kalData.legend[+cb.dataset.cb]; if (l && l.cb) origClick(l.cb); return; }
+            const d = e.target.closest('[data-k]');
+            if (d && kalData) {
+                const day = kalData.byKey.get(d.dataset.k);
+                if (day && day.href) location.href = day.href;
+                else if (day && day.kind === 'abs') toast(WD_LONG[day.wd] + ', ' + day.key, day.name + (day.pend ? ' – beantragt, noch nicht genehmigt.' : '.') + ' Ändern/Stornieren geht über „Anträge“.', { icon: 'calendar' });
+            }
+        });
+        renderKal();
+        return true;
+    }
+
+    function renderKal() {
+        const box = $('zk');
+        if (!box) return;
+        const k = readKal();
+        if (!k) return;
+        kalData = k;
+        k.byKey = new Map();
+        k.months.forEach(m => m.days.forEach(d => k.byKey.set(d.key, d)));
+        const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+        const all = k.months.flatMap(m => m.days);
+        // Brückentage: kurze Arbeitstag-Lücken (1–3 Tage) zwischen freien Tagen, an mindestens einem Feiertag
+        const bridges = [];
+        {
+            const free = d => d.we || d.hol || (d.kind === 'abs');
+            let i = 0;
+            while (i < all.length) {
+                if (free(all[i])) { i++; continue; }
+                let j = i; while (j < all.length && !free(all[j])) j++;
+                const L = j - i;
+                if (L <= 3 && i > 0 && j < all.length) {
+                    let a = i - 1; while (a > 0 && free(all[a - 1])) a--;
+                    let b = j; while (b < all.length - 1 && free(all[b + 1])) b++;
+                    const span = all.slice(a, b + 1), work = all.slice(i, j);
+                    const hasHol = span.some(d => d.hol && d.wd !== 0 && d.wd !== 6);
+                    if (hasHol && work.every(d => d.dt > t0)) {
+                        bridges.push({ work, from: span[0], to: span[span.length - 1], len: span.length, cost: L, ratio: span.length / L, holName: (span.find(d => d.hol && d.wd !== 0 && d.wd !== 6) || {}).key });
+                    }
+                }
+                i = j;
+            }
+            bridges.sort((x, y) => y.ratio - x.ratio || x.from.dt - y.from.dt);
+        }
+        const bridgeDays = new Set(bridges.flatMap(b => b.work.map(d => d.key)));
+        const view = S.kalView;
+
+        // Kennzahlen
+        const ruNum = (k.ru.match(/:\s*(-?[\d.,]+)\s*(Tag\w*|Std\w*|h)?/i) || []);
+        const ruPer = (k.ru.match(/Ende\s+([\d.]+)/i) || [])[1] || '';
+        const urlLeg = k.legend.find(l => /urlaub/i.test(l.name) && l.kind === 'abs');
+        const pend = all.filter(d => d.pend);
+        const future = all.filter(d => !d.past && d.kind === 'abs' && d.letter !== 'F');
+        let next = null;
+        if (future.length) {        // zusammenhängender Block (Wochenenden/Feiertage dazwischen erlaubt)
+            const f = future[0]; let last = f;
+            for (const d of all) {
+                if (d.dt <= f.dt) continue;
+                if (d.kind === 'abs' && d.name === f.name) { last = d; continue; }
+                if (d.we || d.hol) continue;
+                break;
+            }
+            const n = Math.round((f.dt - t0) / 864e5);
+            next = { f, last, n };
+        }
+        const nextHol = all.find(d => !d.past && d.hol && !d.today && d.wd !== 0 && d.wd !== 6);
+        const fmtD = d => WD_SHORT[d.wd] + ' ' + pad(d.d) + '.' + pad(d.dt.getMonth() + 1) + '.';
+        const inTxt = n => n === 0 ? 'heute' : n === 1 ? 'morgen' : 'in ' + n + ' Tagen';
+        const stat = (icon, label, val, sub, cls) => `<div class="zk-st ${cls || ''}"><small>${ico(icon, 13)}${label}</small><b class="num">${val}</b><span>${sub}</span></div>`;
+        const stats = `<div class="zk-stats">
+            ${stat('sun', 'Resturlaub', ruNum[1] ? esc(ruNum[1]) + ' <em>' + esc(ruNum[2] || 'Tage') + '</em>' : (/ermittelt/i.test(k.ru) || !k.ru ? '…' : esc(k.ru)), ruPer ? 'per Ende ' + esc(ruPer) : 'wird von LHR ermittelt', 'acc')}
+            ${stat('calendar', 'Urlaub ' + k.y, urlLeg ? esc(urlLeg.tage || '0') + ' <em>Tage</em>' : '0 <em>Tage</em>', urlLeg && urlLeg.std ? esc(urlLeg.std) + ' Stunden verbucht' : 'noch nichts verbucht')}
+            ${stat('send', 'Beantragt', pend.length + ' <em>' + (pend.length === 1 ? 'Tag' : 'Tage') + '</em>', pend.length ? 'offen: ' + pend.slice(0, 3).map(fmtD).join(', ') + (pend.length > 3 ? ' …' : '') : 'keine offenen Anträge', pend.length ? 'warn' : '')}
+            ${stat('target', 'Nächste Abwesenheit', next ? esc(fmtD(next.f)) + (next.last !== next.f ? ' – ' + esc(fmtD(next.last)) : '') : '—', next ? esc(next.f.name) + (next.f.pend ? ' (beantragt)' : '') + ' · ' + inTxt(next.n) : 'nichts geplant' + (nextHol ? ' · nächster Feiertag ' + esc(fmtD(nextHol)) : ''))}
+          </div>`;
+
+        // Tageszelle
+        const cell = (d, strip) => {
+            if (!d) return '<span class="zk-d blank"></span>';
+            let cls = 'zk-d', style = '', tip = WD_LONG[d.wd] + ', ' + d.key;
+            if (d.we) cls += ' we';
+            if (d.hol) { cls += ' hol'; if (d.letter !== 'F') tip += ' · Feiertag'; }
+            if (d.past) cls += ' past';
+            if (d.today) { cls += ' today'; tip += ' · heute'; }
+            if (d.kind === 'abs') { cls += ' abs'; style = `--c:${cssRgb(d.col)};--ink:${inkOf(d.col)}`; tip += ' · ' + d.name; }
+            else if (d.kind === 'work') { cls += ' work'; tip += ' · ' + d.name; }
+            if (d.pend) { cls += ' pend'; tip += ' (beantragt)'; }
+            if (bridgeDays.has(d.key)) { cls += ' bridge'; tip += ' · Brückentag-Tipp'; }
+            if (d.href) { cls += ' add'; tip += '\nKlicken: Urlaub / Abwesenheit eintragen'; }
+            const inner = strip ? (d.kind === 'abs' ? `<b>${esc(d.letter)}</b>` : '') : `<b>${d.d}</b>${d.kind === 'abs' ? `<i>${esc(d.letter)}</i>` : ''}`;
+            return `<button type="button" class="${cls}" style="${style}" title="${esc(tip)}" data-k="${d.key}">${inner}</button>`;
+        };
+
+        let body = '';
+        if (view === 'months') {
+            body = `<div class="zk-months">${k.months.map(m => {
+                const first = m.days[0] ? (m.days[0].wd + 6) % 7 : 0;
+                const cur = m.days.some(d => d.today);
+                const cnt = new Map();
+                m.days.forEach(d => { if (d.kind === 'abs' && d.letter !== 'F') { const c = cnt.get(d.name) || { n: 0, col: d.col }; c.n++; cnt.set(d.name, c); } });
+                const badges = [...cnt].map(([nm, c]) => `<span class="zk-bd" style="--c:${cssRgb(c.col)}" title="${esc(nm)}: ${c.n} Tag${c.n === 1 ? '' : 'e'}"><i></i>${c.n}</span>`).join('');
+                const isPast = m.days.length && m.days[m.days.length - 1].past;
+                return `<div class="zk-m${cur ? ' cur' : ''}${isPast ? ' gone' : ''}">
+                    <div class="zk-mh"><b>${m.name}</b><span>${badges}</span></div>
+                    <div class="zk-wd">${['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'].map(w => `<span>${w}</span>`).join('')}</div>
+                    <div class="zk-g">${'<span class="zk-d blank"></span>'.repeat(first)}${m.days.map(d => cell(d)).join('')}</div>
+                  </div>`;
+            }).join('')}</div>`;
+        } else if (view === 'strip') {
+            let h = '<span></span>';
+            for (let i = 1; i <= 31; i++) h += `<span class="hd num">${i}</span>`;
+            body = `<div class="zk-stripw"><div class="zk-strip">${h}${k.months.map(m => {
+                let r = `<span class="mn${m.days.some(d => d.today) ? ' cur' : ''}">${m.name}</span>`;
+                for (let i = 1; i <= 31; i++) { const d = m.days.find(x => x.d === i); r += d ? cell(d, true) : '<span class="zk-d none"></span>'; }
+                return r;
+            }).join('')}</div></div>`;
+        }
+
+        // Legende
+        const legAbs = k.legend.map((l, i) => ({ l, i })).filter(x => x.l.kind === 'abs');
+        const hasF = all.some(d => d.letter === 'F') && !legAbs.some(x => x.l.letter === 'F');
+        const legend = `<div class="zk-leg">
+            ${legAbs.map(({ l, i }) => {
+                const off = l.cb && !l.cb.checked;
+                const sw = l.color ? `<span class="zk-sw" style="--c:${cssRgb(l.color)};--ink:${inkOf(l.color)}">${esc(l.letter)}</span>` : `<span class="zk-sw work">${esc(l.letter)}</span>`;
+                return `<${l.cb ? 'button type="button"' : 'span'} class="zk-li${off ? ' off' : ''}"${l.cb ? ` data-cb="${i}" title="${off ? 'Im Kalender einblenden' : 'Im Kalender ausblenden'}"` : ''}>${sw}<span>${esc(l.name)}</span><em class="num">${esc(l.tage || '0')} T${l.std ? ' · ' + esc(l.std) + ' h' : ''}</em>${l.cb ? ico(off ? 'x' : 'eye', 13) : ''}</${l.cb ? 'button' : 'span'}>`;
+            }).join('')}
+            ${hasF ? `<span class="zk-li"><span class="zk-sw" style="--c:rgb(255,192,0);--ink:#17130e">F</span><span>Feiertag</span></span>` : ''}
+            <span class="zk-li ghost"><span class="zk-sw we"></span><span>Wochenende</span></span>
+            <span class="zk-li ghost"><span class="zk-sw hol"></span><span>Feiertag (kommend)</span></span>
+            <span class="zk-li ghost"><span class="zk-sw pend"></span><span>beantragt</span></span>
+            <span class="zk-li ghost"><span class="zk-sw today"></span><span>Heute</span></span>
+          </div>`;
+
+        const yNav = !(SH && S.shell) ? `<div class="zk-yn"><button type="button" data-ky="-" title="Vorjahr">${ico('left', 15)}</button><b class="num">${k.y}</b><button type="button" data-ky="+" title="Folgejahr">${ico('right', 15)}</button></div>` : '';
+        const head = `<div class="zk-head">
+            <div class="zl-title">${ico('calendar', 17)}<span>Jahresübersicht ${k.y}</span></div>${yNav}
+            <span class="sp"></span>
+            <div class="zp-segc">${[['months', 'Monate'], ['strip', 'Leiste'], ['orig', 'Original']].map(([v, l]) => `<button type="button" data-kv="${v}" class="${view === v ? 'on' : ''}">${l}</button>`).join('')}</div>
+          </div>`;
+        const sig = view + '|' + bridges.length + '|' + k.ru + '|' + k.legend.map(l => l.tage + (l.cb && l.cb.checked)).join(',') + '|' + (SH && S.shell) + '|' + all.length + '|' + t0.getTime();
+        if (sig === kalLastSig && box.innerHTML) return;
+        kalLastSig = sig;
+        box.classList.toggle('orig', view === 'orig');
+        const fmtR = b => fmtD(b.from) + (b.from !== b.to ? ' – ' + fmtD(b.to) : '');
+        const brHtml = `<div class="zk-card"><div class="zk-head"><div class="zl-title">${ico('sparkle', 17)}<span>Brückentage ${k.y}</span></div><span class="zk-sub">mit wenig Urlaub möglichst lange frei</span></div>
+            ${bridges.length ? `<div class="zk-brs">${bridges.slice(0, 8).map(b => `<button type="button" class="zk-br" data-k="${b.work[0].key}" title="Urlaub an: ${esc(b.work.map(fmtD).join(', '))}\nKlicken: ersten Tag eintragen">
+                <b class="num">${b.cost} <em>Urlaubstag${b.cost > 1 ? 'e' : ''}</em> → ${b.len} <em>Tage frei</em></b>
+                <span>${esc(fmtR(b))}</span><small>Urlaub: ${esc(b.work.map(fmtD).join(', '))}</small></button>`).join('')}</div>`
+                : `<div class="zk-none">${ico('check', 14)} Für den Rest von ${k.y} gibt es keine Brückentage mehr${k.y === new Date().getFullYear() ? ' – im nächsten Jahr schauen (Pfeil oben).' : '.'}</div>`}
+          </div>`;
+        box.innerHTML = view === 'orig'
+            ? `<div class="zk-card slim">${head}</div>`
+            : `<div class="zk-card">${head}${stats}</div>${brHtml}
+               <div class="zk-card">${body}
+                 <div class="zk-foot">${legend}<div class="zk-hint">${ico('pointer', 14)}<span>Auf einen <b>freien Tag</b> klicken, um Urlaub oder eine andere Abwesenheit einzutragen.</span></div></div>
+               </div>`;
+    }
+
+    /* ════════════════════ MONATSLISTE ════════════════════ */
+    const listState = { open: new Set(), future: null };
+    let listDays = new Map();
+    const mod = t => { const d = new Date(t); return d.getHours() * 60 + d.getMinutes(); };
+    const isoWeek = dt => { const d = new Date(Date.UTC(dt.getFullYear(), dt.getMonth(), dt.getDate())); const n = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - n); const y = new Date(Date.UTC(d.getUTCFullYear(), 0, 1)); return Math.ceil(((d - y) / 864e5 + 1) / 7); };
+    function lunchOf(segs) {
+        const wF = mod(at(S.lunchFrom)), wT = mod(at(S.lunchTo));
+        let best = null;
+        for (let i = 1; i < segs.length; i++) {
+            const a = segs[i - 1].e, b = segs[i].s;
+            if (a == null || b <= a) continue;
+            const mid = (mod(a) + mod(b)) / 2, len = b - a;
+            if (mid >= wF && mid <= wT && len >= S.lunchMinLen * M && (!best || len > best.len)) best = { s: a, e: b, len, i };
+        }
+        return best;
+    }
+    function buildList(host) {
+        L = mkRoot(host);
+        const box = el('div', 'zp-font');
+        box.id = 'zl';
+        box.innerHTML = `<div class="zl-head">
+            <div class="zl-title">${ico('rows', 17)}<span>Monatsübersicht</span><span id="zl-month" style="display:none"></span></div>
+            <span id="zl-sum" style="display:contents"></span><span class="sp"></span>
+            <div class="zl-cw"><button type="button" class="zp-btn sm" data-act="cols" title="Spalten ein-/ausblenden">${ico('sliders', 14)} Spalten</button><div class="zl-colpop" id="zl-colpop"></div></div>
+            <div class="zp-segc" id="zl-view"><button type="button" data-v="list">${'Zeit+ Liste'}</button><button type="button" data-v="orig">Original-Tabelle</button></div>
+          </div>
+          <div class="zl-body">
+            <div class="zl-cols" id="zl-cols"><span>Tag</span><span>Buchungen</span><span class="tlh">Verlauf 06–19 Uhr</span><span class="r isth">Ist</span><span class="r">+/− Tag</span><span class="r">Saldo</span><span></span></div>
+            <div id="zl-rows"></div>
+          </div>`;
+        L.appendChild(box);
+        box.querySelectorAll('#zl-view button').forEach(b => b.addEventListener('click', () => {
+            S.tableView = b.dataset.v; saveS(); applyTheme(); render();
+            try { window.dispatchEvent(new Event('resize')); } catch (e) { }
+        }));
+        // Spalten per Drag & Drop umsortieren
+        let dragCol = null;
+        const hdr = box.querySelector('#zl-cols');
+        const clearMarks = () => hdr.querySelectorAll('.drop-l,.drop-r,.dragging').forEach(x => x.classList.remove('drop-l', 'drop-r', 'dragging'));
+        hdr.addEventListener('dragstart', e => { const h = e.target.closest('[data-col]'); if (!h) return; dragCol = h.dataset.col; h.classList.add('dragging'); try { e.dataTransfer.setData('text/plain', dragCol); e.dataTransfer.effectAllowed = 'move'; } catch (er) { } });
+        hdr.addEventListener('dragover', e => {
+            const h = e.target.closest('[data-col]'); if (!h || !dragCol) return;
+            e.preventDefault(); hdr.querySelectorAll('.drop-l,.drop-r').forEach(x => x.classList.remove('drop-l', 'drop-r'));
+            if (h.dataset.col === dragCol) return;
+            const r = h.getBoundingClientRect(); h.classList.add(e.clientX < r.left + r.width / 2 ? 'drop-l' : 'drop-r');
+        });
+        hdr.addEventListener('dragleave', e => { const h = e.target.closest('[data-col]'); if (h) h.classList.remove('drop-l', 'drop-r'); });
+        hdr.addEventListener('drop', e => {
+            e.preventDefault();
+            const h = e.target.closest('[data-col]'); const from = dragCol; clearMarks(); dragCol = null;
+            if (!h || !from || h.dataset.col === from) return;
+            const r = h.getBoundingClientRect(), after = e.clientX >= r.left + r.width / 2;
+            const order = (listState.cols || []).filter(k => k !== from);
+            let at = order.indexOf(h.dataset.col); if (at < 0) return; if (after) at++;
+            order.splice(at, 0, from);
+            const prev = Array.isArray(S.colOrder) ? S.colOrder.filter(k => !order.includes(k)) : [];
+            S.colOrder = order.concat(prev); saveS(); render();
+        });
+        hdr.addEventListener('dragend', () => { clearMarks(); dragCol = null; });
+        hdr.addEventListener('dblclick', e => { if (e.target.closest('[data-col]') && Array.isArray(S.colOrder) && S.colOrder.length) { S.colOrder = []; saveS(); render(); toast('Spalten', 'Reihenfolge zurückgesetzt (wie in LHR).', { icon: 'check' }); } });
+        box.addEventListener('change', e => {
+            const t = e.target.closest('[data-colt]'); if (!t) return;
+            const k = t.dataset.colt; let h = Array.isArray(S.colHidden) ? S.colHidden.slice() : [];
+            if (t.checked) h = h.filter(x => x !== k); else if (!h.includes(k)) h.push(k);
+            S.colHidden = h; saveS(); render(); safe('Spalten', syncDtPopup);
+        });
+        document.addEventListener('click', e => { if (listState.colPop && !inPath(e, box.querySelector('.zl-cw'))) { listState.colPop = false; render(); } });
+        box.addEventListener('click', e => {
+            if (e.target.closest('.zl-colpop')) {
+                const a = e.target.closest('[data-act]');
+                if (a && a.dataset.act === 'colsall') { S.colHidden = []; saveS(); render(); safe('Spalten', syncDtPopup); }
+                if (a && a.dataset.act === 'colsreset') { S.colOrder = []; saveS(); render(); }
+                e.stopPropagation(); return;
+            }
+            const cb0 = e.target.closest('[data-act="cols"]');
+            if (cb0) { e.stopPropagation(); listState.colPop = !listState.colPop; render(); return; }
+            const chip = e.target.closest('[data-href]');
+            if (chip) { e.stopPropagation(); location.href = chip.dataset.href; return; }
+            const act = e.target.closest('[data-act]');
+            if (act) {
+                e.stopPropagation();
+                const day = listDays.get(act.dataset.k);
+                if (act.dataset.act === 'mfe' && day) { const d0 = day.first.querySelector('.td_datum_item.popup-link'); if (d0) d0.click(); else toast('Nicht verfügbar', 'Für diesen Tag gibt es keine Mehrfacherfassung.'); }
+                if (act.dataset.act === 'future') { const cur = listState.futureEff; listState.future = !cur; S.futureDays = cur ? 'hide' : 'show'; saveS(); render(); }
+                return;
+            }
+            if (e.target.closest('.zl-det')) return;
+            const row = e.target.closest('.zl-row');
+            if (!row) return;
+            const k = row.dataset.k;
+            if (listState.open.has(k)) listState.open.delete(k); else listState.open.add(k);
+            render();
+        });
+    }
+
+    /* Zusatzspalten aus der LHR-Tabelle (FZS, ZA, 50%, 100%, IstW …): alles, was LHR gerade anzeigt und Werte hat */
+    const BASE_COLS = /^(Datum|ZM|Soll|Pause|Zeitdaten|Notiz|Ist|\+\/-TG|Saldo)\b/i;
+    function extraCols(days) {
+        const tb = tbody(), table = tb && tb.closest('table');
+        const thead = table && table.querySelector('thead');
+        if (!thead || !tb) return [];
+        const hr = thead.querySelector('tr');
+        if (!hr) return [];
+        const hcells = [...hr.children];
+        const sample = [...tb.querySelectorAll('tr[data-periode]')].filter(r => r.children.length === hcells.length).slice(0, 6);
+        const isShown = e => {                                 // so, wie LHR es anzeigt (unser eigenes Leer-Ausblenden ignorieren)
+            const had = e.classList.contains('zp-colhide');
+            if (had) e.classList.remove('zp-colhide');
+            const cs = getComputedStyle(e);
+            const ok = cs.display !== 'none' && cs.visibility !== 'collapse' && !e.hidden && e.getBoundingClientRect().width > 1;
+            if (had) e.classList.add('zp-colhide');
+            return ok;
+        };
+        const out = [];
+        hcells.forEach((th, idx) => {
+            const label = th.getAttribute('data-ueberschrift');
+            if (!label || BASE_COLS.test(label)) return;
+            let nr = null;
+            for (const r of sample) { const td = r.children[idx]; if (td && td.getAttribute('data-zsp-nr')) { nr = td.getAttribute('data-zsp-nr'); break; } }
+            if (!nr || !isShown(th)) return;
+            out.push({ key: 'z' + nr, nr, short: th.textContent.replace(/\s+/g, ' ').trim() || label, title: th.getAttribute('data-tippy-content') || label });
+        });
+        return out;
+    }
+    /* LHR-Spaltenmenü (.dt_popup) ↔ Zeit+ Liste: Häkchen = in der Liste sichtbar */
+    function colKeyMap() {
+        const tb = tbody(), table = tb && tb.closest('table'), hr = table && table.querySelector('thead tr');
+        const map = new Map();
+        if (!hr) return map;
+        const hcells = [...hr.children];
+        const sample = [...tb.querySelectorAll('tr[data-periode]')].filter(r => r.children.length === hcells.length).slice(0, 6);
+        hcells.forEach((th, idx) => {
+            const label = normT(th.getAttribute('data-ueberschrift'));
+            if (!label) return;
+            if (/^Ist\b/i.test(label)) { map.set(label, 'ist'); return; }
+            if (/^\+\/-TG\b/i.test(label)) { map.set(label, 'tg'); return; }
+            if (/^Saldo\b/i.test(label)) { map.set(label, 'sal'); return; }
+            if (BASE_COLS.test(label)) { map.set(label, null); return; }       // feste Spalten der Liste
+            for (const r of sample) { const td = r.children[idx]; const nr = td && td.getAttribute('data-zsp-nr'); if (nr) { map.set(label, 'z' + nr); break; } }
+        });
+        return map;
+    }
+    const normT = t => String(t || '').replace(/\s+/g, ' ').trim();
+    function syncDtPopup() {
+        if (PAGE !== 'zdl') return;
+        const pops = document.querySelectorAll('.dt_popup');
+        if (!pops.length) return;
+        const km = colKeyMap(), hid = Array.isArray(S.colHidden) ? S.colHidden : [];
+        pops.forEach(pop => {
+            const th0 = pop.querySelector('thead th'); if (th0 && th0.textContent.trim() !== 'Anzeigen') { th0.dataset.zpOrig = th0.textContent; th0.textContent = 'Anzeigen'; }
+            pop.querySelectorAll('tbody tr').forEach(tr => {
+                const cb = tr.querySelector('input[type="checkbox"]'); if (!cb) return;
+                const name = normT((tr.children[1] || tr).textContent);
+                if (!name) { tr.style.display = 'none'; return; }
+                const key = km.has(name) ? km.get(name) : undefined;
+                if (key) { cb.dataset.zpKey = key; cb.disabled = false; cb.checked = !hid.includes(key); tr.title = 'In der Zeit+ Liste anzeigen'; }
+                else { cb.removeAttribute('data-zp-key'); cb.checked = true; cb.disabled = true; tr.title = 'Fester Bestandteil der Zeit+ Liste'; tr.classList.add('zp-fixedrow'); }
+            });
+        });
+    }
+    function dtPopupGuard() {          // LHR-Fixieren abfangen, stattdessen Zeit+ Sichtbarkeit setzen
+        const handle = e => {
+            const cb = e.target && e.target.closest && e.target.closest('.dt_popup input[type="checkbox"]');
+            if (!cb) return;
+            e.stopImmediatePropagation(); e.stopPropagation();
+            if (e.type !== 'click' || !cb.dataset.zpKey) return;
+            const k = cb.dataset.zpKey; let h = Array.isArray(S.colHidden) ? S.colHidden.slice() : [];
+            if (cb.checked) h = h.filter(x => x !== k); else if (!h.includes(k)) h.push(k);
+            S.colHidden = h; saveS(); safe('Liste', render);
+        };
+        ['click', 'change', 'input', 'mousedown', 'mouseup'].forEach(t => document.addEventListener(t, handle, true));
+        const td = e => {                // Klick auf den Namen schaltet auch
+            if (e.target.closest && e.target.closest('.dt_popup tbody td') && !e.target.closest('input')) {
+                const cb = e.target.closest('tr').querySelector('input[data-zp-key]');
+                e.stopImmediatePropagation(); e.stopPropagation();
+                if (cb && !cb.disabled) cb.click();
+            }
+        };
+        document.addEventListener('click', td, true);
+    }
+    function watchCols() {                                     // Spalten an-/abhaken → Liste sofort neu
+        const tb = tbody(), table = tb && tb.closest('table');
+        if (!table) return;
+        let t = null, last = '';
+        const sig = () => { try { return extraCols(groupDays()).map(x => x.nr).join(','); } catch (e) { return ''; } };   // auch Reihenfolge (LHR Drag & Drop)
+        last = sig();
+        const check = () => { t = null; const n = sig(); if (n !== last) { last = n; safe('Liste', render); } };
+        new MutationObserver(() => { if (!t) t = setTimeout(check, 250); })
+            .observe(table, { subtree: true, childList: true, attributes: true, attributeFilter: ['style', 'class', 'hidden'] });
+        new MutationObserver(ms => { if (!t && ms.some(m => m.target.tagName === 'TH' || (m.target.querySelector && m.target.querySelector('th')))) t = setTimeout(check, 250); })
+            .observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+        document.addEventListener('change', e => { if (e.target && e.target.type === 'checkbox') [120, 500, 1500].forEach(ms => setTimeout(check, ms)); }, true);
+    }
+    const cellTxt = (rows, nr) => { let v = ''; rows.forEach(r => { const c = r.querySelector('td[data-zsp-nr="' + nr + '"]'); const t = c ? c.textContent.replace(/\s+/g, ' ').trim() : ''; if (t) v = t; }); return v; };
+    function renderList(d, c) {
+        const rowsBox = $('zl-rows');
+        if (!rowsBox) return;
+        const now = Date.now(), t0 = new Date(); t0.setHours(0, 0, 0, 0);
+        const tk = todayKey();
+        const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+        const MON = ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+        listDays = new Map();
+        const days = [];
+        for (const [k, rows] of d.days) {
+            const dt = keyDate(k), isT = k === tk, past = dt < t0;
+            const segs = [], infos = [];
+            let fehl = false, note = '', pause = null, editHref = null;
+            rows.forEach(r => {
+                if (r.querySelector('img.fehlbuch')) fehl = true;
+                const nt = r.querySelector('td.td_notiz');
+                if (nt && nt.textContent.trim()) note = nt.textContent.replace(/\s+/g, ' ').trim();
+                const pc = r.querySelectorAll('td.td_soll_pause_uz')[1];
+                const pv = pc && parseDur(pc.textContent); if (pv != null) pause = (pause || 0) + pv;
+                const zd = r.querySelector('td.td_zeitdaten');
+                if (!zd) return;
+                const a = zd.querySelector('.td_text1_isDate'), b = zd.querySelector('.td_text2_isDate');
+                if (a) {
+                    const s0 = parseClock(a.textContent);
+                    if (s0 == null) return;
+                    const la = a.querySelector('a'), lb = b && b.querySelector('a');
+                    segs.push({ s: s0, e: b ? parseClock(b.textContent) : null, ta: a.textContent.replace(/\s+/g, '').trim(), tb: b ? b.textContent.replace(/\s+/g, '').trim() : '',
+                        ha: la ? la.getAttribute('href') : null, hb: lb ? lb.getAttribute('href') : null });
+                } else {
+                    const za = zd.querySelector('a[href]'); if (za && !editHref) editHref = za.getAttribute('href');
+                    const t = zd.textContent.replace(/[_?]/g, '').replace(/\s+/g, ' ').trim().replace(/\s*\d{1,2}:\d{2}\s*$/, '');
+                    if (t && !/^\d{1,2}:\d{2}$/.test(t) && !/Periodenschluss|Abrechnung|Übertrag|Vorträge|keine positiven/i.test(t)) infos.push(t);
+                }
+            });
+            const dow = dt.getDay();
+            const day = {
+                k, dt, isT, past, future: !past && !isT, we: dow === 0 || dow === 6, segs, info: infos[0] || '', fehl: fehl && past, note, pause, editHref,
+                soll: sollOf(rows), edge: rows[0].style.getPropertyValue('--zp-edge') || '', first: rows[0],
+                ist: isT ? c.eff : lastVal(rows, 2), tg: isT ? c.tg : lastVal(rows, 73), sal: isT ? c.saldo : lastVal(rows, 3)
+            };
+            listDays.set(k, day);
+            days.push(day);
+        }
+        if (!days.length) { rowsBox.innerHTML = ''; return; }
+
+        // Kopf
+        const m0 = days[days.length - 1].dt;
+        setText('zl-month', MON[m0.getMonth()] + ' ' + m0.getFullYear());
+        const done = days.filter(x => x.past || x.isT);
+        const istSum = done.reduce((s, x) => s + (x.ist || 0), 0), sollSum = done.reduce((s, x) => s + x.soll, 0);
+        const missing = days.filter(x => x.fehl).length;
+        const sc = v => v > M ? 'ok' : v < -M ? 'bad' : '';
+        setHtml('zl-sum', `<span class="zl-pill">Ist${days.some(x => x.isT) || days.some(x => x.future) ? ' bis heute' : ''} <b class="num">${dur(istSum)}</b> / ${dur(sollSum)}</span>
+            ${c.saldo != null ? `<span class="zl-pill">Saldo <b class="num ${sc(c.saldo)}">${dur(c.saldo, true)}</b></span>` : ''}` +
+            (missing ? `<span class="zl-pill w">${ico('alert', 13)} ${missing} Tag${missing > 1 ? 'e' : ''} unvollständig</span>` : ''));
+        const vb = $('zl-view'); if (vb) vb.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === S.tableView));
+        if (S.tableView !== 'list') { rowsBox.innerHTML = ''; return; }
+
+        // Wertspalten: Ist, +/−, Saldo + alle in LHR angehakten Spalten (LHR-Reihenfolge), per Drag & Drop umsortierbar
+        const XC = extraCols(d.days);
+        let VC = [{ key: 'ist', short: 'Ist', title: 'Ist (Tagesstunden)', w: '62px', base: true }, { key: 'tg', short: '+/− Tag', title: '+/− Ist zu Soll', w: '66px', base: true }, { key: 'sal', short: 'Saldo', title: 'Saldo', w: '72px', base: true }]
+            .concat(XC.map(x => Object.assign({ w: 'minmax(54px,max-content)' }, x)));
+        const ord = Array.isArray(S.colOrder) ? S.colOrder : [];
+        VC = VC.map((v, i) => ({ v, i, o: ord.indexOf(v.key) })).sort((a, b) => (a.o < 0 ? 1000 + a.i : a.o) - (b.o < 0 ? 1000 + b.i : b.o)).map(x => x.v);
+        const hid = Array.isArray(S.colHidden) ? S.colHidden : [];
+        const VCall = VC;
+        VC = VCall.filter(v => !hid.includes(v.key));
+        listState.cols = VCall.map(v => v.key);
+        const cp = $('zl-colpop');
+        if (cp) {
+            cp.classList.toggle('open', !!listState.colPop);
+            cp.innerHTML = listState.colPop ? `<h5>Spalten in der Liste</h5>
+                ${VCall.map(v => `<label class="zl-ci"><input type="checkbox" data-colt="${v.key}"${hid.includes(v.key) ? '' : ' checked'}><span>${esc(v.short)}</span><em>${esc(v.title !== v.short ? v.title : '')}</em></label>`).join('')}
+                <div class="zl-cf"><button type="button" class="zp-btn sm" data-act="colsall">Alle anzeigen</button><button type="button" class="zp-btn sm" data-act="colsreset" title="Reihenfolge wie in LHR">Reihenfolge zurücksetzen</button></div>
+                <p>Tipp: Spalten-Überschrift in der Liste ziehen, um sie zu verschieben.</p>` : '';
+        }
+        const zlBox = $('zl');
+        const nx = VC.filter(v => !v.base).length;
+        const tlOff = S.tlMode === 'off', tlIn = !tlOff && (S.tlMode === 'inline' || (S.tlMode !== 'column' && nx > 2)), tlCol = !tlOff && !tlIn;   // viele Spalten → Verlauf als Balken unter den Buchungen
+        if (zlBox) {
+            zlBox.classList.toggle('tl-in', tlIn);
+            zlBox.classList.toggle('many', nx > 4);
+            zlBox.style.setProperty('--zl-grid', `92px minmax(260px,1fr)${tlCol ? ' 190px' : ''} ${VC.map(v => v.base ? v.w : 'minmax(50px,max-content)').join(' ')} 20px`);
+            zlBox.style.setProperty('--zl-gridm', `80px 1fr ${VC.filter(v => v.key !== 'ist').map(v => v.key === 'tg' ? '60px' : v.key === 'sal' ? '64px' : 'minmax(50px,max-content)').join(' ')} 18px`);
+        }
+        setHtml('zl-cols', `<span>Tag</span><span>${tlIn ? 'Buchungen · Verlauf 06–19 Uhr' : 'Buchungen'}</span>${tlCol ? '<span class="tlh" style="white-space:nowrap">Verlauf 06–19 Uhr</span>' : ''}${VC.map(v => `<span class="r zl-vh${v.key === 'ist' ? ' isth' : ''}" draggable="true" data-col="${v.key}" title="${esc(v.title)} – ziehen zum Verschieben">${esc(v.short)}</span>`).join('')}<span></span>`);
+
+        // Kommende Tage: eingeblendet, wenn LHR bis Monatsende berechnet hat (Saldo/Ist schon da) – oder per Einstellung
+        const futureDays = days.filter(x => x.future);
+        const calc = futureDays.some(x => x.sal != null || x.tg != null);
+        listState.futureEff = listState.future != null ? listState.future : S.futureDays === 'show' ? true : S.futureDays === 'hide' ? false : calc;
+        // Zeilen
+        const R0 = 360, R1 = 1140, X = t => Math.max(0, Math.min(100, (mod(t) - R0) / (R1 - R0) * 100));
+        const rowHtml = x => {
+            const lunch = lunchOf(x.segs);
+            const open = listState.open.has(x.k);
+            const ll = lunch ? mins(lunch.len) : 0;
+            let ded = x.pause != null ? mins(x.pause) : null;
+            if (ded == null && x.isT) ded = c.lunchUpcoming ? null : mins(c.dedFinal || 0);
+            if (ded == null && x.segs.length && x.segs.every(sg => sg.e != null)) { const g = x.segs.reduce((a, sg) => a + (sg.e - sg.s), 0); ded = g > S.abH * H ? Math.max(0, S.pflicht - ll) : 0; }
+            const dedTip = lunch ? `Mittag ${clock(lunch.s)}–${clock(lunch.e)} = ${ll} min` : 'keine Mittagspause gestempelt';
+            const dedFull = ded ? `${dedTip}. Pflicht ${S.pflicht} min → ${ded} min werden als Pause abgezogen (keine Arbeitszeit).` : dedTip + (lunch ? '. Pflichtpause erfüllt.' : '');
+            const cls = ['zl-row', x.isT ? 'today' : '', x.future ? 'future' : '', x.future && calc ? 'calc' : '', x.we && !x.segs.length ? 'we' : '', x.edge && !x.isT ? 'edge' : '', open ? 'open' : ''].join(' ');
+            let st;
+            const live = x.isT && c.open;
+            if (x.segs.length) {
+                const strip = t => esc(String(t).replace(/^[^0-9]+/, ''));
+                st = x.segs.map((sg, i) => {
+                    const isLive = live && sg.e == null && i === x.segs.length - 1;
+                    const part = (t, h, lbl) => h ? `<span class="zl-p" data-href="${esc(h)}" title="${lbl} ${t} bearbeiten">${t}</span>` : `<span class="zl-p off">${t}</span>`;
+                    const endTxt = isLive ? '<b>läuft</b>' : sg.e != null ? strip(sg.tb) : '?';
+                    const chip = `<span class="zl-b num${isLive ? ' live' : ''}">${part(strip(sg.ta), sg.ha, 'Kommen')}<em>–</em>${isLive || sg.e == null ? `<span class="zl-p${sg.hb ? '' : ' off'}"${sg.hb ? ` data-href="${esc(sg.hb)}"` : ''}>${endTxt}</span>` : part(endTxt, sg.hb, 'Gehen')}</span>`;
+                    const lu = lunch && lunch.i === i + 1 ? `<span class="zl-lunch${ded ? '' : ' ok'}" title="${esc(dedFull)}">${ico('utensils', 12)}${ll}′${ded ? `<b>−${ded}′</b>` : ''}</span>` : '';
+                    return chip + lu;
+                }).join('');
+            } else if (x.info) st = `<span class="zl-tag info">${esc(x.info)}</span>`;
+            else if (x.fehl) st = `<span class="zl-tag warn">${ico('alert', 12)} fehlt</span>`;
+            else if (x.we) st = `<span class="zl-tag">Wochenende</span>`;
+            else if (x.future) st = '';
+            else st = '';
+            if (x.segs.length && !lunch && ded) st += `<span class="zl-lunch" title="${esc(dedFull)}">${ico('utensils', 12)}<b>−${ded}′</b></span>`;
+            if (x.segs.length && x.fehl) st += ` <span class="zl-tag warn">${ico('alert', 12)}</span>`;
+            let bar = '';
+            if (lunch) bar += `<i class="lunch" style="left:${X(lunch.s)}%;width:${X(lunch.e) - X(lunch.s)}%"></i>`;
+            x.segs.forEach((sg, i) => {
+                const e = sg.e != null ? sg.e : (live && i === x.segs.length - 1 ? now : null);
+                if (e == null) return;
+                bar += `<i class="${live && sg.e == null ? 'live' : ''}" style="left:${X(sg.s)}%;width:${Math.max(.4, X(e) - X(sg.s))}%"></i>`;
+            });
+            const n = (v, signed, extra) => v == null ? `<span class="zl-n mut num ${extra || ''}">–</span>` : `<span class="zl-n num ${extra || ''} ${signed ? sc(v) : ''}">${dur(v, signed)}</span>`;
+            const showVals = !x.future || (calc && (x.sal != null || x.tg != null || x.ist != null));
+            let det = '';
+            if (open) {
+                const parts = [];
+                let gapSum = 0, gapN = 0;
+                x.segs.forEach((sg, i) => {
+                    if (i > 0 && x.segs[i - 1].e != null && !(lunch && lunch.i === i)) { const g = sg.s - x.segs[i - 1].e; if (g > 0) { gapSum += g; gapN++; } }
+                    if (sg.hb && sg.e != null) parts.push(`<span class="zl-chip" data-href="${esc(sg.hb)}" title="Gehen-Buchung bearbeiten">${ico('pencil', 12)} Gehen ${esc(String(sg.tb).replace(/^[^0-9]+/, ''))}</span>`);
+                });
+                if (!x.segs.length && x.editHref) parts.push(`<span class="zl-chip" data-href="${esc(x.editHref)}">${ico('pencil', 12)} Tag bearbeiten</span>`);
+                parts.push(`<span class="zl-chip act" data-act="mfe" data-k="${x.k}">${ico('plus', 12)} Mehrfacherfassung</span>`);
+                const meta = [];
+                if (x.soll) meta.push('Soll ' + dur(x.soll));
+                if (lunch || ded) meta.push(`<span class="${ded ? 'w' : ''}">${ico('utensils', 12)} ${esc(dedFull)}</span>`);
+                if (gapN) meta.push(gapN + ' kurze Pausen · ' + mins(gapSum) + ' min');
+                if (x.note) meta.push('Notiz: ' + esc(x.note));
+                det = `<div class="zl-det">${parts.join('')}${meta.length ? `<span class="meta">${meta.join(' · ')}</span>` : ''}</div>`;
+            }
+            return `<div class="${cls}" data-k="${x.k}" style="${x.edge ? '--edge:' + x.edge : ''}">
+                <div class="zl-date"><span>${WD[x.dt.getDay()]}</span><b class="num">${pad(x.dt.getDate())}.${pad(x.dt.getMonth() + 1)}.</b></div>
+                <div class="zl-st">${st}${tlIn ? `<div class="zl-tl in">${bar}</div>` : ''}</div>
+                ${tlCol ? `<div class="zl-tl">${bar}</div>` : ''}
+                ${VC.map(vc => {
+                    if (vc.key === 'ist') return showVals ? n(x.ist, false, 'ist') : `<span class="zl-n mut num ist">${x.soll ? dur(x.soll) : '–'}</span>`;
+                    if (vc.key === 'tg') return showVals ? n(x.tg, true) : '<span class="zl-n mut">–</span>';
+                    if (vc.key === 'sal') return showVals ? n(x.sal, true) : '<span class="zl-n mut">–</span>';
+                    const v = cellTxt(d.days.get(x.k) || [], vc.nr);
+                    return `<span class="zl-n num zl-x${/^-/.test(v) ? ' bad' : ''}" title="${esc(vc.title)}">${v ? esc(v) : '<span class="mut">–</span>'}</span>`;
+                }).join('')}
+                <span class="zl-chev">${ico('chevron', 15)}</span>${det}</div>`;
+        };
+        let html = '', curWk = null, sepDone = false;
+        const showF = listState.futureEff;
+        const visible = days.filter(x => !x.future || showF);
+        const fBtn = () => { const fs = futureDays.reduce((s, y) => s + y.soll, 0), fw = futureDays.filter(y => y.soll).length;
+            return `<button type="button" class="zl-more${showF ? ' sep' : ''}" data-act="future">${ico(showF ? 'up' : 'down', 15)} ${showF ? `Kommende Tage ausblenden${calc ? ' · bis Monatsende berechnet' : ''}` : `Kommende Tage anzeigen · ${fw} Arbeitstage · Soll ${dur(fs)}`}</button>`; };
+        visible.forEach(x => {
+            if (x.future && !sepDone && showF) { sepDone = true; html += fBtn(); }
+            const wk = isoWeek(x.dt);
+            if (wk !== curWk) {
+                curWk = wk;
+                const wd = days.filter(y => isoWeek(y.dt) === wk);
+                const wi = wd.filter(y => !y.future).reduce((s, y) => s + (y.ist || 0), 0), ws = wd.reduce((s, y) => s + y.soll, 0);
+                html += `<div class="zl-wk">KW ${wk} <b class="num">${dur(wi)} / ${dur(ws)}</b></div>`;
+            }
+            html += rowHtml(x);
+        });
+        if (futureDays.length && !showF) html += fBtn();
+        rowsBox.innerHTML = html;
+    }
+
+    /* ════════════════════ EINSTELLUNGEN ════════════════════ */
+    const KEY = 'zplus_settings';
+    const DEF = {
+        v: 8,
+        theme: 'saison', accent: '', fx: true, fxAmount: 'normal', density: 'normal', radius: 'round', width: 'limited', heroPos: 'top',
+        pflicht: 30, abH: 6, lunchFrom: '11:30', lunchTo: '14:00', lunchMinLen: 10, planLunch: 30,
+        earliest: '06:30', maxDay: 10, kern: true, kzMoDo: '15:00', kzFr: '12:00',
+        notif: { saldo: { on: true, lead: 5 }, soll: { on: false, lead: 5 }, max: { on: true, lead: 15 }, lunch: { on: false, at: '12:00' }, sound: true },
+        confetti: true, title: true, sticky: true, hideEmpty: false, todayHl: true, tl: true, legend: true,
+        fxScope: 'page', view: 'full', hideNav: true, pretty: true, dimFuture: true, tableView: 'list', shell: true, kalView: 'months', futureDays: 'auto', tlMode: 'auto', colOrder: [], colHidden: [], favs: [],
+        wish: '16:30', collapsed: false, seen: 0
+    };
+    function normalize(s) {
+        s = s && typeof s === 'object' ? s : {};
+        const old = s.v || 0;
+        const o = Object.assign({}, DEF, s);
+        o.notif = Object.assign({}, DEF.notif, s.notif || {});
+        ['saldo', 'soll', 'max', 'lunch'].forEach(k => { o.notif[k] = Object.assign({}, DEF.notif[k], (s.notif || {})[k] || {}); });
+        let lay = Array.isArray(s.layout) ? s.layout.filter(x => x && CARD_DEFS[x.id]).map(x => ({ id: x.id, on: !!x.on, wide: !!x.wide })) : [];
+        if (!lay.length) {
+            lay = DEF_LAYOUT.map(x => Object.assign({}, x));
+            if (s.cards) lay.forEach(x => { if (x.id in s.cards) x.on = !!s.cards[x.id]; });
+        }
+        DEF_LAYOUT.forEach(d => { if (!lay.find(x => x.id === d.id)) lay.push(Object.assign({}, d)); });
+        o.layout = lay;
+        if (old < 3 && (!s.lunchFrom || s.lunchFrom === '11:00')) o.lunchFrom = '11:30';
+        if (old < 4) {                                   // v4: neue, ruhigere Standards
+            if (!s.theme || s.theme === 'saison') o.theme = 'dark';
+            o.heroPos = 'top';
+            o.layout.forEach(x => { if (x.id === 'monat') x.wide = false; });
+            o.seen = 0;
+        }
+        if (old < 5) {                                   // v4.1: Saison-Standard, schlankeres Dashboard
+            o.theme = 'saison';
+            o.layout.forEach(x => { if (['pause', 'rauch', 'wunsch', 'urlaub'].includes(x.id)) x.on = false; });
+            const order = ['heute', 'saldo', 'woche', 'monat'];
+            o.layout.sort((a, b) => (order.indexOf(a.id) < 0 ? 99 : order.indexOf(a.id)) - (order.indexOf(b.id) < 0 ? 99 : order.indexOf(b.id)));
+            o.seen = 0;
+        }
+        if (old < 6) o.tableView = 'list';
+        if (!['list', 'orig'].includes(o.tableView)) o.tableView = 'list';
+        if (!['full', 'compact'].includes(o.view)) o.view = 'full';
+        if (!['months', 'strip', 'orig'].includes(o.kalView)) o.kalView = 'months';
+        if (!['auto', 'show', 'hide'].includes(o.futureDays)) o.futureDays = 'auto';
+        if (!['auto', 'column', 'inline', 'off'].includes(o.tlMode)) o.tlMode = 'auto';
+        if (old < 7) o.shell = true;
+        if (old < 8) o.hideEmpty = false;          // v5.3: LHR-Spaltenwahl gilt, Zeit+ blendet nichts mehr eigenmächtig aus
+        delete o.cards; o.v = 8;
+        return o;
+    }
+    const loadS = () => { let s = {}; try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { } return normalize(s); };
+    let S = loadS();
+    const saveS = () => { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch (e) { } };
+    saveS();
+
+    /* ════════════════════ HELFER ════════════════════ */
+    const H = 3600000, M = 60000;
+    let R = null, O = null, L = null, SH = null, K = null, PAGE = 'other';      // Shadow-Roots: Dashboard + Overlays (Firmen-CSS kommt da nicht rein)
+    const $ = id => document.getElementById(id) || (R && R.getElementById(id)) || (L && L.getElementById(id)) || (SH && SH.getElementById(id)) || (K && K.getElementById(id)) || (O && O.getElementById(id));
+    const pad = n => String(n).padStart(2, '0');
+    const clock = t => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
+    const at = hm => { const p = String(hm || '0:0').split(':').map(Number); const d = new Date(); d.setHours(p[0] || 0, p[1] || 0, 0, 0); return d.getTime(); };
+    const dur = (ms, signed) => {
+        const neg = ms < 0, t = Math.round(Math.abs(ms) / M);
+        return (signed ? (neg ? '−' : '+') : (neg ? '−' : '')) + Math.floor(t / 60) + ':' + pad(t % 60);
+    };
+    const mins = ms => Math.round(ms / M);
+    const human = ms => { const t = Math.max(0, Math.round(ms / M)), h = Math.floor(t / 60), m = t % 60; return h ? h + ' h ' + pad(m) + ' min' : m + ' min'; };
+    const parseDur = txt => { const m = String(txt || '').match(/(-?)\s*(\d+):(\d{2})/); if (!m) return null; const v = (+m[2] * 60 + +m[3]) * M; return m[1] ? -v : v; };
+    const parseClock = txt => { const m = String(txt || '').match(/(\d{1,2}):(\d{2})/); return m ? at(m[1] + ':' + m[2]) : null; };
+    const dayKey = d => pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
+    const todayKey = () => dayKey(new Date());
+    const tbody = () => document.getElementById('zdlBody');
+    const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
+    const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    const safe = (name, fn) => { try { return fn(); } catch (e) { reportError(name, e); } };
+    const rnd = (a, b) => a + Math.random() * (b - a);
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+    const inPath = (e, node) => !!node && typeof e.composedPath === 'function' && e.composedPath().includes(node);
+
+    /* ════════════════════ THEMES ════════════════════ */
+    const THEMES = {
+        dark:      { name: 'Midnight',     icon: '🌙', dark: true, fx: null,
+            bg: '#12151c', surf: '#181c25', surf2: '#20252f', line: '#272d39', text: '#e7e9ef', muted: '#8b92a4',
+            accent: '#7c8cff', accent2: '#4cc9f0', ok: '#3ddc97', warn: '#f5b942', bad: '#ff6b6b',
+            page: '#0b0d12', td: '#10131a', td2: '#13161e', th: '#181c25', grid: '#1f242e' },
+        light:     { name: 'Hell',         icon: '☀️', dark: false, fx: null,
+            bg: '#ffffff', surf: '#f6f7fa', surf2: '#eceef3', line: '#e3e6ec', text: '#141822', muted: '#6b7280',
+            accent: '#4f5bd5', accent2: '#0ea5e9', ok: '#16a34a', warn: '#d97706', bad: '#dc2626',
+            td: '#ffffff', td2: '#fafbfc', th: '#f6f7fa', grid: '#e8eaf0' },
+        graphit:   { name: 'Graphit',      icon: '◼️', dark: true, fx: null,
+            bg: '#161618', surf: '#1d1d20', surf2: '#26262a', line: '#2f2f34', text: '#f2f2f3', muted: '#9a9aa3',
+            accent: '#c8f560', accent2: '#60a5fa', ok: '#4ade80', warn: '#fbbf24', bad: '#f87171',
+            page: '#0e0e10', td: '#131315', td2: '#161618', th: '#1d1d20', grid: '#26262a' },
+        winter:    { name: 'Winter',       icon: '❄️', dark: true, fx: 'snow',
+            bg: '#0f1826', surf: '#132034', surf2: '#192942', line: '#223553', text: '#e6f1ff', muted: '#8aa4c4',
+            accent: '#7dd3fc', accent2: '#c4b5fd', ok: '#5eead4', warn: '#fcd34d', bad: '#fca5a5',
+            page: '#08101c', td: '#0c1624', td2: '#0f1a2b', th: '#132034', grid: '#1a2a42' },
+        fruehling: { name: 'Frühling',     icon: '🌸', dark: false, fx: 'petals',
+            bg: '#fffbfd', surf: '#fdf3f8', surf2: '#f9e6ef', line: '#f1d8e4', text: '#2a1722', muted: '#8a6577',
+            accent: '#d6337a', accent2: '#65a30d', ok: '#16a34a', warn: '#d97706', bad: '#dc2626',
+            td: '#ffffff', td2: '#fffafc', th: '#fdf3f8', grid: '#f3e1ea' },
+        sommer:    { name: 'Sommer',       icon: '🌞', dark: false, fx: 'sun',
+            bg: '#fffdf7', surf: '#fff8e6', surf2: '#fdeec4', line: '#f3e3b3', text: '#2b2310', muted: '#86744a',
+            accent: '#e8590c', accent2: '#0891b2', ok: '#16a34a', warn: '#ca8a04', bad: '#dc2626',
+            td: '#ffffff', td2: '#fffdf7', th: '#fff8e6', grid: '#f3e7c4' },
+        herbst:    { name: 'Herbst',       icon: '🍂', dark: true, fx: 'leaves',
+            bg: '#17130f', surf: '#1e1914', surf2: '#28211a', line: '#332a21', text: '#f5ebe0', muted: '#b09a86',
+            accent: '#f08c3a', accent2: '#e9c46a', ok: '#a3d977', warn: '#f5b942', bad: '#f87171',
+            page: '#0f0c09', td: '#14100c', td2: '#17130f', th: '#1e1914', grid: '#2a231b' },
+        ozean:     { name: 'Ozean',        icon: '🌊', dark: true, fx: 'bubbles',
+            bg: '#0c1a21', surf: '#10232c', surf2: '#152d38', line: '#1c3a47', text: '#e2f6fb', muted: '#86b3c2',
+            accent: '#2dd4bf', accent2: '#60a5fa', ok: '#4ade80', warn: '#fbbf24', bad: '#fb7185',
+            page: '#071318', td: '#0a1a21', td2: '#0c1e26', th: '#10232c', grid: '#173440' },
+        nacht:     { name: 'Sternennacht', icon: '✨', dark: true, fx: 'stars',
+            bg: '#120f22', surf: '#18142c', surf2: '#201b3a', line: '#2a244b', text: '#ece9ff', muted: '#9a93c4',
+            accent: '#b794f6', accent2: '#22d3ee', ok: '#4ade80', warn: '#facc15', bad: '#fb7185',
+            page: '#0a0815', td: '#0e0c1d', td2: '#120f24', th: '#18142c', grid: '#221d40' }
+    };
+    const THEME_CYCLE = ['dark', 'light', 'graphit', 'winter', 'fruehling', 'sommer', 'herbst', 'ozean', 'nacht', 'saison', 'auto'];
+    const seasonKey = () => { const m = new Date().getMonth(); return (m === 11 || m < 2) ? 'winter' : m < 5 ? 'fruehling' : m < 8 ? 'sommer' : 'herbst'; };
+    const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    function themeKey() {
+        if (S.theme === 'auto') return (mq && mq.matches) ? 'dark' : 'light';
+        if (S.theme === 'saison') return seasonKey();
+        return THEMES[S.theme] ? S.theme : 'dark';
+    }
+    const theme = () => THEMES[themeKey()];
+    const themeLabel = () => S.theme === 'saison' ? 'Saison · ' + theme().name : S.theme === 'auto' ? 'System · ' + theme().name : theme().name;
+
+    function applyTheme() {
+        const r = document.documentElement;
+        if (!r) return;
+        const t = theme();
+        ['bg', 'surf', 'surf2', 'line', 'text', 'muted', 'accent', 'accent2', 'ok', 'warn', 'bad', 'page', 'td', 'td2', 'th', 'grid']
+            .forEach(k => { if (t[k]) r.style.setProperty('--zp-' + k, t[k]); });
+        if (S.accent) r.style.setProperty('--zp-accent', S.accent);
+        try {
+            const ac = (S.accent || t.accent || '#7c8cff').replace('#', ''), v = parseInt(ac.length === 3 ? ac.split('').map(x => x + x).join('') : ac.slice(0, 6), 16);
+            const ch = x => { x /= 255; return x <= .03928 ? x / 12.92 : Math.pow((x + .055) / 1.055, 2.4); };
+            const L = .2126 * ch(v >> 16) + .7152 * ch(v >> 8 & 255) + .0722 * ch(v & 255);
+            r.style.setProperty('--zp-onacc', (1.05 / (L + .05)) >= ((L + .05) / .058) ? '#fff' : '#10141c');
+            const b = parseInt(String(t.bad || '#ff6b6b').slice(1, 7), 16), Lb = .2126 * ch(b >> 16) + .7152 * ch(b >> 8 & 255) + .0722 * ch(b & 255);
+            r.style.setProperty('--zp-onbad', (1.05 / (Lb + .05)) >= ((Lb + .05) / .058) ? '#fff' : '#10141c');
+        } catch (e) { }
+        r.style.setProperty('--zp-scheme', t.dark ? 'dark' : 'light');
+        r.style.setProperty('--zp-shadow', t.dark ? '0 1px 0 rgba(255,255,255,.03) inset,0 12px 32px rgba(0,0,0,.35)' : '0 1px 2px rgba(16,24,40,.04),0 8px 24px rgba(16,24,40,.07)');
+        r.style.setProperty('--zp-zoom', { compact: .9, normal: 1, large: 1.1 }[S.density] || 1);
+        r.style.setProperty('--zp-r', { square: '6px', soft: '11px', round: '16px' }[S.radius] || '16px');
+        r.classList.toggle('zp-dark', !!t.dark);
+        r.classList.toggle('zp-hidecols', !!S.hideEmpty);
+        r.classList.toggle('zp-todayhl', !!S.todayHl);
+        r.classList.toggle('zp-nonav', !!S.hideNav);
+        r.classList.toggle('zp-pretty', !!S.pretty);
+        r.classList.toggle('zp-dimfuture', !!S.dimFuture);
+        r.classList.toggle('zp-hidetable', !!L && S.tableView === 'list');
+        r.classList.toggle('zp-shell', !!SH && !!S.shell);
+        r.classList.toggle('zp-kalview', !!K && S.kalView !== 'orig');
+        if (K) safe('Kalender', renderKal);
+        fixColorsSoon();
+        const shh = document.getElementById('zp-shell-host'); if (shh) shh.style.display = S.shell ? '' : 'none';
+        const dh = document.getElementById('zp-host'); if (dh) dh.classList.toggle('shell', !!SH && !!S.shell);
+        const zl = $('zl'); if (zl) zl.classList.toggle('orig', S.tableView !== 'list');
+        const zp = $('zp');
+        if (zp) {
+            zp.classList.toggle('hero-top', S.heroPos === 'top');
+            zp.classList.toggle('wide', S.width === 'full');
+            zp.classList.toggle('compact', S.view === 'compact');
+        }
+        const vb = $('zp-view');
+        if (vb) { vb.innerHTML = ico(S.view === 'compact' ? 'maximize' : 'minimize', 16); vb.title = S.view === 'compact' ? 'Alles anzeigen (Alt+M)' : 'Kompakt – nur das Wichtigste (Alt+M)'; }
+        startFx();
+    }
+
+    /* ════════════════════ CSS: SEITE (global) ════════════════════ */
+    const PAGE_CSS = `
+:root{--zp-soft:color-mix(in srgb,var(--zp-accent) 12%,transparent)}
+#zp-host{display:block;margin:12px 0 16px;max-width:1240px}
+#zp-host.wide{max-width:none}
+html.zp-hidecols .zp-colhide{display:none !important}
+html.zp-todayhl.zp-zdl table.tabelle tbody tr.zp-today > td:first-child{box-shadow:inset 3px 0 0 var(--zp-accent) !important}
+html.zp-todayhl.zp-zdl table.tabelle tbody tr.zp-today > td.td_datum{color:var(--zp-accent) !important}
+
+html.zp-dark,html.zp-dark body{background:var(--zp-page) !important;color:var(--zp-text) !important}
+html.zp-dark header,html.zp-dark header *,html.zp-dark nav,html.zp-dark .nav_head,html.zp-dark .navmenu,html.zp-dark .nav_body,
+html.zp-dark #periode,html.zp-dark .periode_span,html.zp-dark section#content,html.zp-dark .scrolldiv,html.zp-dark .tablecontent,
+html.zp-dark .info_extra,html.zp-dark .error_urlaubmaxdate_extra,html.zp-dark body > p,html.zp-dark #welcome_name,html.zp-dark #welcome_name_text,html.zp-dark #resturlaub{
+  background-color:transparent !important;background-image:none !important;color:var(--zp-text) !important;border-color:var(--zp-grid) !important}
+html.zp-dark #logo img{background:#fff;border-radius:8px;padding:3px 8px}
+html.zp-dark #logotext{color:var(--zp-muted) !important}
+html.zp-dark .nav_main a{background:var(--zp-surf) !important;background-image:none !important;color:var(--zp-text) !important;border:1px solid var(--zp-line) !important;border-radius:9px !important}
+html.zp-dark .nav_main a.active{background:var(--zp-accent) !important;border-color:var(--zp-accent) !important;color:var(--zp-onacc,#fff) !important}
+html.zp-dark .navmenu_div{background:var(--zp-surf) !important;border-radius:12px;border:1px solid var(--zp-line) !important}
+html.zp-dark .navmenu_icon_beschriftung{color:var(--zp-muted) !important}
+html.zp-dark .navmenu_icon_beschriftung.active{color:var(--zp-accent) !important;font-weight:700}
+html.zp-dark .hbmbutton .menue{background:var(--zp-surf) !important;background-image:none !important;border:1px solid var(--zp-line) !important;border-radius:10px;color:var(--zp-text) !important}
+html.zp-dark .textmenue{color:var(--zp-text) !important}
+html.zp-dark .overlay,html.zp-dark .uloverlay,html.zp-dark .custom-uloverlay,html.zp-dark .pdfmenue,html.zp-dark #pdfMenue,html.zp-dark .navpkt,
+html.zp-dark .ui-dialog,html.zp-dark .ui-widget-content,html.zp-dark .ui-dialog-content,html.zp-dark .flatpickr-calendar{
+  background:var(--zp-surf) !important;background-image:none !important;color:var(--zp-text) !important;border-color:var(--zp-line) !important}
+html.zp-dark .ui-dialog-titlebar,html.zp-dark .ui-widget-header{background:var(--zp-th) !important;background-image:none !important;color:var(--zp-text) !important;border-color:var(--zp-line) !important}
+html.zp-dark .tippy-box{background:var(--zp-surf2) !important;color:var(--zp-text) !important}
+html.zp-dark input,html.zp-dark select,html.zp-dark textarea{background-color:var(--zp-surf) !important;color:var(--zp-text) !important;border-color:var(--zp-line) !important}
+html.zp-dark input[type=button],html.zp-dark .button_small,html.zp-dark .button_info{background:var(--zp-surf2) !important;background-image:none !important}
+html.zp-dark a{color:color-mix(in srgb,var(--zp-accent) 55%,#fff) !important}
+html.zp-dark .success{color:var(--zp-ok) !important}
+html.zp-dark .error,html.zp-dark .info{color:var(--zp-warn) !important;background:transparent !important}
+html.zp-dark table,html.zp-dark thead,html.zp-dark tbody{background:transparent !important;border-color:var(--zp-grid) !important}
+html.zp-dark th{background:var(--zp-th) !important;background-image:none !important;color:var(--zp-muted) !important;border-color:var(--zp-grid) !important;font-weight:600 !important}
+html.zp-dark th.th_transparent,html.zp-dark th.alert_buchungsfehler{background:var(--zp-page) !important;border:none !important}
+html.zp-dark.zp-zdl td{background-color:var(--zp-td) !important;color:var(--zp-text) !important;border-color:var(--zp-grid) !important}
+html.zp-dark:not(.zp-zdl) td{color:var(--zp-text);border-color:var(--zp-grid) !important}
+html.zp-dark tr.tr_even_date > td{background-color:var(--zp-td2) !important}
+html.zp-dark table.tabelle tbody tr[data-zp-tint]{background-color:transparent !important}
+html.zp-dark table.tabelle tbody tr[data-zp-tint] > td{background-color:var(--zp-tint) !important;color:color-mix(in srgb,var(--zp-text) 75%,var(--zp-edge)) !important}
+html.zp-dark table.tabelle tbody tr[data-zp-tint] > td:first-child{box-shadow:inset 2px 0 0 var(--zp-edge)}
+html.zp-dark table.tabelle tbody td[data-zp-tint]{background-color:var(--zp-tint) !important;box-shadow:inset 0 -2px 0 var(--zp-edge)}
+html.zp-dark table.tabelle tbody tr:hover > td{filter:brightness(1.18)}
+html.zp-dark td[style*="color:black"],html.zp-dark td[style*="color: black"]{color:var(--zp-text) !important}
+html.zp-dark td[style*="color:red"],html.zp-dark td[style*="color: red"]{color:var(--zp-bad) !important}
+html.zp-dark td[style*="color:green"],html.zp-dark td[style*="color: green"]{color:var(--zp-ok) !important}
+
+/* ───── Zeit+ App-Leiste ersetzt den LHR-Kopf ───── */
+#zp-shell-host{display:block;position:sticky;top:0;z-index:2147470000}
+html.zp-shell body{margin:0 !important;padding:0 16px 48px !important;box-sizing:border-box;max-width:100%}
+html.zp-shell:not(.zp-zdl) body,html.zp-shell.zp-hidetable body{overflow-x:clip !important}
+html.zp-shell #zp-shell-host{margin:0 -16px 0}
+html.zp-shell body > header,html.zp-shell nav.nav_head,html.zp-shell .navmenu.nav_body,html.zp-shell .zp-hide-orig,html.zp-shell #user-links,html.zp-shell #ul-user-links,html.zp-shell #custom-user-links,html.zp-shell #custom-ul-user-links{display:none !important}
+html.zp-shell #zp-host,html.zp-shell #zp-list-host{margin-left:auto;margin-right:auto}
+html.zp-shell #zp-host{margin-top:18px}
+html.zp-shell:not(.zp-zdl) section#content,html.zp-shell:not(.zp-zdl) #content{margin:18px auto 0 !important;max-width:1600px}
+html.zp-shell .info_extra p:not(.hidden),html.zp-shell #info_zeitdatenliste_div p:not(.hidden),html.zp-shell .error_urlaubmaxdate_extra p:not(.hidden){max-width:1240px;margin:14px auto 0 !important;padding:11px 15px !important;border-radius:12px !important;
+  background:var(--zp-surf,#f6f7fa) !important;border:1px solid var(--zp-line,#e3e6ec) !important;font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;font-size:13px !important}
+html.zp-shell .success:not(.hidden){border-color:color-mix(in srgb,var(--zp-ok) 45%,transparent) !important;color:var(--zp-ok) !important}
+html.zp-shell .error:not(.hidden){border-color:color-mix(in srgb,var(--zp-bad) 45%,transparent) !important;color:var(--zp-bad) !important}
+
+/* ───── Alle LHR-Seiten (Anträge, Kalender, Abwesenheiten, Tableau, Planer …) ───── */
+html.zp-dark{color-scheme:dark}
+html.zp-dark *{scrollbar-color:color-mix(in srgb,var(--zp-muted) 45%,transparent) transparent}
+html.zp-dark ::-webkit-scrollbar{width:11px;height:11px;background:transparent}
+html.zp-dark ::-webkit-scrollbar-track,html.zp-dark ::-webkit-scrollbar-corner{background:transparent}
+html.zp-dark ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--zp-muted) 40%,transparent);border-radius:99px;border:3px solid transparent;background-clip:content-box}
+/* Ladeschirm beim Seitenwechsel: kein weißes Aufblitzen */
+html.zp-loading,html.zp-loading body{background:var(--zp-page,#0f1115) !important}
+html.zp-loading body{opacity:0 !important}
+html.zp-loading::after{content:'';position:fixed;left:50%;top:46%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;border:3px solid color-mix(in srgb,var(--zp-accent,#7c8cff) 22%,transparent);border-top-color:var(--zp-accent,#7c8cff);animation:zpspin .7s linear infinite;z-index:2147483647}
+@keyframes zpspin{to{transform:rotate(360deg)}}
+html.zp-ready body{animation:zpfade .22s ease-out}
+@keyframes zpfade{from{opacity:0}to{opacity:1}}
+html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="w"]{background-color:var(--zp-surf) !important;background-image:none !important;color:var(--zp-text) !important}
+html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) td[data-zp-cf="w"],html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) tr[data-zp-cf="w"]{background-color:var(--zp-td) !important}
+html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="s"]{background-color:hsl(var(--zp-cfh) 30% 19%) !important;background-image:none !important;color:hsl(var(--zp-cfh) 60% 88%) !important}
+html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="h"]{background-color:hsl(var(--zp-cfh) 18% 13%) !important;background-image:repeating-linear-gradient(135deg,hsl(var(--zp-cfh) 40% 70% / .09) 0 2px,transparent 2px 7px) !important;color:var(--zp-muted) !important}
+html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="v"],html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="v"] *{color:#17130e !important}
+html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="d"],html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-cf="d"] *{color:#fff !important}
+html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) [data-zp-ink]{color:var(--zp-text) !important}
+html.zp-dark:not(.zp-zdl) body:not(#zp-a):not(#zp-b) th[data-zp-cf]{background-color:var(--zp-th) !important;background-image:none !important;color:var(--zp-muted) !important}
+/* Kalender: Zeit+ Ansicht statt Original-Tabelle */
+#zp-kal-host{display:block;margin:0 auto 28px;max-width:1240px}
+html.zp-kalview section#content > :not(#zp-kal-host):not(#error_urlaubmaxdate_div){display:none !important}
+html.zp-shell.zp-p-kal section#content{max-width:1240px !important}
+html:not(.zp-kalview) #zp-kal-host{margin-bottom:14px}
+/* Seiten mit Listen/Filtern (Anträge, Mitteilungen, Abwesenheiten, Tableau, Planer) */
+html.zp-shell.zp-p-other section#content{font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif}
+html.zp-pretty.zp-p-other #content select,html.zp-pretty.zp-p-other #content input[type=text],html.zp-pretty.zp-p-other #content input[type=search],html.zp-pretty.zp-p-other #content input:not([type]){border-radius:9px !important;border:1px solid var(--zp-line) !important;padding:5px 9px !important;min-height:32px;box-sizing:border-box;outline:0}
+html.zp-pretty.zp-p-other #content select:focus,html.zp-pretty.zp-p-other #content input:focus{border-color:var(--zp-accent) !important;box-shadow:0 0 0 3px color-mix(in srgb,var(--zp-accent) 22%,transparent) !important}
+html.zp-pretty.zp-p-other #content hr{border:0 !important;border-top:1px solid var(--zp-line) !important;margin:14px 0 !important}
+html.zp-pretty.zp-p-other #content table.dataTable tbody td,html.zp-pretty.zp-p-other #content table.dataTable thead th{border-color:var(--zp-grid) !important}
+html.zp-pretty.zp-p-other #content table.dataTable thead th{font-size:12px;letter-spacing:.03em}
+html.zp-pretty #tableau_mitarbeiter_container .scrolldiv{border:1px solid var(--zp-line) !important;border-radius:14px;overflow:hidden}
+html.zp-pretty #tableautab2 td,html.zp-pretty #tableautab td{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;border-color:var(--zp-grid) !important}
+html.zp-pretty #tableautab2 tr:hover > td,html.zp-pretty #tableautab tr:hover > td{background-color:color-mix(in srgb,var(--zp-accent) 12%,transparent) !important;cursor:pointer}
+html.zp-pretty #tableaudetailtab td:not(.empty){background:var(--zp-surf,#f6f7fa) !important;border:1px solid var(--zp-line) !important;border-radius:14px;padding:12px 16px !important;vertical-align:top}
+html.zp-pretty #tableaudetailtab td#tableau_detail_foto{background:transparent !important;border:0 !important}
+html.zp-pretty .xlsxexp,html.zp-pretty #pdficon img,html.zp-pretty .print-container img{border-radius:12px;transition:transform .15s}
+html.zp-pretty .xlsxexp:hover,html.zp-pretty #pdficon img:hover{transform:translateY(-1px)}
+html.zp-dark.zp-pretty #colHide img,html.zp-dark.zp-pretty .xlsxexp,html.zp-dark.zp-pretty #pdficon img{filter:drop-shadow(0 2px 8px rgba(0,0,0,.4))}
+html.zp-dark .dataTables_wrapper,html.zp-dark .dataTables_info,html.zp-dark .dataTables_length,html.zp-dark .dataTables_filter,html.zp-dark .dataTables_wrapper label{color:var(--zp-muted) !important}
+html.zp-dark table.dataTable,html.zp-dark table.dataTable thead th,html.zp-dark table.dataTable thead td,html.zp-dark table.dataTable tfoot th{border-color:var(--zp-grid) !important}
+html.zp-dark table.dataTable tbody tr{background-color:transparent !important}
+html.zp-dark table.dataTable.stripe tbody tr.odd > td,html.zp-dark table.dataTable.display tbody tr.odd > td{background-color:var(--zp-td2) !important}
+html.zp-dark table.dataTable tbody tr:hover > td{background-color:color-mix(in srgb,var(--zp-accent) 8%,var(--zp-td)) !important}
+html.zp-dark table.dataTable thead .sorting,html.zp-dark table.dataTable thead .sorting_asc,html.zp-dark table.dataTable thead .sorting_desc{background-color:var(--zp-th) !important}
+html.zp-dark .DTFC_LeftBodyWrapper,html.zp-dark .DTFC_RightBodyWrapper,html.zp-dark .DTFC_LeftHeadWrapper,html.zp-dark .dataTables_scrollHead,html.zp-dark .dataTables_scrollBody,html.zp-dark .fixedHeader-floating{background:var(--zp-page) !important}
+html.zp-dark .dataTables_wrapper .dataTables_paginate .paginate_button{color:var(--zp-text) !important;background:var(--zp-surf) !important;border:1px solid var(--zp-line) !important;border-radius:8px !important}
+html.zp-dark .dataTables_wrapper .dataTables_paginate .paginate_button.current,html.zp-dark .dataTables_wrapper .dataTables_paginate .paginate_button:hover{background:var(--zp-accent) !important;border-color:var(--zp-accent) !important;color:var(--zp-onacc,#fff) !important}
+html.zp-dark .dataTables_wrapper .dataTables_paginate .paginate_button.disabled{opacity:.4}
+html.zp-dark input[type=submit],html.zp-dark input[type=reset],html.zp-dark button:not([class*="zp"]),html.zp-dark .ui-button,html.zp-dark .button,html.zp-dark .btn{background:var(--zp-surf2) !important;background-image:none !important;color:var(--zp-text) !important;border-color:var(--zp-line) !important}
+html.zp-dark select option{background:var(--zp-surf) !important;color:var(--zp-text) !important}
+html.zp-dark fieldset,html.zp-dark legend,html.zp-dark hr{border-color:var(--zp-line) !important;color:var(--zp-text) !important}
+html.zp-dark label,html.zp-dark h1,html.zp-dark h2,html.zp-dark h3,html.zp-dark h4,html.zp-dark p,html.zp-dark li{color:inherit}
+html.zp-dark .ui-datepicker,html.zp-dark .ui-datepicker-header,html.zp-dark .ui-menu,html.zp-dark .ui-autocomplete,html.zp-dark .ui-tabs,html.zp-dark .ui-tabs-nav,html.zp-dark .ui-accordion-header,html.zp-dark .ui-accordion-content{
+  background:var(--zp-surf) !important;background-image:none !important;color:var(--zp-text) !important;border-color:var(--zp-line) !important}
+html.zp-dark .ui-state-default,html.zp-dark .ui-widget-content .ui-state-default,html.zp-dark .ui-widget-header .ui-state-default{background:var(--zp-surf2) !important;background-image:none !important;color:var(--zp-text) !important;border-color:var(--zp-line) !important}
+html.zp-dark .ui-state-default a,html.zp-dark .ui-state-default a:link{color:var(--zp-text) !important}
+html.zp-dark .ui-state-hover,html.zp-dark .ui-state-focus{background:color-mix(in srgb,var(--zp-accent) 20%,var(--zp-surf2)) !important;color:var(--zp-text) !important}
+html.zp-dark .ui-state-active,html.zp-dark .ui-widget-content .ui-state-active,html.zp-dark .ui-state-highlight,html.zp-dark .ui-widget-content .ui-state-highlight{background:var(--zp-accent) !important;background-image:none !important;color:var(--zp-onacc,#fff) !important;border-color:var(--zp-accent) !important}
+html.zp-dark .ui-state-active a,html.zp-dark .ui-state-highlight a{color:var(--zp-onacc,#fff) !important}
+html.zp-dark .ui-widget-overlay{background:rgba(0,0,0,.6) !important;opacity:1 !important}
+html.zp-dark .flatpickr-calendar,html.zp-dark .flatpickr-months .flatpickr-month,html.zp-dark .flatpickr-weekdays,html.zp-dark span.flatpickr-weekday,html.zp-dark .flatpickr-monthSelect-month{background:var(--zp-surf) !important;color:var(--zp-text) !important;fill:var(--zp-text) !important}
+html.zp-dark .flatpickr-day,html.zp-dark .flatpickr-monthSelect-month{color:var(--zp-text) !important}
+html.zp-dark .flatpickr-day.prevMonthDay,html.zp-dark .flatpickr-day.nextMonthDay,html.zp-dark .flatpickr-day.flatpickr-disabled{color:var(--zp-muted) !important}
+html.zp-dark .flatpickr-day:hover,html.zp-dark .flatpickr-monthSelect-month:hover{background:var(--zp-surf2) !important}
+html.zp-dark .flatpickr-day.selected,html.zp-dark .flatpickr-day.today.selected,html.zp-dark .flatpickr-monthSelect-month.selected{background:var(--zp-accent) !important;border-color:var(--zp-accent) !important;color:var(--zp-onacc,#fff) !important}
+html.zp-dark .flatpickr-months .flatpickr-prev-month svg,html.zp-dark .flatpickr-months .flatpickr-next-month svg{fill:var(--zp-text) !important}
+html.zp-dark .notiflix-report-content,html.zp-dark .notiflix-confirm-content{background:var(--zp-surf) !important;color:var(--zp-text) !important}
+html.zp-dark .notiflix-report-content h5,html.zp-dark .notiflix-confirm-content h5,html.zp-dark .notiflix-report-content p,html.zp-dark .notiflix-confirm-content div{color:var(--zp-text) !important}
+html.zp-dark .navmenu_anzahl_bg{background-color:var(--zp-bad) !important;border-radius:99px}
+html.zp-dark .navmenu_anzahl{color:var(--zp-onbad,#fff) !important}
+html.zp-dark .navmenu_div:hover{border-color:var(--zp-accent) !important}
+html.zp-dark .navmenu_img{filter:drop-shadow(0 2px 6px rgba(0,0,0,.35))}
+html.zp-dark .js-plotly-plot .plotly .main-svg{background:transparent !important}
+html.zp-dark .js-plotly-plot .plotly .bg{fill:var(--zp-surf) !important}
+html.zp-dark .js-plotly-plot text{fill:var(--zp-text) !important}
+
+/* Original-Tabelle: alle Rahmen (auch in LHR-Kopien) unsichtbar */
+html.zp-pretty.zp-zdl #content table td,html.zp-pretty.zp-zdl #content table tr,html.zp-pretty.zp-zdl #content table tbody{border-color:transparent !important;outline:0 !important}
+html.zp-pretty.zp-zdl #content table th{border-color:var(--zp-grid,#e8eaf0) !important}
+/* Original-Tabelle ausblenden, wenn die Zeit+ Liste aktiv ist (bleibt im Layout, damit LHR-Scripts weiter rechnen) */
+html.zp-hidetable section#content{position:absolute !important;left:-30000px !important;top:0 !important;visibility:hidden !important;pointer-events:none !important}
+#zp-list-host{display:block;margin:0 0 28px;max-width:1240px}
+#zp-list-host.wide{max-width:none}
+/* Navi oben ausblenden */
+html.zp-nonav .nav_main,html.zp-nonav #ul-user-links{display:none !important}
+
+/* Menü-Knopf: muss über dem Dashboard liegen (sonst öffnet das Menü unsichtbar dahinter) */
+.hbmbutton{position:relative !important;z-index:2147480000 !important;pointer-events:auto !important;cursor:pointer !important}
+.hbmbutton .overlay{z-index:2147480001 !important}
+/* Menü-Button modern */
+html.zp-pretty .hbmbutton{background:none !important;background-image:none !important;border:0 !important;box-shadow:none !important;outline:0 !important}
+html.zp-pretty .hbmbutton .menue{background:var(--zp-surf,#f6f7fa) !important;background-image:none !important;border:1px solid var(--zp-line,#e3e6ec) !important;border-image:none !important;
+  border-radius:10px !important;box-shadow:none !important;outline:0 !important;transition:border-color .15s,background .15s}
+html.zp-pretty .hbmbutton .menue:hover{border-color:var(--zp-accent) !important;background:var(--zp-surf2,#eceef3) !important}
+html.zp-pretty .hbmbutton .menue *,html.zp-pretty .textmenue{background:transparent !important;background-image:none !important;box-shadow:none !important;text-shadow:none !important;
+  color:var(--zp-text,#141822) !important;font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;font-weight:600 !important;border:0 !important}
+html.zp-pretty .hbmbutton .overlay{border-radius:12px !important;border:1px solid var(--zp-line) !important;box-shadow:0 16px 40px rgba(0,0,0,.3) !important;overflow:hidden}
+html.zp-pretty .hbmbutton .overlay .text{display:none !important}
+html.zp-pretty .hbmbutton .navpkt a{font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;text-decoration:none !important}
+
+/* Tabelle modern – NUR Farben, keine Größen/Abstände (LHR richtet fixierte Spalte & Kopf pixelgenau aus) */
+html.zp-pretty.zp-zdl table.tabelle th{background:var(--zp-th,#f6f7fa) !important;background-image:none !important;color:var(--zp-muted,#6b7280) !important;border-color:var(--zp-grid,#e8eaf0) !important}
+html.zp-pretty.zp-zdl table.tabelle td{border-color:transparent !important;background-color:var(--zp-td,#fff) !important}
+html.zp-pretty.zp-zdl table.tabelle tbody tr[id^="tag-"] > td{box-shadow:inset 0 1px 0 var(--zp-grid,#e8eaf0)}
+html.zp-pretty.zp-zdl table.tabelle tbody tr:hover > td{background-color:color-mix(in srgb,var(--zp-accent) 7%,var(--zp-td,#fff)) !important;filter:none !important}
+html.zp-pretty.zp-zdl table.tabelle tbody td.td_sp{text-align:right}
+html.zp-pretty.zp-zdl table.tabelle tbody td a{text-decoration:none !important}
+html.zp-pretty.zp-zdl table.tabelle tbody .td_text1_isDate a,html.zp-pretty.zp-zdl table.tabelle tbody .td_text2_isDate a{color:var(--zp-text,#141822) !important;font-weight:600}
+html.zp-pretty.zp-zdl table.tabelle tbody .zp-open a{position:relative;color:transparent !important}
+html.zp-pretty.zp-zdl table.tabelle tbody .zp-open a::before{content:'läuft';position:absolute;inset:0;display:flex;align-items:center;justify-content:flex-start;color:var(--zp-ok);font-weight:700}
+html.zp-pretty.zp-zdl table.tabelle tbody td.td_zeitdaten > a,html.zp-pretty.zp-zdl table.tabelle tbody td.td_zeitdaten > a *{color:var(--zp-muted,#6b7280) !important}
+html.zp-pretty.zp-zdl table.tabelle tbody td.td_soll_pause_uz a{color:var(--zp-warn,#d97706) !important}
+html.zp-pretty.zp-zdl table.tabelle tbody td.td_notiz a{color:var(--zp-text,#141822) !important}
+html.zp-pretty.zp-zdl table.tabelle tbody tr[data-zp-tint] > td{background-color:var(--zp-tintl) !important}
+html.zp-pretty.zp-dark.zp-zdl table.tabelle tbody tr[data-zp-tint] > td{background-color:var(--zp-tint) !important}
+html.zp-pretty.zp-zdl table.tabelle tbody tr[data-zp-tint] > td:first-child{box-shadow:inset 3px 0 0 var(--zp-edge)}
+html.zp-pretty.zp-zdl table.tabelle tbody tr[data-zp-tint] > td.td_datum{color:var(--zp-edge-txt) !important}
+html.zp-pretty.zp-zdl table.tabelle tbody td[style*="color:red"],html.zp-pretty.zp-zdl table.tabelle tbody td[style*="color: red"]{color:var(--zp-bad,#dc2626) !important}
+html.zp-dimfuture.zp-zdl table.tabelle tbody tr.zp-future > td,html.zp-dimfuture.zp-zdl table.tabelle tbody tr.zp-future > td a{color:color-mix(in srgb,var(--zp-muted,#6b7280) 80%,var(--zp-td,#fff)) !important}
+html.zp-dimfuture.zp-zdl table.tabelle tbody tr.zp-future > td[style*="color:red"]{color:color-mix(in srgb,var(--zp-bad,#dc2626) 55%,var(--zp-td,#fff)) !important}
+html.zp-dimfuture.zp-zdl table.tabelle tbody tr.zp-future img.fehlbuch{visibility:hidden !important}
+html.zp-pretty.zp-todayhl.zp-zdl table.tabelle tbody tr.zp-today > td:first-child{box-shadow:inset 3px 0 0 var(--zp-accent) !important}
+html.zp-pretty.zp-todayhl.zp-zdl table.tabelle tbody tr.zp-today > td.td_datum{color:var(--zp-accent) !important}
+
+#zp-cp{display:flex;align-items:center;gap:8px;padding:8px 10px;margin-bottom:6px;font:12px system-ui,'Segoe UI',sans-serif;
+  background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:10px;color:var(--zp-text)}
+#zp-cp b{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--zp-muted)}
+#zp-cp button{padding:4px 12px;border-radius:8px;border:1px solid var(--zp-accent);background:var(--zp-accent);color:var(--zp-onacc,#fff);font:700 12px system-ui,sans-serif;cursor:pointer}
+#zp-cp button:disabled{opacity:.5}
+#zp-cp span{color:var(--zp-muted)}
+
+html.zp-pretty.zp-zdl table.tabelle tbody td.td_zeitdaten a span.zp-gap-txt,html.zp-pretty.zp-zdl table.tabelle tbody td.td_zeitdaten span.zp-gap-txt{position:relative;color:transparent !important}
+html.zp-pretty.zp-zdl table.tabelle tbody td.td_zeitdaten span.zp-gap-txt::before{content:'—';position:absolute;left:0;top:0;color:var(--zp-muted,#6b7280)}
+
+/* Spalten-Menü (LHR „…“-Knopf): wird per JS erkannt (.zp-colbtn / .zp-colmenu), Funktion bleibt LHR */
+img.zp-colbtn{width:38px !important;height:38px !important;border-radius:50% !important;cursor:pointer !important;transition:box-shadow .15s !important;transform:none !important}
+html.zp-dark img.zp-colbtn{filter:invert(.9) hue-rotate(180deg) brightness(1.1) !important}
+img.zp-colbtn:hover{box-shadow:0 0 0 2px var(--zp-accent) !important}
+.zp-colmenu{z-index:2147480500 !important;min-width:260px !important;width:max-content !important;max-width:min(440px,92vw) !important;height:auto !important;max-height:min(78vh,680px) !important;overflow:auto !important;
+  background:var(--zp-surf,#fff) !important;background-image:none !important;border:1px solid var(--zp-line,#e3e6ec) !important;border-radius:14px !important;box-shadow:0 18px 44px rgba(0,0,0,.4) !important;padding:8px !important;
+  font:500 13px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;color:var(--zp-text,#141822) !important}
+.zp-colmenu *{white-space:nowrap !important;max-width:none !important;text-overflow:clip !important;color:var(--zp-text,#141822) !important;font-family:inherit !important;font-size:13px !important}
+.zp-colmenu table,.zp-colmenu thead,.zp-colmenu tbody,.zp-colmenu tr,.zp-colmenu td,.zp-colmenu th,.zp-colmenu ul,.zp-colmenu li,.zp-colmenu div{background-color:transparent !important;border-color:transparent !important;box-shadow:none !important;overflow:visible !important}
+.zp-colmenu .zp-colhead,.zp-colmenu th{font-size:10.5px !important;font-weight:700 !important;letter-spacing:.07em;text-transform:uppercase;color:var(--zp-muted,#6b7280) !important}
+.zp-colmenu li,.zp-colmenu tr,.zp-colmenu label{cursor:pointer}
+.zp-colmenu li,.zp-colmenu td,.zp-colmenu th{padding:5px 8px !important}
+.zp-colmenu li{border-radius:8px !important;list-style:none !important}
+.zp-colmenu ul,.zp-colmenu ol{padding:0 !important;margin:0 !important}
+.zp-colmenu table{border-collapse:separate !important;border-spacing:0 2px !important;width:100%}
+.zp-colmenu tr > :first-child{border-radius:8px 0 0 8px !important}.zp-colmenu tr > :last-child{border-radius:0 8px 8px 0 !important}
+.zp-colmenu li:hover,.zp-colmenu tbody tr:hover > *,.zp-colmenu label:hover{background-color:color-mix(in srgb,var(--zp-accent) 14%,transparent) !important}
+.zp-colmenu tr.zp-fixedrow{opacity:.55 !important}
+.zp-colmenu input[type=checkbox]:disabled{cursor:default}
+.zp-colmenu input[type=checkbox]{accent-color:var(--zp-accent);width:16px !important;height:16px !important;margin:0 8px 0 0 !important;vertical-align:-3px;cursor:pointer}
+html.zp-pretty #colMenue:empty{display:none !important}
+
+/* Team: eigene Zeile + Favoriten */
+html.zp-p-other #content tr.zp-me > td{box-shadow:inset 0 2px 0 var(--zp-accent,#4f5bd5),inset 0 -2px 0 var(--zp-accent,#4f5bd5) !important}
+html.zp-p-other #content tr.zp-me > td:first-child{box-shadow:inset 3px 0 0 var(--zp-accent,#4f5bd5),inset 0 2px 0 var(--zp-accent,#4f5bd5),inset 0 -2px 0 var(--zp-accent,#4f5bd5) !important}
+html.zp-p-other #content tr.zp-me > td:not([data-zp-cf]):not([style*="background"]){color:var(--zp-accent,#4f5bd5) !important;background-color:color-mix(in srgb,var(--zp-accent,#4f5bd5) 12%,transparent) !important}
+html.zp-p-other #content tr.zp-favrow > td{box-shadow:inset 0 1px 0 color-mix(in srgb,var(--zp-accent2,#0ea5e9) 70%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--zp-accent2,#0ea5e9) 70%,transparent) !important}
+html.zp-p-other #content tr.zp-favrow > td:first-child{box-shadow:inset 3px 0 0 var(--zp-accent2,#0ea5e9),inset 0 1px 0 color-mix(in srgb,var(--zp-accent2,#0ea5e9) 70%,transparent),inset 0 -1px 0 color-mix(in srgb,var(--zp-accent2,#0ea5e9) 70%,transparent) !important}
+html.zp-p-other #content tr.zp-favrow > td:not([data-zp-cf]):not([style*="background"]){color:var(--zp-accent2,#0ea5e9) !important}
+#tableautab2 td,#tableautab td{position:relative}
+html.zp-pretty #tableautab2 td,html.zp-pretty #tableautab td{padding-right:24px !important}
+.zp-star{position:absolute;right:5px;top:50%;transform:translateY(-50%);font-size:15px;line-height:1;cursor:pointer;opacity:0;color:var(--zp-muted,#888) !important;transition:opacity .12s,transform .12s;user-select:none;z-index:2}
+td:hover > .zp-star{opacity:.85}
+.zp-star:hover{transform:translateY(-50%) scale(1.25)}
+td.zp-fav > .zp-star{opacity:1;color:#f5c542 !important}
+html.zp-p-other #content td.zp-fav{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,#f5c542 70%,transparent) !important}
+html.zp-p-other #content td.zp-me{box-shadow:inset 0 0 0 2px var(--zp-accent,#4f5bd5) !important}
+td.zp-flash{animation:zpflash 1.2s ease-out}
+@keyframes zpflash{0%{box-shadow:inset 0 0 0 3px var(--zp-accent)}100%{box-shadow:inset 0 0 0 0 transparent}}
+#zp-fav-host{display:block;margin:0 0 12px}
+`;
+
+    /* ════════════════════ CSS: OBERFLÄCHE (im Shadow DOM, isoliert) ════════════════════ */
+    const UI_CSS = `
+:host(.shell) .zp-brand .zp-logo,:host(.shell) .zp-name,:host(.shell) #zp-theme,:host(.shell) #zp-gear{display:none !important}
+:host(.paused) *,:host(.paused) *::before,:host(.paused) *::after{animation-play-state:paused !important}
+:host{all:initial;display:block;color-scheme:var(--zp-scheme,dark);--zp-soft:color-mix(in srgb,var(--zp-accent) 12%,transparent)}
+*,*::before,*::after{box-sizing:border-box}
+.zp-font,button,input,select{font-family:'Segoe UI Variable Text','Segoe UI Variable','Segoe UI',system-ui,-apple-system,Roboto,sans-serif}
+.zp-font{font-size:13px;line-height:1.4;color:var(--zp-text);-webkit-font-smoothing:antialiased}
+.num{font-variant-numeric:tabular-nums;font-feature-settings:'tnum' 1}
+button{font-size:13px;color:inherit;cursor:pointer;background:none;border:0;margin:0;padding:0;line-height:1.2}
+input,select{font-size:13px;margin:0}
+.ic{display:block;flex:none}
+.hidden{display:none !important}
+
+/* ───── Dashboard ───── */
+#zp{zoom:var(--zp-zoom,1);background:var(--zp-bg);border:1px solid var(--zp-line);border-radius:calc(var(--zp-r) + 4px);box-shadow:var(--zp-shadow);
+  padding:14px;position:relative;overflow:hidden;isolation:isolate;user-select:none}
+#zp > :not(#zp-fx){position:relative;z-index:1}
+#zp-fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:.7}
+.zp-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 2px}
+.zp-brand{display:flex;align-items:center;gap:10px;min-width:0}
+.zp-logo{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;color:var(--zp-onacc,#fff);flex:none;
+  background:linear-gradient(135deg,var(--zp-accent),color-mix(in srgb,var(--zp-accent) 55%,var(--zp-accent2)));box-shadow:0 4px 14px color-mix(in srgb,var(--zp-accent) 35%,transparent)}
+.zp-name{font-weight:700;font-size:14.5px;letter-spacing:-.01em}
+.zp-status{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px;border-radius:99px;background:var(--zp-surf);border:1px solid var(--zp-line);color:var(--zp-muted);font-size:12px;white-space:nowrap}
+.zp-dot{width:7px;height:7px;border-radius:50%;background:var(--zp-muted);flex:none;display:inline-block}
+.zp-dot.on{background:var(--zp-ok);box-shadow:0 0 0 0 color-mix(in srgb,var(--zp-ok) 55%,transparent);animation:zpPing 2.2s infinite}
+@keyframes zpPing{70%,100%{box-shadow:0 0 0 6px transparent}}
+.zp-mini{display:none;gap:16px;color:var(--zp-muted);flex-wrap:wrap;font-size:12.5px}
+.zp-mini b{color:var(--zp-text);font-weight:650}
+.zp-actions{margin-left:auto;display:flex;align-items:center;gap:6px}
+.zp-clock{font-weight:600;font-size:15px;margin-right:6px;letter-spacing:.01em}
+.zp-icon{width:34px;height:34px;border-radius:10px;border:1px solid var(--zp-line);background:var(--zp-surf);display:inline-grid;place-items:center;color:var(--zp-muted);transition:.15s}
+.zp-icon:hover{color:var(--zp-text);border-color:color-mix(in srgb,var(--zp-accent) 60%,var(--zp-line));background:var(--zp-surf2)}
+.zp-icon.on{background:var(--zp-accent);border-color:var(--zp-accent);color:var(--zp-onacc,#fff)}
+#zp-fold .ic{transition:transform .2s}
+#zp.collapsed #zp-fold .ic{transform:rotate(-90deg)}
+.zp-timer-pill{display:none;align-items:center;gap:6px;height:34px;padding:0 5px 0 12px;border-radius:99px;background:var(--zp-accent);color:var(--zp-onacc,#fff);font-weight:650}
+.zp-timer-pill.on{display:inline-flex}
+.zp-timer-pill.urgent{background:var(--zp-bad);animation:zpBlink 1s infinite}
+@keyframes zpBlink{50%{opacity:.6}}
+.zp-timer-pill button{width:24px;height:24px;border-radius:99px;background:rgba(255,255,255,.2);color:var(--zp-onacc,#fff);display:grid;place-items:center}
+#zp.collapsed .zp-body,#zp.collapsed .zp-banner{display:none}
+#zp.collapsed .zp-mini{display:flex}
+
+.zp-banner{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;padding:10px 12px 10px 14px;border-radius:var(--zp-r);
+  border:1px solid color-mix(in srgb,var(--zp-accent) 35%,transparent);background:color-mix(in srgb,var(--zp-accent) 10%,var(--zp-bg));font-size:12.5px;color:var(--zp-text)}
+.zp-banner .ic{color:var(--zp-accent)}
+.zp-banner b{font-weight:650}
+.zp-banner .sp{flex:1}
+
+.zp-body{display:grid;grid-template-columns:minmax(300px,1fr) 2.2fr;gap:10px;margin-top:14px}
+#zp.hero-top .zp-body{grid-template-columns:1fr}
+@media (max-width:900px){.zp-body{grid-template-columns:1fr}}
+.zp-lbl{font-size:12px;font-weight:600;color:var(--zp-muted);display:flex;align-items:center;gap:7px}
+.zp-lbl .ic{opacity:.85}
+
+.zp-hero{background:radial-gradient(130% 160% at 0% 0%,var(--zp-soft),transparent 55%),var(--zp-surf);border:1px solid var(--zp-line);
+  border-radius:var(--zp-r);padding:16px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:16px 28px;align-self:start}
+.zp-ring{position:relative;width:96px;height:96px;flex:none}
+.zp-ring svg{width:100%;height:100%;transform:rotate(-90deg)}
+.zp-ring circle{fill:none;stroke-width:8;stroke-linecap:round}
+.zp-ring .bg{stroke:var(--zp-surf2)}
+.zp-ring .fg{stroke:var(--zp-accent);transition:stroke-dashoffset .9s cubic-bezier(.2,.7,.2,1),stroke .4s}
+.zp-ring-t{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.zp-ring-t b{font-size:21px;font-weight:700;line-height:1;letter-spacing:-.02em}
+.zp-ring-t span{font-size:10.5px;color:var(--zp-muted);margin-top:3px}
+.zp-times{display:flex;align-items:stretch;gap:28px;flex:1 1 360px;min-width:0}
+.zp-time{min-width:0}
+.zp-sep{width:1px;background:var(--zp-line);flex:none}
+.zp-big{font-weight:700;font-size:40px;line-height:1.05;letter-spacing:-.035em;margin-top:6px}
+.zp-big.accent{color:var(--zp-accent)}
+.zp-big.done{color:var(--zp-ok)}
+.zp-cd{font-size:12.5px;font-weight:500;color:var(--zp-muted);margin-top:5px;display:flex;align-items:center;gap:5px}
+.zp-cd.ok{color:var(--zp-ok)}
+.zp-foot{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px;flex:1 1 100%}
+#zp.hero-top .zp-foot{flex:0 1 300px;grid-template-columns:1fr;border-left:1px solid var(--zp-line);padding-left:24px}
+@media (max-width:1050px){#zp.hero-top .zp-foot{flex:1 1 100%;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));border-left:0;padding-left:0}}
+.zp-cstats{display:none;gap:10px;flex:1 1 auto;flex-wrap:wrap}
+.zp-cs{display:flex;flex-direction:column;gap:2px;padding:8px 14px;border-radius:12px;background:color-mix(in srgb,var(--zp-surf2) 70%,transparent);min-width:96px}
+.zp-cs span{font-size:11.5px;color:var(--zp-muted);font-weight:500}
+.zp-cs b{font-size:19px;font-weight:700;letter-spacing:-.02em}
+.zp-cs b.ok{color:var(--zp-ok)}.zp-cs b.bad{color:var(--zp-bad)}.zp-cs b.warn{color:var(--zp-warn)}
+#zp.compact .zp-cards,#zp.compact .zp-tl,#zp.compact .zp-foot,#zp.compact .zp-warnbox{display:none !important}
+#zp.compact .zp-cstats{display:flex}
+#zp.compact .zp-body{grid-template-columns:1fr;margin-top:12px}
+#zp.compact .zp-hero{padding:12px 16px;gap:12px 24px}
+#zp.compact .zp-ring{width:64px;height:64px}
+#zp.compact .zp-ring-t b{font-size:15px}
+#zp.compact .zp-ring-t span{display:none}
+#zp.compact .zp-big{font-size:30px}
+#zp.compact .zp-times{flex:0 1 auto}
+.zp-fi{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 10px;border-radius:9px;background:color-mix(in srgb,var(--zp-surf2) 70%,transparent);font-size:12px;color:var(--zp-muted)}
+.zp-fi b{color:var(--zp-text);font-weight:650}
+.zp-fi.w{background:color-mix(in srgb,var(--zp-warn) 13%,transparent);color:var(--zp-warn)}
+.zp-fi.w b{color:var(--zp-warn)}
+
+.zp-cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-content:start;grid-auto-flow:dense}
+#zp.hero-top .zp-cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media (max-width:1100px){.zp-cards,#zp.hero-top .zp-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:560px){.zp-cards,#zp.hero-top .zp-cards{grid-template-columns:1fr}}
+.zp-card{position:relative;background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:var(--zp-r);padding:14px 15px;display:flex;flex-direction:column;gap:2px;min-width:0;transition:border-color .15s,background .15s}
+.zp-card:hover{border-color:color-mix(in srgb,var(--zp-accent) 40%,var(--zp-line))}
+.zp-card.is-wide{grid-column:span 2}
+.zp-card.off{display:none}
+.zp-val{font-weight:700;font-size:26px;line-height:1.15;letter-spacing:-.025em;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zp-val small{font-size:15px;font-weight:600;color:var(--zp-muted);letter-spacing:0;margin-left:2px}
+.zp-val.ok{color:var(--zp-ok)}.zp-val.warn{color:var(--zp-warn)}.zp-val.bad{color:var(--zp-bad)}
+.zp-sub{font-size:12px;color:var(--zp-muted);line-height:1.5}
+.zp-sub .w{color:var(--zp-warn);font-weight:600}
+.zp-bar{height:6px;border-radius:9px;background:var(--zp-surf2);overflow:hidden;margin:8px 0 6px}
+.zp-bar i{display:block;height:100%;width:0;border-radius:9px;background:var(--zp-accent);transition:width .7s,background .4s}
+.zp-chips{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px}
+.zp-chip{height:24px;padding:0 10px;border-radius:99px;border:1px solid var(--zp-line);background:var(--zp-bg);font-size:11.5px;font-weight:600;color:var(--zp-muted);transition:.12s}
+.zp-chip:hover{border-color:var(--zp-accent);color:var(--zp-text)}
+.zp-chip.on{background:var(--zp-accent);border-color:var(--zp-accent);color:var(--zp-onacc,#fff)}
+.zp-wish{margin-top:8px}
+.zp-wish input{background:var(--zp-bg);color:var(--zp-text);border:1px solid var(--zp-line);border-radius:9px;padding:4px 8px;font-weight:600;font-size:15px;width:108px;outline:none}
+.zp-wish input:focus{border-color:var(--zp-accent)}
+.zp-days{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:10px 0 6px;align-items:end}
+.zp-day{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:10.5px;font-weight:600;color:var(--zp-muted)}
+.zp-day .col{width:100%;height:30px;border-radius:7px;background:var(--zp-surf2);position:relative;overflow:hidden}
+.zp-day .col i{position:absolute;left:0;right:0;bottom:0;background:var(--zp-accent2);border-radius:7px;transition:height .6s}
+.zp-day.full .col i{background:var(--zp-ok)}
+.zp-day.today{color:var(--zp-text)}
+.zp-day.today .col{box-shadow:0 0 0 2px var(--zp-accent)}
+.zp-spark{width:100%;height:46px;margin:8px 0 4px;display:block;overflow:visible}
+
+/* Bearbeiten-Modus */
+.zp-tools{display:none;position:absolute;top:10px;right:10px;gap:5px;z-index:3}
+#zp.editing .zp-tools{display:flex}
+.zp-tools button{width:28px;height:28px;border-radius:8px;border:1px solid var(--zp-line);background:var(--zp-bg);display:grid;place-items:center;color:var(--zp-muted)}
+.zp-tools button:hover{border-color:var(--zp-accent);color:var(--zp-text)}
+.zp-tools button.on{background:var(--zp-accent);border-color:var(--zp-accent);color:var(--zp-onacc,#fff)}
+#zp.editing .zp-card{cursor:grab;border-style:dashed;border-color:color-mix(in srgb,var(--zp-accent) 55%,var(--zp-line))}
+#zp.editing .zp-card:active{cursor:grabbing}
+#zp.editing .zp-card.off{display:flex;opacity:.4}
+#zp.editing .zp-card.dragging{opacity:.25}
+
+/* Timeline */
+.zp-tl{grid-column:1/-1;background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:var(--zp-r);padding:28px 16px 6px}
+.zp-tl.off{display:none}
+.zp-track{position:relative;height:22px;border-radius:7px;background:var(--zp-surf2)}
+.zp-seg{position:absolute;top:0;bottom:0;background:var(--zp-accent);border-radius:5px;min-width:2px}
+.zp-seg.live{background:var(--zp-ok);animation:zpGlow 2.2s ease-in-out infinite}
+@keyframes zpGlow{50%{opacity:.7}}
+.zp-gap{position:absolute;top:8px;bottom:8px;border-radius:3px}
+.zp-gap.lunch{top:2px;bottom:2px;background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--zp-warn) 60%,transparent) 0 3px,transparent 3px 6px);border-radius:4px}
+.zp-gap.smoke{background:color-mix(in srgb,var(--zp-muted) 45%,transparent)}
+.zp-win{position:absolute;top:-4px;bottom:-4px;border-radius:8px;background:color-mix(in srgb,var(--zp-warn) 6%,transparent);border:1px dashed color-mix(in srgb,var(--zp-warn) 30%,transparent)}
+.zp-proj{position:absolute;top:5px;bottom:5px;border-radius:5px;border:1.5px dashed color-mix(in srgb,var(--zp-ok) 80%,transparent)}
+.zp-mark{position:absolute;top:-6px;bottom:-6px;width:2px;margin-left:-1px;background:var(--zp-text);border-radius:2px}
+.zp-mark span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;font-size:10.5px;font-weight:650;white-space:nowrap;
+  padding:2px 8px;border-radius:99px;background:var(--zp-text);color:var(--zp-bg)}
+.zp-mark.low span{bottom:auto;top:100%;margin:3px 0 0}
+.zp-mark.soll{background:var(--zp-accent)}.zp-mark.soll span{background:var(--zp-accent);color:var(--zp-onacc,#fff)}
+.zp-mark.sal{background:var(--zp-accent2)}.zp-mark.sal span{background:var(--zp-accent2);color:#0b0d12}
+.zp-mark.wish{background:var(--zp-muted)}.zp-mark.wish span{background:var(--zp-surf2);color:var(--zp-text);border:1px solid var(--zp-line)}
+.zp-mark.now{background:var(--zp-bad)}.zp-mark.now span{background:var(--zp-bad);color:var(--zp-onbad,#fff)}
+.zp-ticks{position:relative;height:16px;margin-top:24px}
+.zp-ticks span{position:absolute;transform:translateX(-50%);font-size:10.5px;color:var(--zp-muted)}
+.zp-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11px;color:var(--zp-muted);padding:6px 0 4px}
+.zp-legend.off{display:none}
+.zp-legend i{display:inline-block;width:12px;height:8px;border-radius:3px;margin-right:5px;vertical-align:middle}
+.zp-warnbox{grid-column:1/-1;display:none;align-items:center;gap:8px;font-size:12.5px;padding:9px 13px;border-radius:var(--zp-r);background:color-mix(in srgb,var(--zp-warn) 11%,transparent);color:var(--zp-warn);border:1px solid color-mix(in srgb,var(--zp-warn) 30%,transparent)}
+.zp-warnbox a{color:inherit;font-weight:650;text-decoration:underline;cursor:pointer}
+
+.zp-pop{position:absolute;top:52px;right:14px;z-index:20;width:260px;background:var(--zp-bg);border:1px solid var(--zp-line);border-radius:var(--zp-r);
+  box-shadow:0 18px 48px rgba(0,0,0,.35);padding:14px;display:flex;flex-direction:column;gap:10px}
+.zp-pop h4{margin:0;font-size:13px;font-weight:650;display:flex;align-items:center;gap:7px}
+.zp-pop .row{display:flex;gap:6px;align-items:center}
+.zp-pop input{background:var(--zp-surf);color:var(--zp-text);border:1px solid var(--zp-line);border-radius:9px;padding:6px 8px;width:80px;outline:none}
+
+/* Buttons */
+.zp-btn{height:32px;border:1px solid var(--zp-line);background:var(--zp-surf);border-radius:10px;padding:0 14px;font-weight:600;transition:.15s;color:var(--zp-text);display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+.zp-btn:hover{border-color:color-mix(in srgb,var(--zp-accent) 60%,var(--zp-line));background:var(--zp-surf2)}
+.zp-btn.pri{background:var(--zp-accent);border-color:var(--zp-accent);color:var(--zp-onacc,#fff)}
+.zp-btn.pri:hover{filter:brightness(1.08)}
+.zp-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ───── App-Leiste ───── */
+#zs{background:color-mix(in srgb,var(--zp-bg) 84%,transparent);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border-bottom:1px solid var(--zp-line);color:var(--zp-text)}
+.zs-in{max-width:1240px;margin:0 auto;padding:0 16px;box-sizing:content-box}
+.zs-bar{display:flex;align-items:center;gap:14px;height:60px}
+.zs-brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:var(--zp-text);font-weight:700;font-size:15px;letter-spacing:-.01em;flex:none}
+.zs-brand .zp-logo{width:30px;height:30px}
+.zs-nav{display:flex;gap:2px;overflow-x:auto;scrollbar-width:none;flex:1;min-width:0;padding:0 4px}
+.zs-nav::-webkit-scrollbar{display:none}
+.zs-nav a{position:relative;display:flex;align-items:center;gap:6px;height:38px;padding:0 9px;border-radius:11px;color:var(--zp-muted);text-decoration:none;font-weight:600;font-size:12.5px;white-space:nowrap;transition:background .15s,color .15s;flex:none}
+.zs-nav a:hover{background:var(--zp-surf);color:var(--zp-text)}
+.zs-nav a.on{background:var(--zp-surf2);color:var(--zp-text);box-shadow:inset 0 0 0 1px var(--zp-line)}
+.zs-nav a.on .ic{color:var(--zp-accent)}
+.zs-badge{min-width:18px;height:18px;border-radius:99px;background:var(--zp-bad);color:var(--zp-onbad,#fff);font-size:10.5px;font-weight:700;display:inline-grid;place-items:center;padding:0 5px;line-height:1}
+@media (max-width:1300px){.zs-nav a:not(.on) .lb{display:none}.zs-nav a{padding:0 10px}}
+#zs.live-on .zs-nav a .lb{display:none}
+#zs.live-on .zs-nav a.on .lb{display:inline}
+.zs-live{display:none;align-items:center;gap:8px;font-size:12.5px;color:var(--zp-muted);white-space:nowrap;padding:0 12px;height:34px;border-radius:99px;background:var(--zp-surf);border:1px solid var(--zp-line);cursor:pointer;flex:none}
+.zs-live b{color:var(--zp-text);font-weight:650}
+#zs.live-on .zs-live{display:flex}
+@media (max-width:1100px){#zs.live-on .zs-live{display:none}}
+.zs-right{display:flex;align-items:center;gap:6px;flex:none}
+.zs-user{display:flex;align-items:center;gap:9px;height:40px;padding:0 10px 0 4px;border-radius:99px;border:1px solid var(--zp-line);background:var(--zp-surf);color:var(--zp-text);font-weight:600}
+.zs-user:hover{border-color:color-mix(in srgb,var(--zp-accent) 55%,var(--zp-line))}
+.zs-av{position:relative;width:32px;height:32px;border-radius:50%;display:grid;place-items:center;color:var(--zp-onacc,#fff);font-weight:700;font-size:12px;
+  background:linear-gradient(135deg,var(--zp-accent),color-mix(in srgb,var(--zp-accent) 50%,var(--zp-accent2)))}
+.zs-av i{position:absolute;right:-1px;bottom:-1px;width:10px;height:10px;border-radius:50%;background:var(--zp-muted);border:2px solid var(--zp-surf)}
+.zs-av i.on{background:var(--zp-ok)}
+.zs-user .nm{font-size:13px}
+.zs-user small{color:var(--zp-muted);font-weight:500;margin-left:4px}
+@media (max-width:900px){.zs-user .nm{display:none}}
+@media (max-width:1180px){.zs-chip.ur{display:none}.zs-sub .zp-btn{padding:0 10px}}
+.zs-sub{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:10px 0 12px;border-top:1px solid color-mix(in srgb,var(--zp-line) 60%,transparent)}
+.zs-title{font-size:19px;font-weight:700;letter-spacing:-.02em;margin-right:6px}
+.zs-month{display:flex;align-items:center;gap:2px;background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:12px;padding:3px}
+.zs-month button{height:30px;min-width:30px;border-radius:9px;display:inline-flex;align-items:center;justify-content:center;gap:6px;color:var(--zp-muted)}
+.zs-month button:hover{background:var(--zp-surf2);color:var(--zp-text)}
+.zs-month .m{padding:0 12px;font-weight:650;color:var(--zp-text);min-width:140px}
+.zs-month .t{padding:0 10px;font-size:12px;font-weight:600}
+.zs-chip{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;border-radius:99px;font-size:12px;font-weight:600;color:var(--zp-muted);background:var(--zp-surf);border:1px solid var(--zp-line);white-space:nowrap}
+.zs-chip b{color:var(--zp-text);font-weight:650}
+.zs-chip.st{color:var(--zp-warn);border-color:color-mix(in srgb,var(--zp-warn) 35%,var(--zp-line))}
+.zs-chip.st.ok{color:var(--zp-ok);border-color:color-mix(in srgb,var(--zp-ok) 35%,var(--zp-line))}
+.zs-sub .sp{flex:1}
+.zs-sub .zp-btn{height:34px}
+.zs-pop{position:fixed;z-index:10;min-width:230px;max-width:320px;background:var(--zp-bg);border:1px solid var(--zp-line);border-radius:14px;box-shadow:0 22px 60px rgba(0,0,0,.4);padding:6px;animation:zpIn .16s ease}
+.zs-pop h5{margin:6px 10px 6px;font-size:11px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--zp-muted)}
+.zs-mi{display:flex;align-items:center;gap:10px;width:100%;height:38px;padding:0 10px;border-radius:9px;text-align:left;color:var(--zp-text);font-weight:500;text-decoration:none}
+.zs-mi:hover{background:var(--zp-surf2)}
+.zs-mi .ic{color:var(--zp-muted)}
+.zs-mi.danger{color:var(--zp-bad)}.zs-mi.danger .ic{color:var(--zp-bad)}
+.zs-sepl{height:1px;background:var(--zp-line);margin:5px 4px}
+.zs-langs{display:flex;gap:4px;padding:4px 10px 8px}
+.zs-langs button{height:26px;padding:0 10px;border-radius:8px;border:1px solid var(--zp-line);font-size:12px;font-weight:600;color:var(--zp-muted)}
+.zs-langs button.on,.zs-langs button:hover{border-color:var(--zp-accent);color:var(--zp-text)}
+.zs-yr{display:flex;align-items:center;justify-content:space-between;padding:4px 4px 8px}
+.zs-yr b{font-size:14px}
+.zs-yr button{width:30px;height:30px;border-radius:8px;display:grid;place-items:center;color:var(--zp-muted)}
+.zs-yr button:hover{background:var(--zp-surf2);color:var(--zp-text)}
+.zs-months{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:0 4px 4px}
+.zs-months button{height:36px;border-radius:9px;font-weight:600;font-size:12.5px;color:var(--zp-text)}
+.zs-months button:hover{background:var(--zp-surf2)}
+.zs-months button.on{background:var(--zp-accent);color:var(--zp-onacc,#fff)}
+.zs-months button.now{box-shadow:inset 0 0 0 1px var(--zp-accent)}
+
+/* ───── Favoriten-Leiste (Tableau) ───── */
+#zf{zoom:var(--zp-zoom,1)}
+.zf-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;background:var(--zp-bg);border:1px solid var(--zp-line);border-radius:calc(var(--zp-r) + 2px);box-shadow:var(--zp-shadow)}
+.zf-t{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--zp-muted);margin-right:4px}
+.zf-t .ic{color:#f5c542}
+.zf-c{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 6px 0 6px;border-radius:99px;background:var(--zp-surf);border:1px solid var(--zp-line);font-weight:600;font-size:13px;color:var(--zp-text);transition:.12s}
+.zf-c:hover{border-color:#f5c542}
+.zf-c img{width:22px;height:22px;border-radius:50%;object-fit:cover}
+.zf-c i{width:10px;height:10px;border-radius:50%;background:var(--zp-muted);margin:0 6px}
+.zf-c.off{opacity:.5}
+.zf-c b{display:grid;place-items:center;width:22px;height:22px;border-radius:50%;color:var(--zp-muted)}
+.zf-c b:hover{background:var(--zp-surf2);color:var(--zp-bad)}
+.zf-h{font-size:12.5px;color:var(--zp-muted)}
+/* ───── Kalender ───── */
+.zs-month span.m{display:inline-flex;align-items:center;justify-content:center;height:30px;min-width:96px}
+#zk{zoom:var(--zp-zoom,1);display:grid;gap:14px;user-select:none}
+.zk-card{background:var(--zp-bg);border:1px solid var(--zp-line);border-radius:calc(var(--zp-r) + 4px);box-shadow:var(--zp-shadow);padding:16px;display:grid;gap:14px;min-width:0}
+.zk-card.slim{padding:12px 16px}
+.zk-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.zk-head .sp{flex:1}
+.zk-yn{display:flex;align-items:center;gap:2px;background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:11px;padding:3px}
+.zk-yn button{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;color:var(--zp-muted)}
+.zk-yn button:hover{background:var(--zp-surf2);color:var(--zp-text)}
+.zk-yn b{padding:0 8px;font-weight:650}
+.zk-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.zk-st{background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:var(--zp-r);padding:12px 15px;display:grid;gap:4px;min-width:0;position:relative;overflow:hidden}
+.zk-st small{font-size:10.5px;font-weight:650;letter-spacing:.07em;text-transform:uppercase;color:var(--zp-muted);display:flex;gap:6px;align-items:center}
+.zk-st b{font-size:22px;font-weight:700;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zk-st b em{font-style:normal;font-size:13px;font-weight:600;color:var(--zp-muted);letter-spacing:0}
+.zk-st span{font-size:12.5px;color:var(--zp-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zk-st.acc{background:linear-gradient(135deg,color-mix(in srgb,var(--zp-accent) 18%,var(--zp-surf)),var(--zp-surf));border-color:color-mix(in srgb,var(--zp-accent) 35%,var(--zp-line))}
+.zk-st.acc small .ic{color:var(--zp-accent)}
+.zk-st.warn small .ic,.zk-st.warn b{color:var(--zp-warn)}
+.zk-months{display:grid;grid-template-columns:repeat(auto-fill,minmax(248px,1fr));gap:12px}
+.zk-m{background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:var(--zp-r);padding:12px 12px 10px;min-width:0}
+.zk-m.gone{background:color-mix(in srgb,var(--zp-surf) 55%,transparent)}
+.zk-m.cur{border-color:color-mix(in srgb,var(--zp-accent) 60%,var(--zp-line));box-shadow:0 0 0 3px color-mix(in srgb,var(--zp-accent) 14%,transparent)}
+.zk-mh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 2px 8px;min-height:22px}
+.zk-mh b{font-size:14px;font-weight:700}
+.zk-m.cur .zk-mh b{color:var(--zp-accent)}
+.zk-mh span{display:flex;gap:4px}
+.zk-bd{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 7px;border-radius:99px;font-size:11px;font-weight:700;background:color-mix(in srgb,var(--c) 18%,transparent);color:var(--zp-text)}
+.zk-bd i{width:7px;height:7px;border-radius:50%;background:var(--c)}
+.zk-wd,.zk-g{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:3px}
+.zk-wd span{font-size:10px;font-weight:650;color:var(--zp-muted);text-align:center;letter-spacing:.04em;padding-bottom:4px}
+.zk-wd span:nth-child(n+6){opacity:.6}
+.zk-d{position:relative;height:31px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;color:var(--zp-text);background:transparent;transition:background .12s,box-shadow .12s,opacity .12s;cursor:default;min-width:0;padding:0}
+.zk-d.blank,.zk-d.none{visibility:hidden}
+.zk-d.we{color:var(--zp-muted);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--zp-muted) 13%,transparent) 0 2px,transparent 2px 6px)}
+.zk-d.hol:not(.abs){color:var(--zp-warn);background:color-mix(in srgb,var(--zp-warn) 13%,transparent)}
+.zk-d.work::after{content:'';position:absolute;bottom:3px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:color-mix(in srgb,var(--zp-ok) 75%,transparent)}
+.zk-d.abs{background:color-mix(in srgb,var(--c) 84%,var(--zp-surf));color:var(--ink);font-weight:700}
+.zk-d.abs i{position:absolute;top:1px;right:4px;font-style:normal;font-size:8.5px;font-weight:800;opacity:.7}
+.zk-d.past:not(.abs):not(.today){opacity:.5}
+.zk-d.past.abs{opacity:.8;filter:saturate(.85)}
+.zk-d.pend{background:color-mix(in srgb,var(--c) 20%,transparent);color:var(--zp-text);outline:1.5px dashed var(--c);outline-offset:-2px}
+.zk-d.today{box-shadow:0 0 0 2px var(--zp-accent),0 0 14px color-mix(in srgb,var(--zp-accent) 45%,transparent);color:var(--zp-accent);font-weight:800;z-index:1}
+.zk-d.abs.today{color:var(--ink)}
+.zk-d.bridge:not(.abs){box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--zp-accent2) 75%,transparent);background:color-mix(in srgb,var(--zp-accent2) 12%,transparent)}
+.zk-sub{font-size:12px;color:var(--zp-muted)}
+.zk-brs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.zk-br{display:grid;gap:3px;text-align:left;padding:11px 14px;border-radius:var(--zp-r);background:var(--zp-surf);border:1px solid var(--zp-line);transition:.15s;color:var(--zp-text)}
+.zk-br:hover{border-color:var(--zp-accent2);transform:translateY(-1px)}
+.zk-br b{font-size:15px;font-weight:700}.zk-br b em{font-style:normal;font-weight:500;font-size:12px;color:var(--zp-muted)}
+.zk-br span{font-size:13px;font-weight:600;color:var(--zp-accent2)}
+.zk-br small{font-size:11.5px;color:var(--zp-muted)}
+.zk-none{font-size:13px;color:var(--zp-muted);display:flex;align-items:center;gap:7px}
+.zk-d.add{cursor:pointer}
+.zk-d.add:hover{background:color-mix(in srgb,var(--zp-accent) 24%,transparent);color:var(--zp-text);opacity:1}
+.zk-d.add:hover::before{content:'+';position:absolute;top:0;right:4px;font-size:11px;font-weight:800;color:var(--zp-accent)}
+.zk-d.abs:not(.add){cursor:help}
+.zk-stripw{overflow-x:auto;padding-bottom:2px}
+.zk-strip{display:grid;grid-template-columns:92px repeat(31,minmax(24px,1fr));gap:3px;min-width:900px;align-items:center}
+.zk-strip .hd{text-align:center;color:var(--zp-muted);font-size:10.5px;font-weight:650;padding-bottom:2px}
+.zk-strip .mn{font-weight:650;font-size:12.5px;padding-left:2px}
+.zk-strip .mn.cur{color:var(--zp-accent)}
+.zk-strip .zk-d{height:27px;border-radius:6px;font-size:11px}
+.zk-strip .zk-d.today{box-shadow:0 0 0 2px var(--zp-accent)}
+.zk-strip .zk-d.work::after{bottom:50%;margin-bottom:-2px}
+.zk-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;border-top:1px solid var(--zp-line);padding-top:12px}
+.zk-leg{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+.zk-li{display:inline-flex;align-items:center;gap:8px;height:32px;padding:0 11px 0 5px;border-radius:10px;border:1px solid var(--zp-line);background:var(--zp-surf);font-size:12.5px;font-weight:600;color:var(--zp-text)}
+.zk-li em{font-style:normal;color:var(--zp-muted);font-weight:500;font-size:12px}
+.zk-li .ic{color:var(--zp-muted)}
+button.zk-li:hover{border-color:var(--zp-accent)}
+.zk-li.off{opacity:.5}
+.zk-li.ghost{background:transparent;border-color:transparent;padding-right:6px;color:var(--zp-muted);font-weight:500}
+.zk-sw{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:800;background:color-mix(in srgb,var(--c) 84%,var(--zp-surf));color:var(--ink)}
+.zk-sw.work{background:var(--zp-surf2);color:var(--zp-ok)}
+.zk-sw.we{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--zp-muted) 30%,transparent) 0 2px,transparent 2px 6px);box-shadow:inset 0 0 0 1px var(--zp-line)}
+.zk-sw.hol{background:color-mix(in srgb,var(--zp-warn) 22%,transparent)}
+.zk-sw.pend{outline:1.5px dashed var(--zp-muted);outline-offset:-3px}
+.zk-sw.today{box-shadow:inset 0 0 0 2px var(--zp-accent)}
+.zk-hint{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--zp-muted)}
+.zk-hint .ic{color:var(--zp-accent)}
+.zk-hint b{color:var(--zp-text);font-weight:600}
+@media (max-width:700px){.zk-months{grid-template-columns:1fr}}
+
+/* ───── Monatsliste ───── */
+#zl{zoom:var(--zp-zoom,1);background:var(--zp-bg);border:1px solid var(--zp-line);border-radius:calc(var(--zp-r) + 4px);box-shadow:var(--zp-shadow);padding:14px 14px 10px;user-select:none}
+.zl-head{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:0 2px 10px}
+.zl-title{font-weight:700;font-size:15px;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
+.zl-title .ic{color:var(--zp-accent)}
+.zl-pill{font-size:12px;color:var(--zp-muted);background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:99px;height:26px;padding:0 11px;display:inline-flex;align-items:center;gap:5px}
+.zl-pill b{color:var(--zp-text);font-weight:650}
+.zl-pill b.ok{color:var(--zp-ok)}.zl-pill b.bad{color:var(--zp-bad)}.zl-pill.w{color:var(--zp-warn);border-color:color-mix(in srgb,var(--zp-warn) 35%,var(--zp-line))}
+.zl-head .sp{flex:1}
+#zl.orig .zl-body{display:none}
+#zl.orig{padding-bottom:4px}
+.zl-cols,.zl-row{display:grid;grid-template-columns:var(--zl-grid,92px minmax(200px,1fr) 190px 62px 66px 72px 20px);align-items:center;gap:14px;padding:0 12px}
+.zl-cols{font-size:10.5px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--zp-muted);height:30px;border-bottom:1px solid var(--zp-line)}
+.zl-cols .r,.zl-n{text-align:right}
+.zl-wk{display:flex;align-items:center;gap:10px;padding:14px 12px 6px;font-size:11px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--zp-muted)}
+.zl-wk::after{content:'';flex:1;height:1px;background:var(--zp-line)}
+.zl-wk b{color:var(--zp-text);font-weight:600;text-transform:none;letter-spacing:0}
+.zl-row{min-height:44px;border-radius:12px;cursor:pointer;position:relative;transition:background .12s}
+.zl-row:hover{background:var(--zp-surf)}
+.zl-row.open{background:var(--zp-surf);box-shadow:inset 0 0 0 1px var(--zp-line)}
+.zl-row.edge::before{content:'';position:absolute;left:0;top:9px;bottom:9px;width:3px;border-radius:3px;background:var(--edge)}
+.zl-row.today{background:color-mix(in srgb,var(--zp-accent) 10%,transparent)}
+.zl-row.today::before{content:'';position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:3px;background:var(--zp-accent)}
+.zl-row.we .zl-date,.zl-row.we .zl-st{opacity:.55}
+.zl-row.future{opacity:.5}
+.zl-row.future.calc{opacity:.78}
+.zl-more.sep{margin:14px 0 6px}
+.zl-date{display:flex;align-items:baseline;gap:8px}
+.zl-date b{font-weight:650;font-size:13.5px}
+.zl-date span{font-size:12px;color:var(--zp-muted);font-weight:600;width:22px}
+.zl-row.today .zl-date b,.zl-row.today .zl-date span{color:var(--zp-accent)}
+.zl-st{font-size:12.5px;display:flex;flex-wrap:wrap;gap:5px 6px;align-items:center;padding:7px 0;min-width:0}
+.zl-p{display:inline-flex;align-items:center;height:100%;padding:0 5px;border-radius:5px;cursor:pointer;transition:.12s}
+.zl-p:hover{background:color-mix(in srgb,var(--zp-accent) 22%,transparent);color:var(--zp-accent)}
+.zl-p.off{cursor:default}.zl-p.off:hover{background:none;color:inherit}
+.zl-b{height:24px;padding:0 4px;border-radius:7px;background:var(--zp-surf2);border:1px solid var(--zp-line);font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:5px;color:var(--zp-text);cursor:pointer;white-space:nowrap;transition:.12s}
+.zl-b:hover{border-color:color-mix(in srgb,var(--zp-accent) 50%,var(--zp-line))}
+.zl-b em{margin:0 -2px}
+.zl-b em{font-style:normal;color:var(--zp-muted);font-weight:500}
+.zl-b.live{background:color-mix(in srgb,var(--zp-ok) 15%,transparent);border-color:color-mix(in srgb,var(--zp-ok) 45%,transparent)}
+.zl-b.live b{color:var(--zp-ok)}
+.zl-lunch{display:inline-flex;align-items:center;gap:4px;font-size:11.5px;font-weight:600;color:var(--zp-warn);padding:0 3px}
+.zl-lunch.ok{color:var(--zp-muted)}
+.zl-lunch b{font-weight:700;margin-left:3px;padding:1px 6px;border-radius:99px;background:color-mix(in srgb,var(--zp-warn) 18%,transparent);color:var(--zp-warn);font-size:11px}
+.zl-det .meta .w{color:var(--zp-warn)}
+.zl-det .meta .ic{vertical-align:-2px}
+.zl-st small{color:var(--zp-muted);margin-left:6px}
+.zl-tag{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 9px;border-radius:99px;font-size:11.5px;font-weight:650;background:var(--zp-surf2);color:var(--zp-muted)}
+.zl-tag.ok{background:color-mix(in srgb,var(--zp-ok) 15%,transparent);color:var(--zp-ok)}
+.zl-tag.warn{background:color-mix(in srgb,var(--zp-warn) 15%,transparent);color:var(--zp-warn)}
+.zl-tag.info{background:color-mix(in srgb,var(--edge,var(--zp-accent2)) 18%,transparent);color:var(--edge,var(--zp-accent2))}
+.zl-tl{position:relative;height:10px;border-radius:5px;background:var(--zp-surf2)}
+.zl-tl i{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--zp-accent)}
+.zl-tl i.live{background:var(--zp-ok)}
+.zl-tl i.lunch{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--zp-warn) 70%,transparent) 0 2px,transparent 2px 4px);top:-2px;bottom:-2px}
+.zl-row.future .zl-tl{background:transparent;border:1px dashed var(--zp-line)}
+.zl-tl.in{flex:0 0 100%;height:5px;margin:3px 0 1px;max-width:520px;opacity:.85}
+.zl-tl.in i.lunch{top:-1px;bottom:-1px}
+.zl-row.future .zl-tl.in,.zl-row.we .zl-tl.in{display:none}
+#zl.many .zl-cols,#zl.many .zl-row{gap:10px}
+#zl.many .zl-vh{font-size:10px;letter-spacing:.03em}
+#zl.many .zl-n{font-size:12.5px}
+.zl-n{font-weight:600;font-size:13px}
+.zl-cw{position:relative}
+.zp-btn.sm{height:28px;padding:0 10px;font-size:12px;border-radius:9px;gap:6px}
+.zl-colpop{display:none;position:absolute;right:0;top:36px;z-index:20;min-width:270px;max-height:min(70vh,560px);overflow:auto;background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:14px;box-shadow:0 18px 44px rgba(0,0,0,.35);padding:10px;user-select:none}
+.zl-colpop.open{display:block}
+.zl-colpop h5{margin:2px 6px 8px;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--zp-muted)}
+.zl-ci{display:flex;align-items:center;gap:9px;padding:6px 8px;border-radius:8px;cursor:pointer;font-size:13px;font-weight:600;color:var(--zp-text)}
+.zl-ci:hover{background:var(--zp-surf2)}
+.zl-ci input{accent-color:var(--zp-accent);width:16px;height:16px;margin:0;cursor:pointer}
+.zl-ci em{font-style:normal;font-weight:500;color:var(--zp-muted);font-size:12px;margin-left:auto;padding-left:12px;white-space:nowrap}
+.zl-cf{display:flex;gap:6px;flex-wrap:wrap;margin:8px 4px 4px;padding-top:8px;border-top:1px solid var(--zp-line)}
+.zl-colpop p{margin:6px 6px 2px;font-size:11.5px;color:var(--zp-muted)}
+.zl-vh{cursor:grab;border-radius:6px;padding:4px 2px;position:relative;white-space:nowrap;transition:background .12s,color .12s}
+.zl-vh:hover{color:var(--zp-text);background:var(--zp-surf2)}
+.zl-vh.dragging{opacity:.4}
+.zl-vh.drop-l{box-shadow:inset 3px 0 0 var(--zp-accent)}.zl-vh.drop-r{box-shadow:inset -3px 0 0 var(--zp-accent)}
+.zl-x{font-weight:550;color:var(--zp-text)}.zl-x .mut{color:var(--zp-muted);font-weight:500}.zl-xh{white-space:nowrap}
+.zl-n.ok{color:var(--zp-ok)}.zl-n.bad{color:var(--zp-bad)}.zl-n.mut{color:var(--zp-muted);font-weight:500}
+.zl-chev{color:var(--zp-muted);transition:transform .15s;justify-self:end}
+.zl-row.open .zl-chev{transform:rotate(180deg)}
+.zl-det{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px;align-items:center;padding:2px 0 12px 110px;cursor:default}
+.zl-chip{height:28px;padding:0 11px;border-radius:9px;background:var(--zp-bg);border:1px solid var(--zp-line);font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:6px;color:var(--zp-text)}
+.zl-chip:hover{border-color:var(--zp-accent);color:var(--zp-accent)}
+.zl-chip.gap{background:transparent;border-style:dashed;color:var(--zp-muted);font-weight:500;cursor:default}
+.zl-chip.gap.lunch{color:var(--zp-warn);border-color:color-mix(in srgb,var(--zp-warn) 45%,transparent)}
+.zl-chip.act{background:var(--zp-surf2)}
+.zl-det .meta{font-size:12px;color:var(--zp-muted);margin-left:6px}
+.zl-more{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:10px 0 4px;height:38px;border:1px dashed var(--zp-line);border-radius:12px;color:var(--zp-muted);font-weight:600}
+.zl-more:hover{color:var(--zp-text);border-color:var(--zp-accent)}
+@media (max-width:980px){.zl-cols,.zl-row{grid-template-columns:var(--zl-gridm,80px 1fr 60px 64px 18px)}.zl-tl,.zl-cols .tlh,.zl-n.ist,.zl-cols .isth{display:none}.zl-det{padding-left:0}}
+
+/* ───── Overlays ───── */
+#zp-sticky{position:fixed;top:12px;left:50%;transform:translate(-50%,-180%);z-index:2147483000;display:flex;align-items:center;gap:12px;padding:8px 16px;border-radius:99px;
+  background:color-mix(in srgb,var(--zp-bg) 88%,transparent);backdrop-filter:blur(12px);color:var(--zp-text);border:1px solid var(--zp-line);box-shadow:var(--zp-shadow);
+  transition:transform .35s cubic-bezier(.2,.8,.2,1);cursor:pointer;white-space:nowrap;font-size:12.5px}
+#zp-sticky.show{transform:translate(-50%,0)}
+#zp-sticky b{font-weight:650}
+#zp-sticky .m{color:var(--zp-muted)}
+
+#zp-modal{position:fixed;inset:0;z-index:2147483001;background:rgba(4,6,12,.55);backdrop-filter:blur(5px);display:grid;place-items:center}
+.zp-dlg{width:min(760px,95vw);height:min(660px,90vh);display:grid;grid-template-columns:190px minmax(0,1fr);background:var(--zp-bg);color:var(--zp-text);
+  border:1px solid var(--zp-line);border-radius:calc(var(--zp-r) + 6px);box-shadow:0 40px 100px rgba(0,0,0,.5);overflow:hidden;animation:zpIn .22s cubic-bezier(.2,.8,.2,1)}
+@media (max-width:640px){.zp-dlg{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr)}}
+@keyframes zpIn{from{transform:translateY(12px) scale(.98);opacity:0}}
+.zp-side{background:var(--zp-surf);border-right:1px solid var(--zp-line);padding:16px 10px;display:flex;flex-direction:column;gap:2px}
+@media (max-width:640px){.zp-side{flex-direction:row;overflow:auto;border-right:0;border-bottom:1px solid var(--zp-line)}}
+.zp-side .ttl{display:flex;align-items:center;gap:9px;margin:0 6px 14px;font-weight:700;font-size:15px}
+.zp-side .ttl .zp-logo{width:26px;height:26px;border-radius:8px}
+.zp-tab{display:flex;align-items:center;gap:10px;text-align:left;height:36px;padding:0 10px;border-radius:10px;font-weight:600;color:var(--zp-muted);white-space:nowrap}
+.zp-tab:hover{background:var(--zp-surf2);color:var(--zp-text)}
+.zp-tab.on{background:var(--zp-bg);color:var(--zp-text);box-shadow:0 0 0 1px var(--zp-line)}
+.zp-tab.on .ic{color:var(--zp-accent)}
+.zp-side .ver{margin-top:auto;font-size:11px;color:var(--zp-muted);padding:8px 10px;line-height:1.5}
+.zp-main{display:flex;flex-direction:column;min-height:0;min-width:0}
+.zp-main-head{display:flex;align-items:center;justify-content:space-between;padding:16px 20px 10px;border-bottom:1px solid var(--zp-line)}
+.zp-main-head h4{margin:0;font-size:16px;font-weight:700;letter-spacing:-.01em}
+.zp-scroll{overflow-y:auto;overflow-x:hidden;padding:14px 20px 22px;flex:1}
+.zp-scroll::-webkit-scrollbar{width:10px}.zp-scroll::-webkit-scrollbar-thumb{background:var(--zp-surf2);border-radius:9px;border:3px solid var(--zp-bg)}
+.zp-pane{display:none;flex-direction:column;gap:4px}
+.zp-pane.on{display:flex}
+.zp-sec{font-size:11px;font-weight:650;letter-spacing:.06em;text-transform:uppercase;color:var(--zp-muted);margin:16px 0 6px}
+.zp-sec:first-child{margin-top:2px}
+.zp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.zp-sw{display:block;width:100%;border:1px solid var(--zp-line);border-radius:13px;padding:8px;background:var(--zp-surf);text-align:left;transition:.15s}
+.zp-sw:hover{border-color:color-mix(in srgb,var(--zp-accent) 50%,var(--zp-line));transform:translateY(-1px)}
+.zp-sw.on{border-color:var(--zp-accent);box-shadow:0 0 0 3px var(--zp-soft)}
+.zp-sw .pv{height:54px;border-radius:9px;background:var(--b);display:flex;flex-direction:column;justify-content:space-between;padding:8px;margin-bottom:8px;border:1px solid rgba(127,127,127,.18)}
+.zp-sw .pv .l1{display:flex;gap:4px}
+.zp-sw .pv .l1 i{height:6px;border-radius:4px;background:var(--c);flex:1}
+.zp-sw .pv .l1 i:first-child{flex:.6;background:var(--a)}
+.zp-sw .pv .l2{display:flex;gap:4px;align-items:flex-end}
+.zp-sw .pv .l2 i{width:22px;height:18px;border-radius:5px;background:var(--c)}
+.zp-sw .pv .l2 i:first-child{background:var(--a);height:24px}
+.zp-sw .nm{display:flex;align-items:center;justify-content:space-between;font-size:12.5px;font-weight:600}
+.zp-sw .nm .ic{color:var(--zp-accent)}
+.zp-row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid color-mix(in srgb,var(--zp-line) 60%,transparent)}
+.zp-row:last-child{border-bottom:0}
+.zp-row > span:first-child{min-width:0;font-weight:500}
+.zp-row small{display:block;color:var(--zp-muted);font-size:11.5px;margin-top:2px;font-weight:400}
+.zp-in{background:var(--zp-surf);color:var(--zp-text);border:1px solid var(--zp-line);border-radius:9px;height:32px;padding:0 9px;width:104px;flex:none;outline:none}
+.zp-in:focus{border-color:var(--zp-accent)}
+.zp-color{width:42px;height:32px;border:1px solid var(--zp-line);border-radius:9px;background:var(--zp-surf);padding:3px;cursor:pointer}
+.zp-segc{display:inline-flex;padding:3px;border:1px solid var(--zp-line);border-radius:11px;background:var(--zp-surf);flex:none;gap:2px}
+.zp-segc button{height:26px;padding:0 11px;border-radius:8px;font-size:12px;font-weight:600;color:var(--zp-muted)}
+.zp-segc button:hover{color:var(--zp-text)}
+.zp-segc button.on{background:var(--zp-accent);color:var(--zp-onacc,#fff)}
+.zp-tg{position:relative;width:40px;height:23px;flex:none;-webkit-appearance:none;appearance:none;border-radius:99px;background:var(--zp-surf2);border:1px solid var(--zp-line);cursor:pointer;transition:.2s;margin:0}
+.zp-tg::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:.2s}
+.zp-tg:checked{background:var(--zp-accent);border-color:var(--zp-accent)}
+.zp-tg:checked::after{left:19px}
+.zp-lay{display:flex;flex-direction:column;gap:6px}
+.zp-lay-row{display:flex;align-items:center;gap:8px;background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:12px;padding:8px 10px}
+.zp-lay-row .ico{width:30px;height:30px;border-radius:9px;background:var(--zp-surf2);display:grid;place-items:center;color:var(--zp-accent);flex:none}
+.zp-lay-row .n{flex:1;font-weight:600;min-width:0}
+.zp-lay-row .n small{display:block;font-weight:400;color:var(--zp-muted);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.zp-lay-row.off .n,.zp-lay-row.off .ico{opacity:.45}
+.zp-mb{width:28px;height:28px;border-radius:8px;border:1px solid var(--zp-line);background:var(--zp-bg);display:grid;place-items:center;flex:none;color:var(--zp-muted)}
+.zp-mb:hover{border-color:var(--zp-accent);color:var(--zp-text)}
+.zp-mb:disabled{opacity:.3;cursor:default}
+.zp-mb.on{background:var(--zp-accent);border-color:var(--zp-accent);color:var(--zp-onacc,#fff)}
+.zp-note{font-size:12px;color:var(--zp-muted);background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:12px;padding:10px 12px;line-height:1.55;margin-top:6px}
+.zp-note b{color:var(--zp-text);font-weight:600}
+.zp-kbd{display:inline-block;padding:1px 6px;border-radius:6px;border:1px solid var(--zp-line);background:var(--zp-surf2);font-size:11px;font-weight:600;color:var(--zp-text)}
+
+#zp-fab{position:fixed;left:16px;bottom:16px;z-index:2147483000;height:38px;padding:0 14px 0 6px;border-radius:99px;border:1px solid var(--zp-line);display:flex;align-items:center;gap:8px;
+  background:var(--zp-bg);color:var(--zp-text);font-size:12.5px;font-weight:650;box-shadow:var(--zp-shadow)}
+#zp-fab .zp-logo{width:26px;height:26px;border-radius:99px}
+#zp-fab.err{border-color:var(--zp-bad);color:var(--zp-bad)}
+#zp-toasts{position:fixed;right:18px;bottom:18px;z-index:2147483002;display:flex;flex-direction:column;gap:8px;align-items:flex-end;pointer-events:none}
+.zp-toast{pointer-events:auto;max-width:360px;display:flex;gap:11px;align-items:flex-start;padding:12px 15px;border-radius:14px;background:var(--zp-bg);color:var(--zp-text);
+  border:1px solid var(--zp-line);box-shadow:0 18px 50px rgba(0,0,0,.4);animation:zpIn .25s ease;cursor:pointer}
+.zp-toast .ti{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;flex:none;background:var(--zp-soft);color:var(--zp-accent)}
+.zp-toast.bad .ti{background:color-mix(in srgb,var(--zp-bad) 15%,transparent);color:var(--zp-bad)}
+.zp-toast b{display:block;font-weight:650;margin-bottom:1px}
+.zp-toast span{color:var(--zp-muted);font-size:12px}
+#zp-confetti{position:fixed;inset:0;pointer-events:none;z-index:2147483003}
+#zp-fxp{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:2147482990;opacity:.55}
+`;
+
+    function injectPageCss() {
+        if (document.getElementById('zp-page-style')) return;
+        const st = document.createElement('style');
+        st.id = 'zp-page-style';
+        st.textContent = PAGE_CSS;
+        (document.head || document.documentElement).appendChild(st);
+    }
+    function mkRoot(host) {
+        const root = host.attachShadow({ mode: 'open' });
+        const st = document.createElement('style');
+        st.textContent = UI_CSS;
+        root.appendChild(st);
+        return root;
+    }
+    function overlay() {
+        if (O) return O;
+        const host = document.createElement('div');
+        host.id = 'zp-overlay';
+        host.style.cssText = 'position:static !important';
+        document.body.appendChild(host);
+        O = mkRoot(host);
+        return O;
+    }
+    const LOGO = `<span class="zp-logo">${ico('clock', 15)}</span>`;
+
+    /* ════════════════════ FEHLER / TOASTS ════════════════════ */
+    let lastErr = null;
+    function toast(title, text, opts) {
+        opts = opts || {};
+        if (!document.body) return;
+        const root = overlay();
+        let box = root.getElementById('zp-toasts');
+        if (!box) { box = el('div', 'zp-font'); box.id = 'zp-toasts'; root.appendChild(box); }
+        const t = el('div', 'zp-toast' + (opts.bad ? ' bad' : ''), `<div class="ti">${ico(opts.icon || (opts.bad ? 'alert' : 'bell'), 15)}</div><div><b>${title}</b>${text ? '<span>' + text + '</span>' : ''}</div>`);
+        t.addEventListener('click', () => t.remove());
+        box.appendChild(t);
+        while (box.children.length > 4) box.firstChild.remove();
+        setTimeout(() => t.remove(), opts.ms || 9000);
+    }
+    function reportError(where, e) {
+        lastErr = where + ': ' + (e && e.message ? e.message : e);
+        try { console.error('[Zeit+]', where, e); } catch (x) { }
+        const fab = $('zp-fab');
+        if (fab) { fab.classList.add('err'); fab.style.display = 'flex'; fab.title = 'Zeit+ Fehler – ' + lastErr; }
+        toast('Zeit+ Fehler', esc(lastErr) + '<br>Ein Screenshot davon hilft beim Fixen.', { bad: true, ms: 15000 });
+    }
+
+    /* ════════════════════ DATEN LESEN ════════════════════ */
+    function groupDays() {
+        const body = tbody(), map = new Map();
+        if (!body) return map;
+        body.querySelectorAll('tr[data-periode]').forEach(r => {
+            const k = r.getAttribute('data-periode');
+            if (!/^\d\d\.\d\d\.\d{4}$/.test(k)) return;
+            if (!map.has(k)) map.set(k, []);
+            map.get(k).push(r);
+        });
+        return map;
+    }
+    const lastVal = (rows, nr) => { let v = null; rows.forEach(r => { const c = r.querySelector('td[data-zsp-nr="' + nr + '"]'); const x = c && parseDur(c.textContent); if (x != null) v = x; }); return v; };
+    const sollOf = rows => { const c = rows[0] && rows[0].querySelector('td.td_soll_pause_uz'); return parseDur(c && c.textContent) || 0; };
+    const keyDate = k => { const p = k.split('.').map(Number); return new Date(p[2], p[1] - 1, p[0]); };
+
+    function readDay() {
+        const days = groupDays();
+        const key = todayKey();
+        const rows = days.get(key);
+        if (!rows || !rows.length) return null;
+        const segs = [];
+        let pauseCol = null, info = '';
+        rows.forEach(r => {
+            const pc = r.querySelectorAll('td.td_soll_pause_uz')[1];
+            const pv = pc && parseDur(pc.textContent);
+            if (pv != null) pauseCol = (pauseCol || 0) + pv;
+            const zd = r.querySelector('td.td_zeitdaten');
+            if (!zd) return;
+            const a = zd.querySelector('.td_text1_isDate'), b = zd.querySelector('.td_text2_isDate');
+            if (a) {
+                const s = parseClock(a.textContent);
+                if (s == null) return;
+                segs.push({ s, e: b ? parseClock(b.textContent) : null });
+            } else if (!info) {
+                const t = zd.textContent.replace(/[_?]/g, '').replace(/\s+/g, ' ').trim();
+                if (t && !/^\d{1,2}:\d{2}$/.test(t) && !/Periodenschluss|Abrechnung|Übertrag|Vorträge/.test(t)) info = t;
+            }
+        });
+        let carry = 0;
+        for (const [k, rs] of days) { if (k === key) break; const v = lastVal(rs, 3); if (v != null) carry = v; }
+        const dToday = new Date().getDate();
+        const missingDays = [...tbody().querySelectorAll('tr[id^="tag-"]')].filter(r => parseInt(r.id.slice(4), 10) < dToday && r.querySelector('img.fehlbuch'));
+        return { rows, days, soll: sollOf(rows), segs, pauseCol, carry, info, missingDays };
+    }
+
+    function readWeek(days, todayEff) {
+        const now = new Date();
+        const mon = new Date(now); mon.setHours(12, 0, 0, 0); mon.setDate(now.getDate() - ((now.getDay() + 6) % 7));
+        let ist = 0, soll = 0, sollToToday = 0, partial = false;
+        const list = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(mon); d.setDate(mon.getDate() + i);
+            const rows = days.get(dayKey(d));
+            const isToday = d.toDateString() === now.toDateString();
+            const past = d < now && !isToday;
+            if (!rows) { if (i < 5) { partial = partial || past; list.push({ i, ist: null, soll: 0, isToday }); } continue; }
+            const s = sollOf(rows);
+            soll += s;
+            if (past || isToday) sollToToday += s;
+            let di = 0;
+            if (isToday) di = todayEff; else if (past) di = lastVal(rows, 2) || 0;
+            ist += di;
+            if (i < 5) list.push({ i, ist: past || isToday ? di : null, soll: s, isToday });
+        }
+        return { ist, soll, sollToToday, partial, list };
+    }
+
+    function readMonth(days, liveEff, liveSaldo) {
+        const tk = todayKey(), t0 = new Date(); t0.setHours(0, 0, 0, 0);
+        let ist = 0, soll = 0, sollTo = 0, run = null;
+        const pts = [];
+        for (const [k, rows] of days) {
+            const dt = keyDate(k), isT = k === tk, past = dt < t0;
+            const s = sollOf(rows);
+            soll += s;
+            if (past || isT) sollTo += s;
+            if (isT) { ist += liveEff; run = liveSaldo; }
+            else if (past) { ist += lastVal(rows, 2) || 0; const v = lastVal(rows, 3); if (v != null) run = v; }
+            pts.push({ d: dt.getDate(), v: (past || isT) ? (run == null ? 0 : run) : null, isT });
+        }
+        return { ist, soll, sollTo, pts };
+    }
+
+    function readUrlaub() {
+        const e = document.getElementById('resturlaub') || document.getElementById('resturlaub_kalender');
+        return e ? e.textContent.replace(/\s+/g, ' ').trim() : null;
+    }
+
+    function kernEnd() {
+        if (!S.kern) return null;
+        const dow = new Date().getDay();
+        if (dow >= 1 && dow <= 4) return at(S.kzMoDo);
+        if (dow === 5) return at(S.kzFr);
+        return null;
+    }
+
+    /* ════════════════════ BERECHNUNG ════════════════════
+       • Mittag = größte Ausstempel-Lücke, deren Mitte im Mittagsfenster liegt (≥ Mindestlänge)
+       • Fehlt etwas zur Pflichtpause und der Tag ist > 6 h, zieht das System die Differenz ab
+       • Alle anderen Lücken = Raucherpausen                                                    */
+    function calc(d, now) {
+        const segs = d.segs.map(x => Object.assign({}, x));
+        if (S.earliest && segs[0] && segs[0].s < at(S.earliest)) segs[0].s = Math.min(at(S.earliest), segs[0].e || Infinity);
+        let closed = 0, openMs = 0, open = null, broken = 0;
+        segs.forEach((x, i) => {
+            if (x.e != null) closed += Math.max(0, x.e - x.s);
+            else if (i === segs.length - 1) { open = x; openMs = Math.max(0, now - x.s); }
+            else broken++;
+        });
+        const gross = closed + openMs;
+        const wF = at(S.lunchFrom), wT = at(S.lunchTo);
+        const gaps = [];
+        for (let i = 1; i < segs.length; i++) {
+            const a = segs[i - 1].e, b = segs[i].s;
+            if (a == null || b <= a) continue;
+            const mid = (a + b) / 2;
+            gaps.push({ s: a, e: b, len: b - a, inWin: mid >= wF && mid <= wT && (b - a) >= S.lunchMinLen * M });
+        }
+        let lunch = null;
+        gaps.forEach(g => { if (g.inWin && (!lunch || g.len > lunch.len)) lunch = g; });
+        if (lunch) lunch.lunch = true;
+        const smoke = gaps.filter(g => !g.lunch);
+        const smokeSum = smoke.reduce((s, g) => s + g.len, 0);
+        const pflicht = S.pflicht * M, sixH = S.abH * H;
+        const sysDed = d.pauseCol;
+        const lunchUpcoming = !lunch && sysDed == null && now < wT && (!!open || !segs.length);
+        const plannedLen = lunchUpcoming ? S.planLunch * M : 0;
+        const lunchLen = lunch ? lunch.len : plannedLen;
+        const dedFinal = sysDed != null ? sysDed : Math.max(0, pflicht - lunchLen);
+        const dedNow = sysDed != null ? sysDed : (gross > sixH ? Math.max(0, pflicht - (lunch ? lunch.len : 0)) : 0);
+        const eff = Math.max(0, gross - dedNow);
+        const kz = kernEnd();
+        const finish = (target, useKern) => {
+            if (eff >= target) return { done: true, at: now - (eff - target), need: 0 };
+            const long = target > sixH;
+            const G = long ? target + dedFinal : target;
+            const need = Math.max(0, G - gross) + (long && lunchUpcoming ? plannedLen : 0);
+            let t = now + need, kzHit = false;
+            if (useKern && kz && t < kz) { t = kz; kzHit = true; }
+            return { done: false, at: t, need: G - gross, kzHit };
+        };
+        const effAt = t => {
+            let g = gross + (open ? Math.max(0, t - now) : 0);
+            let ll = lunch ? lunch.len : 0;
+            if (lunchUpcoming && open && t > Math.max(now, wF)) { const taken = Math.min(plannedLen, t - Math.max(now, wF)); g -= taken; ll = taken; }
+            const ded = sysDed != null ? sysDed : (g > sixH ? Math.max(0, pflicht - ll) : 0);
+            return Math.max(0, g - ded);
+        };
+        const tg = eff - d.soll;
+        return {
+            segs, open, broken, gross, eff, gaps, lunch, smoke, smokeSum, sysDed, dedNow, dedFinal, lunchUpcoming, plannedLen, wF, wT,
+            sollF: finish(d.soll, true), salF: finish(d.soll - d.carry, true), maxF: finish(S.maxDay * H, false),
+            tg, saldo: d.carry + tg, effAt, windowOver: now >= wT
+        };
+    }
+
+    /* ════════════════════ DASHBOARD ════════════════════ */
+    const CARD_BODY = {
+        heute: `<div class="zp-val num" id="zp-net">--:--</div><div class="zp-bar"><i id="zp-bar"></i></div><div class="zp-sub" id="zp-net-sub"></div>`,
+        saldo: `<div class="zp-val num" id="zp-saldo">--:--</div><div class="zp-sub" id="zp-saldo-sub"></div>`,
+        woche: `<div class="zp-val num" id="zp-week">--:--</div><div class="zp-days" id="zp-wdays"></div><div class="zp-sub" id="zp-week-sub"></div>`,
+        pause: `<div class="zp-val num" id="zp-pause">--</div><div class="zp-sub" id="zp-pause-sub"></div><div class="zp-chips" id="zp-chips"></div>`,
+        rauch: `<div class="zp-val num" id="zp-smoke">--</div><div class="zp-sub" id="zp-smoke-sub"></div>`,
+        wunsch: `<div class="zp-wish"><input type="time" id="zp-wish-in" class="num"></div><div class="zp-val num" id="zp-wish">--</div><div class="zp-sub" id="zp-wish-sub"></div>`,
+        monat: `<div class="zp-val num" id="zp-month">--</div><svg class="zp-spark" id="zp-spark" preserveAspectRatio="none"></svg><div class="zp-sub" id="zp-month-sub"></div>`,
+        urlaub: `<div class="zp-val num" id="zp-url">–</div><div class="zp-sub" id="zp-url-sub"></div>`,
+        kommen: `<div class="zp-val num" id="zp-come">--:--</div><div class="zp-sub num" id="zp-come-sub"></div>`
+    };
+
+    function buildDash() {
+        const host = el('div');
+        host.id = 'zp-host';
+        const content = document.getElementById('content');
+        content.parentNode.insertBefore(host, content);
+        R = mkRoot(host);
+        const dash = el('div', 'zp-font');
+        dash.id = 'zp';
+        if (S.collapsed) dash.classList.add('collapsed');
+        dash.innerHTML = `
+<canvas id="zp-fx"></canvas>
+<div class="zp-head">
+  <div class="zp-brand">${LOGO}<span class="zp-name">Zeit+</span><span class="zp-status"><span class="zp-dot" id="zp-dot"></span><span id="zp-status"></span></span></div>
+  <div class="zp-mini num" id="zp-mini"></div>
+  <div class="zp-actions">
+    <span class="zp-timer-pill num" id="zp-tpill"><span id="zp-tleft">00:00</span><button id="zp-tstop" title="Timer stoppen">${ico('x', 13)}</button></span>
+    <span class="zp-clock num" id="zp-clock">--:--:--</span>
+    <button class="zp-icon" id="zp-timer" title="Pausen-Timer (Alt+P)">${ico('timer', 17)}</button>
+    <button class="zp-icon" id="zp-edit" title="Dashboard anpassen (Alt+E)">${ico('pencil', 16)}</button>
+    <button class="zp-icon" id="zp-theme" title="Theme wechseln (Alt+T)">${ico('palette', 17)}</button>
+    <button class="zp-icon" id="zp-gear" title="Einstellungen (Alt+S)">${ico('sliders', 16)}</button>
+    <button class="zp-icon" id="zp-view" title="Kompakt (Alt+M)">${ico('minimize', 16)}</button>
+    <button class="zp-icon" id="zp-fold" title="Ein-/Ausklappen (Alt+Z)">${ico('chevron', 17)}</button>
+  </div>
+</div>
+<div class="zp-pop hidden" id="zp-tpop">
+  <h4>${ico('timer', 15)} Pausen-Timer</h4>
+  <div class="zp-chips" style="margin:0">${[5, 10, 15, 20, 30, 45].map(m => `<button class="zp-chip" data-tm="${m}">${m} min</button>`).join('')}</div>
+  <div class="row"><input type="number" min="1" max="180" id="zp-tcustom" placeholder="Minuten" class="num"><button class="zp-btn pri" id="zp-tgo">Start</button></div>
+  <div class="zp-sub">Meldet sich mit Ton und Hinweis – läuft auch nach Neuladen weiter.</div>
+</div>
+<div class="zp-banner hidden" id="zp-edit-banner">${ico('pencil', 16)}<span><b>Anpassen</b> – Karten ziehen zum Sortieren · ${'Breite'} und ${'Sichtbarkeit'} über die Knöpfe oben rechts an jeder Karte</span><span class="sp"></span><button class="zp-btn pri" id="zp-edit-done">${ico('check', 15)} Fertig</button></div>
+<div class="zp-banner hidden" id="zp-welcome">${ico('sparkle', 16)}<span><b>Zeit+ ${VERSION}</b> – komplett neuer Look: App-Leiste oben mit Navigation, Monatswahl, „Neu“-Menü, PDF und Fertigmelden. Dazu die Monatsliste unter dem Dashboard (Original-Tabelle per Umschalter). Saison-Theme mit Effekten auf der ganzen Seite, Kompakt-Ansicht (Knopf neben dem Pfeil) und eine neue Tabelle. Weitere Karten wie Mittag, Raucherpausen oder Resturlaub blendest du im Layout ein.</span><span class="sp"></span><button class="zp-btn pri" id="zp-welcome-ok">Alles klar</button></div>
+<div class="zp-body">
+  <div class="zp-hero" title="Fortschritt zum Tages-Soll">
+    <div class="zp-ring"><svg viewBox="0 0 100 100"><circle class="bg" cx="50" cy="50" r="42"/><circle class="fg" id="zp-ring" cx="50" cy="50" r="42" stroke-dasharray="263.9" stroke-dashoffset="263.9"/></svg>
+      <div class="zp-ring-t"><b class="num" id="zp-ring-v">0%</b><span>vom Soll</span></div></div>
+    <div class="zp-times">
+      <div class="zp-time"><div class="zp-lbl">${ico('check', 14)}Soll erfüllt</div><div class="zp-big num" id="zp-soll-t">--:--</div><div class="zp-cd" id="zp-soll-cd"></div></div>
+      <div class="zp-sep"></div>
+      <div class="zp-time"><div class="zp-lbl">${ico('scale', 14)}Saldo ±0</div><div class="zp-big num accent" id="zp-sal-t">--:--</div><div class="zp-cd" id="zp-sal-cd"></div></div>
+    </div>
+    <div class="zp-cstats" id="zp-cstats"></div>
+    <div class="zp-foot" id="zp-foot"></div>
+  </div>
+  <div class="zp-cards" id="zp-cards">
+    ${Object.keys(CARD_DEFS).map(id => `<div class="zp-card" data-card="${id}" title="${esc(CARD_DEFS[id].tip)}">
+      <div class="zp-tools"><button data-act="wide" title="breit / schmal">${ico('width', 14)}</button><button data-act="hide" title="ein- / ausblenden">${ico('eye', 14)}</button></div>
+      <div class="zp-lbl">${ico(CARD_DEFS[id].icon, 15)}${CARD_DEFS[id].name}</div>${CARD_BODY[id]}</div>`).join('')}
+  </div>
+  <div class="zp-tl" id="zp-tl">
+    <div class="zp-track" id="zp-track"></div><div class="zp-ticks num" id="zp-ticks"></div>
+    <div class="zp-legend" id="zp-legend"><span><i style="background:var(--zp-accent)"></i>gearbeitet</span><span><i style="background:var(--zp-ok)"></i>läuft</span>
+      <span><i style="background:repeating-linear-gradient(45deg,var(--zp-warn) 0 2px,transparent 2px 4px)"></i>Mittag</span><span><i style="border:1px dashed var(--zp-warn)"></i>Mittagsfenster</span>
+      <span><i style="background:var(--zp-muted)"></i>Raucherpause</span><span><i style="border:1.5px dashed var(--zp-ok)"></i>bis Feierabend</span></div>
+  </div>
+  <div class="zp-warnbox" id="zp-warn"></div>
+</div>`;
+        R.appendChild(dash);
+        const lhost = el('div');
+        lhost.id = 'zp-list-host';
+        content.parentNode.insertBefore(lhost, content);
+        buildList(lhost);
+
+        $('zp-theme').addEventListener('click', cycleTheme);
+        $('zp-fold').addEventListener('click', toggleFold);
+        $('zp-view').addEventListener('click', toggleView);
+        $('zp-gear').addEventListener('click', () => openModal());
+        $('zp-edit').addEventListener('click', () => setEdit(!editing));
+        $('zp-edit-done').addEventListener('click', () => setEdit(false));
+        $('zp-timer').addEventListener('click', e => { e.stopPropagation(); $('zp-tpop').classList.toggle('hidden'); });
+        document.addEventListener('click', e => { const p = $('zp-tpop'); if (p && !inPath(e, p) && !inPath(e, $('zp-timer'))) p.classList.add('hidden'); });
+        $('zp-tpop').querySelectorAll('[data-tm]').forEach(b => b.addEventListener('click', () => startTimer(+b.dataset.tm)));
+        $('zp-tgo').addEventListener('click', () => { const v = parseInt($('zp-tcustom').value, 10); if (v > 0) startTimer(v); });
+        $('zp-tstop').addEventListener('click', e => { e.stopPropagation(); stopTimer(); });
+        if (S.seen < 7) {
+            $('zp-welcome').classList.remove('hidden');
+            $('zp-welcome-ok').addEventListener('click', () => { S.seen = 7; saveS(); $('zp-welcome').classList.add('hidden'); });
+        }
+        const wi = $('zp-wish-in');
+        wi.value = S.wish;
+        wi.addEventListener('change', () => { if (wi.value) { S.wish = wi.value; saveS(); render(); } });
+
+        initEditing();
+        applyLayout();
+        initSticky(host);
+        applyTheme();
+    }
+
+    function cycleTheme() {
+        S.theme = THEME_CYCLE[(THEME_CYCLE.indexOf(S.theme) + 1) % THEME_CYCLE.length];
+        saveS(); applyTheme(); render(); if (modalOpen()) buildModal();
+        toast(themeLabel(), 'Theme gewechselt', { ms: 1800, icon: 'palette' });
+    }
+    function toggleView() {
+        S.view = S.view === 'compact' ? 'full' : 'compact';
+        if (S.collapsed) { S.collapsed = false; const z = $('zp'); if (z) z.classList.remove('collapsed'); }
+        saveS(); applyTheme(); render();
+    }
+    function toggleFold() { S.collapsed = !S.collapsed; saveS(); const z = $('zp'); if (z) z.classList.toggle('collapsed', S.collapsed); }
+
+    /* ───── Layout & Bearbeiten ───── */
+    let editing = false, dragEl = null;
+    function applyLayout() {
+        const box = $('zp-cards');
+        if (!box) return;
+        S.layout.forEach(x => {
+            const c = box.querySelector('[data-card="' + x.id + '"]');
+            if (!c) return;
+            box.appendChild(c);
+            c.classList.toggle('off', !x.on);
+            c.classList.toggle('is-wide', !!x.wide);
+            c.draggable = editing;
+            const tw = c.querySelector('[data-act="wide"]'), th = c.querySelector('[data-act="hide"]');
+            if (tw) tw.classList.toggle('on', !!x.wide);
+            if (th) th.classList.toggle('on', !x.on);
+        });
+        const tl = $('zp-tl'); if (tl) tl.classList.toggle('off', !S.tl);
+        const lg = $('zp-legend'); if (lg) lg.classList.toggle('off', !S.legend);
+        ['zp-host', 'zp-list-host'].forEach(id => { const h = document.getElementById(id); if (h) h.classList.toggle('wide', S.width === 'full'); });
+    }
+    function setEdit(on) {
+        const z = $('zp'); if (!z) return;
+        editing = on;
+        if (on && S.collapsed) toggleFold();
+        z.classList.toggle('editing', on);
+        $('zp-edit').classList.toggle('on', on);
+        $('zp-edit-banner').classList.toggle('hidden', !on);
+        applyLayout();
+    }
+    function initEditing() {
+        const box = $('zp-cards');
+        box.addEventListener('click', e => {
+            const b = e.target.closest('[data-act]');
+            if (!b || !editing) return;
+            const id = b.closest('.zp-card').dataset.card, x = S.layout.find(l => l.id === id);
+            if (b.dataset.act === 'wide') x.wide = !x.wide;
+            if (b.dataset.act === 'hide') x.on = !x.on;
+            saveS(); applyLayout(); render();
+        });
+        box.addEventListener('dragstart', e => {
+            if (!editing) return;
+            dragEl = e.target.closest('.zp-card');
+            if (!dragEl) return;
+            dragEl.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+            try { e.dataTransfer.setData('text/plain', dragEl.dataset.card); } catch (x) { }
+        });
+        box.addEventListener('dragover', e => {
+            if (!editing || !dragEl) return;
+            e.preventDefault();
+            const over = e.target.closest('.zp-card');
+            if (!over || over === dragEl) return;
+            const r = over.getBoundingClientRect();
+            const after = (e.clientY - r.top) > r.height * .7 || ((e.clientY - r.top) > r.height * .3 && (e.clientX - r.left) > r.width / 2);
+            box.insertBefore(dragEl, after ? over.nextSibling : over);
+        });
+        box.addEventListener('drop', e => e.preventDefault());
+        box.addEventListener('dragend', () => {
+            if (!dragEl) return;
+            dragEl.classList.remove('dragging');
+            dragEl = null;
+            const ids = [...box.children].map(c => c.dataset.card);
+            S.layout = ids.map(id => S.layout.find(l => l.id === id)).filter(Boolean);
+            saveS();
+        });
+    }
+
+    function initSticky(host) {
+        const root = overlay();
+        let st = root.getElementById('zp-sticky');
+        if (!st) {
+            st = el('div', 'zp-font');
+            st.id = 'zp-sticky';
+            st.title = 'Zum Dashboard';
+            st.addEventListener('click', () => host.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+            root.appendChild(st);
+        }
+        if (window.IntersectionObserver) new IntersectionObserver(es => es.forEach(en => {
+            const off = !!S.sticky && !en.isIntersecting;
+            const zs = $('zs');
+            if (zs && S.shell) { zs.classList.toggle('live-on', off); st.classList.remove('show'); }
+            else st.classList.toggle('show', off);
+        }), { threshold: 0 }).observe(host);
+    }
+
+    /* ════════════════════ RENDER ════════════════════ */
+    let BASE_TITLE = null, prevDone = null;
+    function cd(f, isOpen, now) {
+        if (f.done) return { t: ico('check', 14) + 'erreicht – seit ' + human(now - f.at), ok: true };
+        if (!isOpen) return { t: 'fehlen noch ' + human(f.need), ok: false };
+        return { t: 'in ' + human(f.at - now) + (f.kzHit ? ' · Kernzeit' : ''), ok: false };
+    }
+    const setText = (id, t) => { const e = $(id); if (e) e.textContent = t; };
+    const setHtml = (id, t) => { const e = $(id); if (e) e.innerHTML = t; };
+    const valClass = (id, cls) => { const e = $(id); if (e) e.className = 'zp-val num' + (cls ? ' ' + cls : ''); };
+    const signCls = v => v > M ? 'ok' : v < -M ? 'bad' : 'warn';
+    const durHtml = (ms, signed) => { const s = dur(ms, signed), i = s.lastIndexOf(':'); return s; };
+
+    function renderListOnly() {
+        if (!L || $('zp')) return;
+        const days = groupDays();
+        let sal = null; for (const [, rs] of days) { const v = lastVal(rs, 3); if (v != null) sal = v; }
+        const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+        let salPast = null; for (const [k, rs] of days) { if (keyDate(k) >= t0) break; const v = lastVal(rs, 3); if (v != null) salPast = v; }
+        renderList({ days }, { saldo: salPast != null ? salPast : sal, eff: 0, tg: null, open: false });
+    }
+    function render() {
+        if (!$('zp')) { if (L) safe('Liste', renderListOnly); return; }
+        const d = readDay();
+        if (!d) return;
+        const now = Date.now();
+        const c = calc(d, now);
+        const has = c.segs.length > 0;
+        const dt = new Date();
+        const wd = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][dt.getDay()];
+        applyLayout();
+
+        safe('Status', () => {
+            $('zp-dot').classList.toggle('on', !!c.open);
+            const last = has ? c.segs[c.segs.length - 1] : null;
+            setText('zp-status', wd + ' ' + pad(dt.getDate()) + '.' + pad(dt.getMonth() + 1) + '. · ' +
+                (c.open ? 'eingestempelt seit ' + clock(c.open.s) : last ? 'ausgestempelt um ' + clock(last.e) : (d.info || 'noch nicht eingestempelt')));
+        });
+
+        safe('Hero', () => {
+            const pct = d.soll ? c.eff / d.soll : (has ? 1 : 0);
+            const ring = $('zp-ring');
+            ring.setAttribute('stroke-dashoffset', (263.9 * (1 - Math.min(1, pct))).toFixed(1));
+            ring.style.stroke = c.eff >= S.maxDay * H - 30 * M ? 'var(--zp-bad)' : pct >= 1 ? 'var(--zp-ok)' : 'var(--zp-accent)';
+            setText('zp-ring-v', Math.round(pct * 100) + '%');
+            const setHero = (idT, idC, f) => {
+                if (!has) { setText(idT, '--:--'); setText(idC, d.info || 'noch keine Buchung'); $(idT).classList.remove('done'); return; }
+                setText(idT, clock(f.at));
+                $(idT).classList.toggle('done', f.done);
+                const x = cd(f, !!c.open, now);
+                setHtml(idC, x.t); $(idC).classList.toggle('ok', x.ok);
+            };
+            setHero('zp-soll-t', 'zp-soll-cd', c.sollF);
+            setHero('zp-sal-t', 'zp-sal-cd', c.salF);
+            const fi = (k, v, w) => `<div class="zp-fi${w ? ' w' : ''}"><span>${k}</span><b class="num">${v}</b></div>`;
+            const foot = [];
+            if (has) foot.push(c.maxF.done ? fi(S.maxDay + ' h-Grenze', 'überschritten', 1) : fi(S.maxDay + ' h-Grenze', clock(c.maxF.at)));
+            const kz = kernEnd();
+            if (kz) foot.push(fi('Kernzeit bis', clock(kz)));
+            foot.push(fi('Übertrag', dur(d.carry, true)));
+            if (has && c.dedFinal > 0 && !c.lunchUpcoming) foot.push(fi(c.lunch ? 'Mittag ' + mins(c.lunch.len) + ' min → Abzug' : 'Pausen-Abzug', '−' + mins(c.dedFinal) + ' min', 1));
+            if (c.broken) foot.push(fi('Offene Buchungen', c.broken, 1));
+            setHtml('zp-foot', foot.join(''));
+            const cs = (k, v, cls) => `<div class="zp-cs"><span>${k}</span><b class="num ${cls || ''}">${v}</b></div>`;
+            const wk = readWeek(d.days, c.eff);
+            setHtml('zp-cstats', cs('Heute netto', dur(c.eff)) + cs('Saldo', dur(c.saldo, true), signCls(c.saldo)) + cs('Woche', dur(wk.ist) + ' / ' + dur(wk.soll)) +
+                (has && c.dedFinal > 0 && !c.lunchUpcoming ? cs('Pausen-Abzug', mins(c.dedFinal) + ' min', 'warn') : '') + (kz ? cs('Kernzeit bis', clock(kz)) : ''));
+        });
+
+        safe('Heute', () => {
+            setText('zp-net', dur(c.eff));
+            const pct = d.soll ? c.eff / d.soll * 100 : 100;
+            const bar = $('zp-bar');
+            bar.style.width = Math.min(100, pct) + '%';
+            bar.style.background = c.eff >= S.maxDay * H - 30 * M ? 'var(--zp-bad)' : pct >= 100 ? 'var(--zp-ok)' : 'var(--zp-accent)';
+            setHtml('zp-net-sub', `Soll ${dur(d.soll)} · ${Math.round(pct)} %` + (c.dedNow ? `<br>brutto ${dur(c.gross)} · <span class="w">−${mins(c.dedNow)} min Abzug</span>` : ''));
+        });
+
+        safe('Saldo', () => {
+            setText('zp-saldo', dur(c.saldo, true)); valClass('zp-saldo', signCls(c.saldo));
+            setHtml('zp-saldo-sub', 'heute ' + dur(c.tg, true) + '<br>Übertrag ' + dur(d.carry, true));
+        });
+
+        safe('Woche', () => {
+            const w = readWeek(d.days, c.eff);
+            setHtml('zp-week', dur(w.ist) + `<small>/ ${dur(w.soll)}</small>`);
+            const names = ['Mo', 'Di', 'Mi', 'Do', 'Fr'];
+            setHtml('zp-wdays', w.list.map(x => {
+                const p = x.soll ? Math.min(1, (x.ist || 0) / x.soll) : 0;
+                return `<div class="zp-day${x.isToday ? ' today' : ''}${x.ist != null && x.soll && x.ist >= x.soll ? ' full' : ''}" title="${names[x.i]}: ${x.ist == null ? '–' : dur(x.ist)} / ${dur(x.soll)}"><div class="col"><i style="height:${(p * 100).toFixed(0)}%"></i></div>${names[x.i]}</div>`;
+            }).join(''));
+            setHtml('zp-week-sub', `bis heute ${dur(w.ist - w.sollToToday, true)} · offen ${dur(Math.max(0, w.soll - w.ist))}` + (w.partial ? '<br><span class="w">Monatswechsel – Vortage fehlen</span>' : ''));
+        });
+
+        safe('Mittag', () => {
+            const chips = $('zp-chips');
+            chips.innerHTML = '';
+            if (c.lunch) {
+                const L = mins(c.lunch.len), miss = mins(c.dedFinal);
+                setHtml('zp-pause', L + '<small>min</small>'); valClass('zp-pause', miss > 0 ? 'warn' : 'ok');
+                setHtml('zp-pause-sub', `${clock(c.lunch.s)} – ${clock(c.lunch.e)} gestempelt<br>` +
+                    (miss > 0 ? `<span class="w">+${miss} min ${c.sysDed != null ? 'abgezogen' : 'werden abgezogen'}</span> auf ${S.pflicht} min` : `${S.pflicht} min erfüllt`));
+            } else if (c.lunchUpcoming) {
+                setHtml('zp-pause', S.planLunch + '<small>min geplant</small>'); valClass('zp-pause', '');
+                setHtml('zp-pause-sub', S.lunchFrom + ' – ' + S.lunchTo + (S.planLunch < S.pflicht ? ` · <span class="w">${S.pflicht - S.planLunch} min würden abgezogen</span>` : ''));
+                chips.innerHTML = [0, 15, 20, 30, 45, 60].map(m => `<button class="zp-chip${+S.planLunch === m ? ' on' : ''}" data-m="${m}">${m || 'keine'}</button>`).join('');
+                chips.querySelectorAll('button').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); S.planLunch = +b.dataset.m; saveS(); render(); }));
+            } else if (c.sysDed != null) {
+                setHtml('zp-pause', mins(c.sysDed) + '<small>min Abzug</small>'); valClass('zp-pause', 'warn');
+                setText('zp-pause-sub', 'vom System eingetragen');
+            } else {
+                setText('zp-pause', has ? 'keine' : '–'); valClass('zp-pause', has && c.windowOver ? 'bad' : '');
+                setHtml('zp-pause-sub', has && c.windowOver ? `<span class="w">${S.pflicht} min werden abgezogen (ab ${S.abH} h)</span>` : '');
+            }
+        });
+
+        safe('Raucher', () => {
+            setHtml('zp-smoke', mins(c.smokeSum) + '<small>min</small>');
+            setHtml('zp-smoke-sub', c.smoke.length
+                ? `${c.smoke.length}× · Ø ${Math.round(c.smokeSum / c.smoke.length / M)} min<br>${c.smoke.map(g => clock(g.s)).join(' · ')}`
+                : 'heute noch keine');
+        });
+
+        safe('Wunsch', () => {
+            const wt = at(S.wish), wi = $('zp-wish-in');
+            if (wi && R.activeElement !== wi && wi.value !== S.wish) wi.value = S.wish;
+            if (!has) { setText('zp-wish', '–'); setText('zp-wish-sub', ''); return; }
+            if (wt <= now && c.open) { setText('zp-wish', '–'); valClass('zp-wish', ''); setText('zp-wish-sub', 'Uhrzeit liegt schon zurück'); return; }
+            const e = c.open ? c.effAt(wt) : c.eff, sal = d.carry + e - d.soll;
+            setText('zp-wish', dur(sal, true)); valClass('zp-wish', signCls(sal));
+            setText('zp-wish-sub', 'Saldo danach · Tag ' + dur(e) + (e > S.maxDay * H ? ' · über ' + S.maxDay + ' h!' : ''));
+        });
+
+        safe('Monat', () => {
+            const m = readMonth(d.days, c.eff, c.saldo);
+            setText('zp-month', dur(c.saldo, true)); valClass('zp-month', signCls(c.saldo));
+            setHtml('zp-month-sub', `Ist ${dur(m.ist)} von ${dur(m.soll)}`);
+            renderSpark(m.pts);
+        });
+
+        safe('Urlaub', () => {
+            const t = readUrlaub();
+            if (t == null) { setText('zp-url', '–'); setText('zp-url-sub', 'auf dieser Seite nicht verfügbar'); return; }
+            if (!t || /ermittelt/i.test(t)) { setText('zp-url', '…'); setText('zp-url-sub', 'wird ermittelt'); return; }
+            const m = t.match(/(-?\d+(?:[.,]\d+)?)\s*(Tage?|Std\.?|Stunden|h)\b/i) || t.match(/(-?\d+(?:[.,]\d+)?)/);
+            if (m) setHtml('zp-url', m[1] + (m[2] ? `<small>${m[2]}</small>` : '')); else setText('zp-url', t.slice(0, 18));
+            setText('zp-url-sub', t.replace(/:\s*[-\d.,]+\s*(Tage?|Std\.?|Stunden|h)?\s*$/i, '').trim() || t);
+        });
+
+        safe('Kommen', () => {
+            setText('zp-come', has ? clock(d.segs[0].s) : '--:--');
+            setHtml('zp-come-sub', has
+                ? c.segs.map(x => clock(x.s) + ' – ' + (x.e ? clock(x.e) : '<b>läuft</b>')).join('<br>') + (d.segs[0].s !== c.segs[0].s ? '<br>zählt ab ' + clock(c.segs[0].s) : '')
+                : (d.info || 'keine Buchung'));
+        });
+
+        safe('Kopf', () => {
+            const mini = has ? `Heute <b>${dur(c.eff)}</b>  ·  Soll <b>${clock(c.sollF.at)}${c.sollF.done ? ' ✓' : ''}</b>  ·  ±0 <b>${clock(c.salF.at)}${c.salF.done ? ' ✓' : ''}</b>  ·  Saldo <b>${dur(c.saldo, true)}</b>` : '';
+            setHtml('zp-mini', mini);
+            const st = $('zp-sticky');
+            if (st) st.innerHTML = `<span class="zp-dot${c.open ? ' on' : ''}"></span><span class="num">${mini || 'Zeit+'}</span><span class="m">${ico('arrowUp', 14)}</span>`;
+            const zl2 = $('zs-live'); if (zl2) zl2.innerHTML = `<span class="zp-dot${c.open ? ' on' : ''}"></span>${mini}`;
+            const wb = $('zp-warn');
+            if (d.missingDays.length) {
+                wb.style.display = 'flex';
+                wb.innerHTML = ico('alert', 16) + '<span>Fehlende Buchungen an: ' + d.missingDays.map(r => `<a data-id="${r.id}">${r.getAttribute('data-periode').slice(0, 6)}</a>`).join(', ') + '</span>';
+                wb.querySelectorAll('a').forEach(a => a.addEventListener('click', () => { const r = document.getElementById(a.dataset.id); if (r) r.scrollIntoView({ behavior: 'smooth', block: 'center' }); }));
+            } else wb.style.display = 'none';
+            if (BASE_TITLE == null) BASE_TITLE = document.title || 'SelfService';
+            document.title = S.title && has ? `${dur(c.eff)} · ±0 ${clock(c.salF.at)}${c.salF.done ? ' ✓' : ''} – ${BASE_TITLE}` : BASE_TITLE;
+        });
+
+        if (S.tl) safe('Timeline', () => renderTimeline(c, now, has));
+        safe('Liste', () => renderList(d, c));
+        safe('Hinweise', () => checkNotify(c, now));
+    }
+
+    function renderSpark(pts) {
+        const svg = $('zp-spark');
+        if (!svg) return;
+        const W = 300, Hh = 46, n = pts.length;
+        const known = pts.map((p, i) => p.v != null ? { i, v: p.v } : null).filter(Boolean);
+        if (!known.length || n < 2) { svg.innerHTML = ''; return; }
+        const amp = Math.max(60 * M, ...known.map(k => Math.abs(k.v)));
+        const X = i => i / (n - 1) * W, Y = v => Hh / 2 - (v / amp) * (Hh / 2 - 5);
+        const xy = known.map(k => [X(k.i).toFixed(1), Y(k.v).toFixed(1)]);
+        const last = xy[xy.length - 1];
+        const area = `M${xy[0][0]},${Hh / 2} L` + xy.map(p => p.join(',')).join(' L') + ` L${last[0]},${Hh / 2} Z`;
+        svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+        svg.innerHTML = `<line x1="0" x2="${W}" y1="${Hh / 2}" y2="${Hh / 2}" stroke="var(--zp-line)" stroke-dasharray="3 4" vector-effect="non-scaling-stroke"/>
+            <path d="${area}" fill="var(--zp-soft)"/>
+            <polyline points="${xy.map(p => p.join(',')).join(' ')}" fill="none" stroke="var(--zp-accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"/>
+            <circle cx="${last[0]}" cy="${last[1]}" r="3.5" fill="var(--zp-accent)" stroke="var(--zp-surf)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
+    }
+
+    function renderTimeline(c, now, has) {
+        const track = $('zp-track'), ticks = $('zp-ticks');
+        const pts = [now];
+        c.segs.forEach(x => { pts.push(x.s); if (x.e) pts.push(x.e); });
+        if (has) pts.push(c.sollF.at, c.salF.at);
+        const ra = new Date(Math.min(...pts, at('07:00'))); ra.setMinutes(0, 0, 0);
+        const rb = new Date(Math.max(...pts, at('17:00')) + 20 * M);
+        if (rb.getMinutes() || rb.getSeconds()) rb.setHours(rb.getHours() + 1);
+        rb.setMinutes(0, 0, 0);
+        const a = ra.getTime(), b = rb.getTime(), span = b - a;
+        const X = t => Math.max(0, Math.min(100, (t - a) / span * 100));
+        let html = `<div class="zp-win" style="left:${X(c.wF)}%;width:${X(c.wT) - X(c.wF)}%" title="Mittagsfenster ${S.lunchFrom}–${S.lunchTo}"></div>`;
+        c.gaps.forEach(g => {
+            html += `<div class="zp-gap ${g.lunch ? 'lunch' : 'smoke'}" style="left:${X(g.s)}%;width:${X(g.e) - X(g.s)}%" title="${g.lunch ? 'Mittag' : 'Raucherpause'} ${clock(g.s)}–${clock(g.e)} (${mins(g.len)} min)"></div>`;
+        });
+        c.segs.forEach(x => {
+            const e = x.e != null ? x.e : (x === c.open ? now : null);
+            if (e == null) return;
+            html += `<div class="zp-seg${x === c.open ? ' live' : ''}" style="left:${X(x.s)}%;width:${Math.max(0, X(e) - X(x.s))}%" title="${clock(x.s)} – ${x.e != null ? clock(x.e) : 'jetzt'} (${mins(e - x.s)} min)"></div>`;
+        });
+        if (c.open && (!c.salF.done || !c.sollF.done)) {
+            const end = Math.max(c.sollF.done ? now : c.sollF.at, c.salF.done ? now : c.salF.at);
+            html += `<div class="zp-proj" style="left:${X(now)}%;width:${X(end) - X(now)}%"></div>`;
+        }
+        const mark = (t, cls, label, title) => `<div class="zp-mark ${cls}" style="left:${X(t)}%" title="${title}"><span class="num">${label}</span></div>`;
+        if (has) {
+            const same = Math.abs(c.sollF.at - c.salF.at) < 4 * M;
+            html += mark(c.sollF.at, 'soll', (same ? 'Soll / ±0 ' : 'Soll ') + clock(c.sollF.at), 'Soll erfüllt');
+            if (!same) html += mark(c.salF.at, 'sal', '±0 ' + clock(c.salF.at), 'Saldo ausgeglichen');
+            const wish = S.layout.find(l => l.id === 'wunsch');
+            if (wish && wish.on) { const wt = at(S.wish); if (wt > now + 25 * M && wt < b) html += mark(wt, 'wish low', 'Wunsch ' + clock(wt), 'Gehen um …'); }
+        }
+        html += mark(now, 'now low', 'jetzt ' + clock(now), 'Jetzt');
+        track.innerHTML = html;
+        const step = span / H > 12 ? 2 : 1;
+        let th = '';
+        for (let t = a; t <= b; t += step * H) th += `<span style="left:${X(t)}%">${pad(new Date(t).getHours())}:00</span>`;
+        ticks.innerHTML = th;
+    }
+
+    function updClock() {
+        const n = new Date();
+        setText('zp-clock', clock(n) + ':' + pad(n.getSeconds()));
+        tickTimer();
+    }
+
+    /* ════════════════════ EINSTELLUNGEN ════════════════════ */
+    let modalTab = 'design';
+    const modalOpen = () => { const m = $('zp-modal'); return !!m && !m.classList.contains('hidden'); };
+    function openModal(tab) {
+        const root = overlay();
+        let m = root.getElementById('zp-modal');
+        if (!m) {
+            m = el('div', 'zp-font hidden'); m.id = 'zp-modal';
+            root.appendChild(m);
+            m.addEventListener('click', e => { if (e.target === m) m.classList.add('hidden'); });
+        }
+        if (tab) modalTab = tab;
+        buildModal();
+        m.classList.remove('hidden');
+    }
+    const TABS = [['design', 'palette', 'Design'], ['layout', 'layout', 'Layout'], ['calc', 'calc', 'Berechnung'], ['notif', 'bell', 'Hinweise'], ['extra', 'zap', 'Extras']];
+    const tgl = k => `<input type="checkbox" class="zp-tg" data-k="${k}">`;
+    const ntgl = k => `<input type="checkbox" class="zp-tg" data-n="${k}">`;
+    const num = (k, min, max, step) => `<input type="number" class="zp-in num" min="${min}" max="${max}"${step ? ' step="' + step + '"' : ''} data-k="${k}">`;
+    const tim = k => `<input type="time" class="zp-in num" data-k="${k}">`;
+    const segCtl = (k, opts) => `<div class="zp-segc" data-seg="${k}">${opts.map(([v, l]) => `<button type="button" data-v="${v}">${l}</button>`).join('')}</div>`;
+    const row = (label, help, ctl) => `<div class="zp-row"><span>${label}${help ? '<small>' + help + '</small>' : ''}</span>${ctl}</div>`;
+
+    function buildModal() {
+        const m = $('zp-modal');
+        if (!m) return;
+        const sw = (k, name, icon, t) => `<button type="button" class="zp-sw${S.theme === k ? ' on' : ''}" data-theme="${k}" style="--a:${t.accent};--b:${t.bg};--c:${t.surf2}">
+            <div class="pv"><div class="l1"><i></i><i></i><i></i></div><div class="l2"><i></i><i></i><i></i></div></div>
+            <div class="nm"><span>${icon} ${name}</span>${S.theme === k ? ico('check', 14) : ''}</div></button>`;
+        const sT = THEMES[seasonKey()], aT = THEMES[(mq && mq.matches) ? 'dark' : 'light'];
+        const pane = {
+            design: `
+<div class="zp-sec">Theme</div>
+<div class="zp-grid">${Object.entries(THEMES).map(([k, t]) => sw(k, t.name, t.icon, t)).join('')}${sw('saison', 'Saison (' + sT.name + ')', '🗓', sT)}${sw('auto', 'Wie Windows', '💻', aT)}</div>
+<div class="zp-note"><b>Saison</b> wechselt automatisch: Winter Dez–Feb · Frühling Mär–Mai · Sommer Jun–Aug · Herbst Sep–Nov. Dunkle Themes färben die ganze Seite – Wochenende, Feiertage und Urlaub bleiben farbig.</div>
+<div class="zp-sec">Feinschliff</div>
+${row('Eigene Akzentfarbe', 'überschreibt die Farbe des Themes', `<span class="zp-btns"><input type="color" class="zp-color" id="zp-accent" value="${S.accent || theme().accent}"><button type="button" class="zp-btn" id="zp-accent-reset">Zurücksetzen</button></span>`)}
+${row('Animierte Effekte', 'Schnee, Blätter, Blüten, Funken, Blasen, Sterne – je nach Theme', tgl('fx'))}
+${row('Effekte zeigen auf', '', segCtl('fxScope', [['page', 'ganzer Seite'], ['dash', 'nur Dashboard']]))}
+${row('Effekt-Menge', '', segCtl('fxAmount', [['low', 'wenig'], ['normal', 'normal'], ['high', 'viel']]))}
+${row('Größe', '', segCtl('density', [['compact', 'kompakt'], ['normal', 'normal'], ['large', 'groß']]))}
+${row('Ecken', '', segCtl('radius', [['square', 'eckig'], ['soft', 'weich'], ['round', 'rund']]))}
+${row('Breite', '', segCtl('width', [['limited', 'begrenzt'], ['full', 'volle Breite']]))}
+${row('Feierabend-Block', 'oben quer oder als Spalte links', segCtl('heroPos', [['top', 'oben'], ['left', 'links']]))}
+${row('Ansicht', 'Kompakt zeigt nur das Wichtigste in einer Zeile', segCtl('view', [['full', 'alles'], ['compact', 'kompakt']]))}`,
+            layout: `
+<div class="zp-note">Tipp: Mit dem Stift-Knopf im Dashboard verschiebst du Karten direkt per Drag &amp; Drop.</div>
+<div class="zp-sec">Karten</div>
+<div class="zp-lay">${S.layout.map((x, i) => `<div class="zp-lay-row${x.on ? '' : ' off'}">
+   <span class="ico">${ico(CARD_DEFS[x.id].icon, 15)}</span>
+   <span class="n">${CARD_DEFS[x.id].name}<small>${CARD_DEFS[x.id].tip}</small></span>
+   <button type="button" class="zp-mb" data-lay="up" data-i="${i}" title="nach vorne"${i === 0 ? ' disabled' : ''}>${ico('up', 14)}</button>
+   <button type="button" class="zp-mb" data-lay="down" data-i="${i}" title="nach hinten"${i === S.layout.length - 1 ? ' disabled' : ''}>${ico('down', 14)}</button>
+   <button type="button" class="zp-mb${x.wide ? ' on' : ''}" data-lay="wide" data-i="${i}" title="doppelt breit">${ico('width', 14)}</button>
+   <input type="checkbox" class="zp-tg" data-lay="on" data-i="${i}"${x.on ? ' checked' : ''}></div>`).join('')}</div>
+<div class="zp-sec">Weitere Bereiche</div>
+${row('Timeline', 'Tagesverlauf mit Mittag, Raucherpausen und Feierabend-Markern', tgl('tl'))}
+${row('Legende unter der Timeline', '', tgl('legend'))}
+<div class="zp-btns" style="margin-top:10px"><button type="button" class="zp-btn" id="zp-lay-edit">${ico('pencil', 14)} Im Dashboard anordnen</button><button type="button" class="zp-btn" id="zp-lay-reset">Standard-Layout</button></div>`,
+            calc: `
+<div class="zp-sec">Mittagspause</div>
+${row('Pflichtpause (min)', 'Was zur Pflichtpause fehlt, zieht das System ab', num('pflicht', 0, 120))}
+${row('Pflicht ab Arbeitszeit (h)', '', num('abH', 0, 12, .5))}
+${row('Mittagsfenster von', 'Größte Lücke darin = Mittag', tim('lunchFrom'))}
+${row('Mittagsfenster bis', '', tim('lunchTo'))}
+${row('Mittag mindestens (min)', 'Kürzere Lücken zählen immer als Raucherpause', num('lunchMinLen', 1, 60))}
+${row('Mittag einplanen (min)', 'Solange heute noch kein Mittag gestempelt ist', num('planLunch', 0, 120))}
+<div class="zp-sec">Arbeitszeit</div>
+${row('Frühester anrechenbarer Beginn', '', tim('earliest'))}
+${row('Tageshöchstgrenze (h)', '', num('maxDay', 1, 13, .5))}
+${row('Kernzeit beachten', 'Feierabend nie vor Kernzeit-Ende', tgl('kern'))}
+${row('Kernzeit-Ende Mo–Do', '', tim('kzMoDo'))}
+${row('Kernzeit-Ende Fr', '', tim('kzFr'))}`,
+            notif: `
+<div class="zp-sec">Erinnerungen</div>
+${row('Saldo ±0 erreicht', 'so viele Minuten vorher', `<span class="zp-btns"><input type="number" class="zp-in num" style="width:70px" min="0" max="60" data-n="saldo.lead">${ntgl('saldo.on')}</span>`)}
+${row('Soll erfüllt', 'so viele Minuten vorher', `<span class="zp-btns"><input type="number" class="zp-in num" style="width:70px" min="0" max="60" data-n="soll.lead">${ntgl('soll.on')}</span>`)}
+${row('Tageshöchstgrenze', 'Vorwarnung, damit du nicht drüber kommst', `<span class="zp-btns"><input type="number" class="zp-in num" style="width:70px" min="0" max="120" data-n="max.lead">${ntgl('max.on')}</span>`)}
+${row('Mittag nicht vergessen', 'um diese Uhrzeit, falls noch kein Mittag gestempelt', `<span class="zp-btns"><input type="time" class="zp-in num" data-n="lunch.at">${ntgl('lunch.on')}</span>`)}
+${row('Ton abspielen', '', ntgl('sound'))}
+<div class="zp-btns" style="margin-top:10px"><button type="button" class="zp-btn" id="zp-ntest">${ico('bell', 14)} Testen</button><button type="button" class="zp-btn" id="zp-nperm">Windows-Benachrichtigungen erlauben</button></div>
+<div class="zp-sec">Belohnung</div>
+${row('Konfetti bei Saldo ±0', 'einmal am Tag, wenn du eingestempelt bist', tgl('confetti'))}
+<div class="zp-btns" style="margin-top:6px"><button type="button" class="zp-btn" id="zp-ctest">${ico('sparkle', 14)} Ausprobieren</button></div>`,
+            extra: `
+<div class="zp-sec">Anzeige</div>
+${row('Live-Werte im Browser-Tab', 'z.B. „8:34 · ±0 15:34“', tgl('title'))}
+${row('Mitlaufende Leiste beim Scrollen', 'zeigt die wichtigsten Werte oben, wenn das Dashboard aus dem Bild ist', tgl('sticky'))}
+${row('Zeit+ App-Leiste', 'ersetzt den LHR-Kopf: Navigation, Monat, Neu, PDF, Fertigmelden, Benutzer', tgl('shell'))}
+${row('Navigation „Zeiterfassung / Hauptseite“ oben ausblenden', 'nur relevant ohne App-Leiste', tgl('hideNav'))}
+${row('Tagesübersicht', 'Zeit+ Liste (übersichtlich) oder die Original-LHR-Tabelle', segCtl('tableView', [['list', 'Zeit+ Liste'], ['orig', 'Original']]))}
+${row('Verlauf in der Liste', 'Automatisch: bei vielen Spalten als schmaler Balken unter den Buchungen', segCtl('tlMode', [['auto', 'Automatisch'], ['column', 'Eigene Spalte'], ['inline', 'Unter Buchungen'], ['off', 'Aus']]))}
+${row('Kommende Tage in der Liste', 'Automatisch: eingeblendet, sobald bis Monatsende berechnet wurde', segCtl('futureDays', [['auto', 'Automatisch'], ['show', 'Immer'], ['hide', 'Nie']]))}
+${row('Kalender-Ansicht', 'Monatskalender, kompakte Jahresleiste oder die Original-LHR-Tabelle', segCtl('kalView', [['months', 'Monate'], ['strip', 'Leiste'], ['orig', 'Original']]))}
+${row('Seite & Tabelle modern gestalten', 'Tagesgruppen, Uhrzeit-Chips, ruhige Linien, schöner Menü-Knopf', tgl('pretty'))}
+${row('Kommende Tage abdunkeln', 'Zukunft gedimmt, ohne Warn-Symbole', tgl('dimFuture'))}
+${row('Heute in der Tabelle hervorheben', '', tgl('todayHl'))}
+${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
+<div class="zp-sec">Tastenkürzel</div>
+<div class="zp-note"><span class="zp-kbd">Alt</span> + <span class="zp-kbd">M</span> Kompakt · <span class="zp-kbd">Alt</span> + <span class="zp-kbd">Z</span> ein-/ausklappen · <span class="zp-kbd">Alt</span> + <span class="zp-kbd">T</span> Theme · <span class="zp-kbd">Alt</span> + <span class="zp-kbd">E</span> anpassen · <span class="zp-kbd">Alt</span> + <span class="zp-kbd">S</span> Einstellungen · <span class="zp-kbd">Alt</span> + <span class="zp-kbd">P</span> Pausen-Timer · <span class="zp-kbd">Esc</span> schließen</div>
+<div class="zp-sec">Sichern</div>
+<div class="zp-btns"><button type="button" class="zp-btn" id="zp-exp">Exportieren</button><button type="button" class="zp-btn" id="zp-imp">Importieren</button><button type="button" class="zp-btn" id="zp-reset">Alles zurücksetzen</button></div>
+<div class="zp-note">Einstellungen liegen nur lokal in deinem Browser. Mit Export/Import nimmst du sie auf einen anderen PC mit.</div>`
+        };
+        const cur = TABS.find(t => t[0] === modalTab) || TABS[0];
+        const oldScroll = m.querySelector('.zp-scroll');
+        const scrollTop = oldScroll ? oldScroll.scrollTop : 0;
+        m.innerHTML = `<div class="zp-dlg">
+  <div class="zp-side"><div class="ttl">${LOGO}Zeit+</div>${TABS.map(([k, i, n]) => `<button type="button" class="zp-tab${k === modalTab ? ' on' : ''}" data-tab="${k}">${ico(i, 16)}${n}</button>`).join('')}<div class="ver">Version ${VERSION}${lastErr ? '<br>Fehler: ' + esc(lastErr) : ''}</div></div>
+  <div class="zp-main"><div class="zp-main-head"><h4>${cur[2]}</h4><button type="button" class="zp-btn pri" id="zp-close">${ico('check', 15)} Fertig</button></div>
+  <div class="zp-scroll">${TABS.map(([k]) => `<div class="zp-pane${k === modalTab ? ' on' : ''}" data-pane="${k}">${pane[k]}</div>`).join('')}</div></div></div>`;
+        m.querySelector('.zp-scroll').scrollTop = scrollTop;
+
+        const rerender = () => { saveS(); applyTheme(); applyLayout(); render(); };
+        m.querySelectorAll('[data-tab]').forEach(b => b.addEventListener('click', () => { modalTab = b.dataset.tab; buildModal(); m.querySelector('.zp-scroll').scrollTop = 0; }));
+        m.querySelector('#zp-close').addEventListener('click', () => m.classList.add('hidden'));
+        m.querySelectorAll('[data-theme]').forEach(b => b.addEventListener('click', () => { S.theme = b.dataset.theme; rerender(); buildModal(); }));
+        m.querySelectorAll('input[data-k]').forEach(inp => {
+            const k = inp.dataset.k;
+            if (inp.type === 'checkbox') inp.checked = !!S[k]; else inp.value = S[k];
+            inp.addEventListener('change', () => {
+                let v = inp.type === 'checkbox' ? inp.checked : inp.value;
+                if (inp.type === 'number') { v = parseFloat(v); if (isNaN(v)) v = DEF[k]; }
+                if (inp.type === 'time' && !v) v = DEF[k];
+                S[k] = v; rerender();
+            });
+        });
+        m.querySelectorAll('[data-seg]').forEach(g => {
+            const k = g.dataset.seg;
+            g.querySelectorAll('button').forEach(b => {
+                b.classList.toggle('on', S[k] === b.dataset.v);
+                b.addEventListener('click', () => { S[k] = b.dataset.v; rerender(); buildModal(); });
+            });
+        });
+        m.querySelectorAll('[data-n]').forEach(inp => {
+            const [a, b] = inp.dataset.n.split('.');
+            const get = () => b ? S.notif[a][b] : S.notif[a];
+            if (inp.type === 'checkbox') inp.checked = !!get(); else inp.value = get();
+            inp.addEventListener('change', () => {
+                const v = inp.type === 'checkbox' ? inp.checked : inp.type === 'number' ? (parseFloat(inp.value) || 0) : inp.value;
+                if (b) S.notif[a][b] = v; else S.notif[a] = v;
+                if (inp.type === 'checkbox' && v && a !== 'sound') askPermission();
+                saveS();
+            });
+        });
+        const acc = m.querySelector('#zp-accent');
+        acc.addEventListener('input', () => { S.accent = acc.value; saveS(); applyTheme(); });
+        acc.addEventListener('change', () => render());
+        m.querySelector('#zp-accent-reset').addEventListener('click', () => { S.accent = ''; rerender(); buildModal(); });
+        m.querySelectorAll('[data-lay]').forEach(b => {
+            const i = +b.dataset.i, act = b.dataset.lay;
+            b.addEventListener(act === 'on' ? 'change' : 'click', () => {
+                const L = S.layout;
+                if (act === 'up' && i > 0) [L[i - 1], L[i]] = [L[i], L[i - 1]];
+                if (act === 'down' && i < L.length - 1) [L[i + 1], L[i]] = [L[i], L[i + 1]];
+                if (act === 'wide') L[i].wide = !L[i].wide;
+                if (act === 'on') L[i].on = b.checked;
+                rerender(); buildModal();
+            });
+        });
+        const on = (id, fn) => { const x = m.querySelector('#' + id); if (x) x.addEventListener('click', fn); };
+        on('zp-lay-edit', () => { m.classList.add('hidden'); setEdit(true); const h = document.getElementById('zp-host'); if (h) h.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+        on('zp-lay-reset', () => { S.layout = DEF_LAYOUT.map(x => Object.assign({}, x)); rerender(); buildModal(); });
+        on('zp-ntest', () => fireNotify('Test-Hinweis', 'So sehen deine Zeit+ Hinweise aus.'));
+        on('zp-nperm', () => askPermission(true));
+        on('zp-ctest', () => confetti());
+        on('zp-exp', async () => {
+            const json = JSON.stringify(S);
+            try { await navigator.clipboard.writeText(json); toast('Exportiert', 'Einstellungen sind in der Zwischenablage.', { icon: 'check' }); }
+            catch (e) { window.prompt('Einstellungen kopieren:', json); }
+        });
+        on('zp-imp', () => {
+            const txt = window.prompt('Exportierte Zeit+ Einstellungen hier einfügen:', '');
+            if (!txt) return;
+            try { S = normalize(Object.assign({ v: 7 }, JSON.parse(txt))); rerender(); buildModal(); toast('Importiert', 'Einstellungen übernommen.', { icon: 'check' }); }
+            catch (e) { toast('Import fehlgeschlagen', 'Das war kein gültiger Export.', { bad: true }); }
+        });
+        on('zp-reset', () => {
+            if (!confirm('Alle Zeit+ Einstellungen auf Standard zurücksetzen?')) return;
+            S = normalize({ v: 7, seen: 5 }); rerender(); buildModal();
+        });
+    }
+
+    /* ════════════════════ HINWEISE / TIMER / KONFETTI ════════════════════ */
+    function beep(kind) {
+        if (!S.notif.sound) return;
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const seq = kind === 'alarm' ? [[880, 0], [880, .2], [880, .4]] : [[523, 0], [659, .16], [784, .32]];
+            seq.forEach(([f, s]) => {
+                const o = ctx.createOscillator(), g = ctx.createGain();
+                o.connect(g); g.connect(ctx.destination); o.frequency.value = f; o.type = 'sine';
+                g.gain.setValueAtTime(0, ctx.currentTime + s);
+                g.gain.linearRampToValueAtTime(.25, ctx.currentTime + s + .01);
+                g.gain.linearRampToValueAtTime(0, ctx.currentTime + s + .24);
+                o.start(ctx.currentTime + s); o.stop(ctx.currentTime + s + .3);
+            });
+        } catch (e) { }
+    }
+    function askPermission(explicit) {
+        if (typeof Notification === 'undefined') { if (explicit) toast('Nicht unterstützt', 'Dein Browser kann keine System-Benachrichtigungen.'); return; }
+        if (Notification.permission === 'default') Notification.requestPermission();
+        else if (explicit) toast('Benachrichtigungen', Notification.permission === 'granted' ? 'Sind bereits erlaubt.' : 'Sind im Browser blockiert – über das Schloss-Symbol in der Adressleiste erlauben.');
+    }
+    function fireNotify(title, text, kind) {
+        beep(kind);
+        toast(title, text, { ms: 20000, icon: kind === 'alarm' ? 'alert' : 'bell' });
+        try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(title, { body: text, tag: 'zeitplus' }); } catch (e) { }
+    }
+    function onceToday(id) {
+        const k = 'zplus_fired', today = todayKey();
+        let o = {};
+        try { o = JSON.parse(localStorage.getItem(k) || '{}') || {}; } catch (e) { }
+        if (o.d !== today || !Array.isArray(o.ids)) o = { d: today, ids: [] };
+        if (o.ids.includes(id)) return false;
+        o.ids.push(id);
+        try { localStorage.setItem(k, JSON.stringify(o)); } catch (e) { }
+        return true;
+    }
+    function checkNotify(c, now) {
+        if (c.open) {
+            [['saldo', c.salF, 'Saldo ausgeglichen', 'Gleich Feierabend'],
+             ['soll', c.sollF, 'Soll erfüllt', 'Soll gleich erfüllt'],
+             ['max', c.maxF, S.maxDay + '-Stunden-Grenze erreicht', 'Tageshöchstgrenze naht']
+            ].forEach(([k, f, what, title]) => {
+                const n = S.notif[k];
+                if (!n.on || f.done) return;
+                const diff = f.at - now;
+                if (diff >= 0 && diff <= n.lead * M + 30000 && onceToday(k + '@' + clock(f.at)))
+                    fireNotify(title, 'Um ' + clock(f.at) + ' ist dein ' + what + (diff > M ? ' (noch ' + human(diff) + ')' : '') + '.', k === 'max' ? 'alarm' : '');
+            });
+            if (S.notif.lunch.on && !c.lunch && c.sysDed == null) {
+                const t = at(S.notif.lunch.at);
+                if (now >= t && now - t < 10 * M && onceToday('lunch')) fireNotify('Mahlzeit!', 'Heute ist noch kein Mittag gestempelt – denk an die ' + S.pflicht + ' min.');
+            }
+        }
+        if (prevDone === false && c.salF.done && c.open && S.confetti && onceToday('confetti')) {
+            confetti(); toast('Saldo ausgeglichen!', 'Ab jetzt ist jede Minute Plus.', { icon: 'sparkle' });
+        }
+        prevDone = c.salF.done;
+    }
+
+    const TKEY = 'zplus_timer';
+    function startTimer(minutes) {
+        try { localStorage.setItem(TKEY, JSON.stringify({ end: Date.now() + minutes * M, min: minutes })); } catch (e) { }
+        const p = $('zp-tpop'); if (p) p.classList.add('hidden');
+        toast('Timer läuft', minutes + ' min – Ende um ' + clock(Date.now() + minutes * M), { ms: 3000, icon: 'timer' });
+        tickTimer();
+    }
+    function stopTimer() { try { localStorage.removeItem(TKEY); } catch (e) { } tickTimer(); }
+    function tickTimer() {
+        const pill = $('zp-tpill');
+        if (!pill) return;
+        let t = null;
+        try { t = JSON.parse(localStorage.getItem(TKEY) || 'null'); } catch (e) { }
+        if (!t) { pill.classList.remove('on'); return; }
+        const left = t.end - Date.now();
+        if (left <= 0) {
+            try { localStorage.removeItem(TKEY); } catch (e) { }
+            pill.classList.remove('on');
+            if (left > -10 * M) fireNotify('Pause vorbei!', t.min + ' min sind um – ab an die Arbeit.', 'alarm');
+            return;
+        }
+        pill.classList.add('on');
+        pill.classList.toggle('urgent', left < 60000);
+        setText('zp-tleft', pad(Math.floor(left / 60000)) + ':' + pad(Math.floor(left / 1000) % 60));
+    }
+
+    function confetti() {
+        if (reducedMotion()) return;
+        const cv = el('canvas'); cv.id = 'zp-confetti';
+        overlay().appendChild(cv);
+        const ctx = cv.getContext('2d');
+        if (!ctx) { cv.remove(); return; }
+        cv.width = innerWidth; cv.height = innerHeight;
+        const t = theme(), cols = [S.accent || t.accent, t.accent2, t.ok, t.warn, '#ffffff', '#f472b6'];
+        const ps = Array.from({ length: 170 }, () => ({
+            x: innerWidth / 2 + rnd(-90, 90), y: innerHeight * .35, vx: rnd(-10, 10), vy: rnd(-15, -4),
+            r: rnd(5, 9), c: pick(cols), rot: rnd(0, 6.28), vr: rnd(-.3, .3)
+        }));
+        const t0 = performance.now();
+        (function frame(ts) {
+            const k = (ts - t0) / 3200;
+            ctx.clearRect(0, 0, cv.width, cv.height);
+            ps.forEach(p => {
+                p.vy += .32; p.vx *= .99; p.x += p.vx; p.y += p.vy; p.rot += p.vr;
+                ctx.save(); ctx.globalAlpha = Math.max(0, 1 - k * k); ctx.translate(p.x, p.y); ctx.rotate(p.rot);
+                ctx.fillStyle = p.c; ctx.fillRect(-p.r / 2, -p.r / 4, p.r, p.r / 2); ctx.restore();
+            });
+            if (k < 1) requestAnimationFrame(frame); else cv.remove();
+        })(t0);
+    }
+
+    /* ════════════════════ EFFEKTE ════════════════════ */
+    let fxRaf = null, fxType = null, fxRO = null;
+    function spawn(type, w, h, init) {
+        const p = { x: rnd(0, w), y: init ? rnd(0, h) : -12, ph: rnd(0, 6.28), rot: rnd(0, 6.28) };
+        if (type === 'snow') Object.assign(p, { r: rnd(1, 2.6), vy: rnd(.25, .75), sw: rnd(.2, .7), c: 'rgba(255,255,255,' + rnd(.45, .9).toFixed(2) + ')' });
+        if (type === 'leaves') Object.assign(p, { r: rnd(4, 7), vy: rnd(.35, .85), sw: rnd(.6, 1.4), vr: rnd(-.03, .03), c: pick(['#f08c3a', '#e76f2a', '#e9c46a', '#b45309', '#c2410c']) });
+        if (type === 'petals') Object.assign(p, { r: rnd(3, 5.5), vy: rnd(.3, .7), sw: rnd(.5, 1.2), vr: rnd(-.04, .04), c: pick(['#f9a8d4', '#f472b6', '#fbcfe8', '#fda4af', '#ffffff']) });
+        if (type === 'sun') Object.assign(p, { y: init ? rnd(0, h) : h + 10, r: rnd(.8, 2.2), vy: -rnd(.15, .4), sw: rnd(.2, .5), c: pick(['#fbbf24', '#f59e0b', '#fde68a']) });
+        if (type === 'bubbles') Object.assign(p, { y: init ? rnd(0, h) : h + 10, r: rnd(2, 6), vy: -rnd(.2, .55), sw: rnd(.3, .8), c: 'rgba(153,246,228,.5)' });
+        if (type === 'stars') Object.assign(p, { y: rnd(0, h), r: rnd(.5, 1.5), vy: 0, sw: 0, tw: rnd(.01, .04), c: pick(['#ffffff', '#e9d5ff', '#a5f3fc']) });
+        return p;
+    }
+    function stopFx() {
+        if (fxRaf) cancelAnimationFrame(fxRaf);
+        fxRaf = null;
+    }
+    function startFx() {
+        stopFx();
+        if (!document.body || document.hidden) return;
+        const local = $('zp-fx');
+        let pagecv = O && O.getElementById('zp-fxp');
+        fxType = (S.fx && !reducedMotion()) ? theme().fx : null;
+        const usePage = S.fxScope === 'page';
+        if (local) { local.style.display = fxType && !usePage ? 'block' : 'none'; const lc = local.getContext('2d'); if (lc) lc.clearRect(0, 0, local.width, local.height); }
+        if (pagecv) { pagecv.style.display = fxType && usePage ? 'block' : 'none'; const pc = pagecv.getContext('2d'); if (pc) pc.clearRect(0, 0, pagecv.width, pagecv.height); }
+        if (!fxType) return;
+        if (!usePage && !local) return;
+        if (usePage && !pagecv) { pagecv = el('canvas'); pagecv.id = 'zp-fxp'; overlay().insertBefore(pagecv, overlay().firstChild.nextSibling); if (fxRO) { fxRO.disconnect(); fxRO = null; } }
+        const cv = usePage ? pagecv : local;
+        cv.style.display = 'block';
+        const ctx = cv.getContext('2d');
+        if (!ctx) return;
+        if (fxRO) { fxRO.disconnect(); fxRO = null; }
+        const dpr = () => window.devicePixelRatio || 1;
+        const size = () => { const r = cv.getBoundingClientRect(); cv.width = Math.max(1, r.width * dpr()); cv.height = Math.max(1, r.height * dpr()); ctx.setTransform(dpr(), 0, 0, dpr(), 0, 0); };
+        size();
+        if (window.ResizeObserver) { fxRO = new ResizeObserver(size); fxRO.observe(cv); }
+        const W = () => cv.width / dpr(), Hh = () => cv.height / dpr();
+        const mul = ({ low: .45, normal: 1, high: 1.9 }[S.fxAmount] || 1) * (usePage ? 1.8 : 1);
+        const n = Math.round(({ snow: 70, leaves: 14, petals: 20, sun: 28, bubbles: 22, stars: 80 }[fxType] || 30) * mul);
+        const parts = Array.from({ length: n }, () => spawn(fxType, W(), Hh(), true));
+        let shoot = null, tick = 0;
+        const loop = () => {
+            if (document.hidden) { fxRaf = null; return; }
+            fxRaf = requestAnimationFrame(loop);
+            const w = W(), h = Hh();
+            ctx.clearRect(0, 0, w, h);
+            tick++;
+            parts.forEach((p, i) => {
+                p.ph += .02; p.y += p.vy; p.x += Math.sin(p.ph) * p.sw * .5;
+                if (p.vr) p.rot += p.vr;
+                if (p.y > h + 12 || p.y < -14 || p.x < -14 || p.x > w + 14) { if (fxType !== 'stars') parts[i] = spawn(fxType, w, h, false); return; }
+                ctx.save();
+                if (fxType === 'stars') ctx.globalAlpha = .3 + .6 * Math.abs(Math.sin(p.ph * p.tw * 40));
+                if (fxType === 'sun') ctx.globalAlpha = .35 + .45 * Math.abs(Math.sin(p.ph));
+                ctx.translate(p.x, p.y);
+                if (fxType === 'leaves' || fxType === 'petals') {
+                    ctx.fillStyle = p.c; ctx.rotate(p.rot); ctx.globalAlpha = .7;
+                    ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * (fxType === 'leaves' ? .55 : .7), 0, 0, 6.283); ctx.fill();
+                } else if (fxType === 'bubbles') {
+                    ctx.strokeStyle = p.c; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 6.283); ctx.stroke();
+                } else {
+                    ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 6.283); ctx.fill();
+                }
+                ctx.restore();
+            });
+            if (fxType === 'stars') {
+                if (!shoot && tick % 480 === 0) shoot = { x: rnd(w * .2, w), y: rnd(0, h * .4), l: 0 };
+                if (shoot) {
+                    shoot.l += 1; const len = 60, k = shoot.l * 6;
+                    const g = ctx.createLinearGradient(shoot.x - k, shoot.y + k * .4, shoot.x - k + len, shoot.y + k * .4 - len * .4);
+                    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,.85)');
+                    ctx.strokeStyle = g; ctx.lineWidth = 1.5; ctx.beginPath();
+                    ctx.moveTo(shoot.x - k, shoot.y + k * .4); ctx.lineTo(shoot.x - k + len, shoot.y + k * .4 - len * .4); ctx.stroke();
+                    if (shoot.l > 40) shoot = null;
+                }
+            }
+        };
+        loop();
+    }
+
+    /* ════════════════════ TABELLE ════════════════════ */
+    let cctx = null;
+    function hsl(color) {
+        cctx = cctx || document.createElement('canvas').getContext('2d');
+        if (!cctx) return null;
+        cctx.fillStyle = '#000'; cctx.fillStyle = color;
+        const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(cctx.fillStyle);
+        if (!m) return null;
+        const r = parseInt(m[1], 16) / 255, g = parseInt(m[2], 16) / 255, b = parseInt(m[3], 16) / 255;
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2;
+        let h = 0, s = 0;
+        if (mx !== mn) {
+            const dd = mx - mn;
+            s = l > .5 ? dd / (2 - mx - mn) : dd / (mx + mn);
+            h = (mx === r ? (g - b) / dd + (g < b ? 6 : 0) : mx === g ? (b - r) / dd + 2 : (r - g) / dd + 4) * 60;
+        }
+        return [Math.round(h), Math.round(s * 100), Math.round(l * 100)];
+    }
+    function tintRows() {
+        if (!document.body || PAGE !== 'zdl') return;
+        document.body.querySelectorAll('[style*="background"]').forEach(x => {
+            if (/^(IMG|SVG|CANVAS|INPUT|SELECT|TEXTAREA|BUTTON)$/i.test(x.tagName) || x.id === 'zp-host' || x.id === 'zp-list-host' || x.id === 'zp-overlay') return;
+            const bg = x.style.backgroundColor;
+            if (!bg || bg === 'transparent' || /rgba\(.*,\s*0\)$/.test(bg)) { x.removeAttribute('data-zp-tint'); x.removeAttribute('data-zp-white'); return; }
+            if (x.dataset.zpBg === bg) return;
+            x.dataset.zpBg = bg;
+            const c = hsl(bg);
+            if (!c) return;
+            const inZdl = !!x.closest('table.tabelle');
+            const isWhite = c[1] < 8 && c[2] > 90;
+            if (!inZdl && isWhite) { x.setAttribute('data-zp-white', '1'); x.removeAttribute('data-zp-tint'); return; }
+            x.removeAttribute('data-zp-white');
+            x.setAttribute('data-zp-tint', '1');
+            x.style.setProperty('--zp-tint2', `hsl(${c[0]} ${Math.min(c[1], 62)}% ${c[1] < 8 ? Math.max(16, 100 - c[2]) : 31}%)`);
+            x.style.setProperty('--zp-tint-txt', c[1] < 8 ? 'var(--zp-text)' : `hsl(${c[0]} 70% 92%)`);
+            x.style.setProperty('--zp-tint', `hsl(${c[0]} ${Math.min(c[1], 35)}% 15%)`);
+            x.style.setProperty('--zp-edge', `hsl(${c[0]} ${Math.min(c[1], 80)}% 68%)`);
+            x.style.setProperty('--zp-tintl', `hsl(${c[0]} ${Math.min(c[1], 70)}% 96%)`);
+            x.style.setProperty('--zp-edge-txt', `hsl(${c[0]} ${Math.min(c[1], 60)}% ${theme().dark ? 72 : 42}%)`);
+        });
+    }
+    /* Farbkorrektur für alle Nicht-ZDL-Seiten: liest die ECHTEN Farben (auch aus LHR-Klassen) und
+       dunkelt nur helle Flächen ab. Kräftige Farben (Urlaub, Feiertag …) bleiben, bekommen aber lesbare Schrift. */
+    const rgbHL = c => { const r = c.r / 255, g = c.g / 255, b = c.b / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0;
+        if (d) h = (mx === r ? (g - b) / d + (g < b ? 6 : 0) : mx === g ? (b - r) / d + 2 : (r - g) / d + 4) * 60; return [Math.round(h), Math.round((mx + mn) * 50)]; };
+    const cfSig = new WeakMap(), cfDirty = new Set(), cfOwn = new WeakMap();
+    let cfRuns = 0;
+    const CF_SKIP = /^(IMG|SVG|CANVAS|INPUT|SELECT|OPTION|TEXTAREA|SCRIPT|STYLE|LINK|META|BR|HR|PATH|USE|G|IFRAME|VIDEO)$/i;
+    function fixColors() {
+        if (!document.body || PAGE === 'zdl') return;
+        cfRuns++;
+        const dark = !!theme().dark;
+        cfDirty.forEach(n => { if (n.getElementsByTagName) { const ds = n.getElementsByTagName('*'); if (ds.length < 3000) for (let j = 0; j < ds.length; j++) cfSig.delete(ds[j]); } });
+        cfDirty.clear();
+        const list = document.body.getElementsByTagName('*');
+        if (list.length > 40000) return;
+        for (let i = 0; i < list.length; i++) {
+            const x = list[i];
+            if (typeof x.className !== 'string' || CF_SKIP.test(x.tagName) || (x.id && x.id.indexOf('zp-') === 0) || x.closest('svg')) continue;
+            const sig = x.className + '|' + (x.getAttribute('style') || '') + '|' + dark;
+            if (cfSig.get(x) === sig) continue;
+            if (x.hasAttribute('data-zp-cf') || x.hasAttribute('data-zp-ink')) { x.removeAttribute('data-zp-cf'); x.removeAttribute('data-zp-ink'); x.style.removeProperty('--zp-cfh'); }
+            if (dark) {
+                const cs = getComputedStyle(x);
+                const c = rgbOf(cs.backgroundColor), img = /url\(|gradient\(/.test(cs.backgroundImage);
+                let mode = null, h = 250;
+                if (c && c.a > .12) {
+                    const [hh, l] = rgbHL(c);
+                    const chroma = Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b);
+                    h = hh;
+                    if (img && l > 55) mode = 'h';
+                    else if (l >= 78 && chroma < 30) mode = 'w';
+                    else if (l >= 72 && chroma < 90) mode = 's';
+                    else if (chroma > 40) mode = lumOf(c) > .52 ? 'v' : 'd';
+                } else if (img && x.tagName !== 'A' && !x.querySelector('img')) mode = 'h';
+                if (mode) {
+                    x.setAttribute('data-zp-cf', mode);
+                    if (mode === 's' || mode === 'h') x.style.setProperty('--zp-cfh', String(h));
+                } else if (!x.closest('[data-zp-cf="v"]')) {
+                    const tc = rgbOf(cs.color);
+                    if (tc && lumOf(tc) < .38 && [...x.childNodes].some(n => n.nodeType === 3 && n.textContent.trim())) x.setAttribute('data-zp-ink', '1');
+                }
+            }
+            cfSig.set(x, x.className + '|' + (x.getAttribute('style') || '') + '|' + dark);
+            if (x.hasAttribute('style')) cfOwn.set(x, x.getAttribute('style'));
+        }
+    }
+    let cfTimer = null;
+
+
+    /* ════════════════════ TEAM: eigene Zeile + Favoriten (Tableau, Planer, Abwesenheiten) ════════════════════ */
+    const nameKey = t => String(t || '').toLowerCase().replace(/[★☆]/g, '').replace(/\(\d+\)/g, '').replace(/[^a-zäöüßéèáàčćšžđ\s-]/g, ' ').split(/\s+/).filter(w => w.length > 1).sort().join(' ');
+    const favList = () => Array.isArray(S.favs) ? S.favs : [];
+    const cellName = td => [...td.childNodes].filter(n => !(n.nodeType === 1 && n.classList.contains('zp-star'))).map(n => n.textContent).join(' ').replace(/\s+/g, ' ').trim();
+    let teamSig = '';
+    function setCls(elx, cls, on) { if (elx.classList.contains(cls) !== on) elx.classList.toggle(cls, on); }
+    function markTeam() {
+        if (PAGE !== 'other' || !document.getElementById('content')) return;
+        const u = userInfo(), myKey = nameKey(u.name), nr = u.nr;
+        const favs = new Set(favList().map(f => f.k));
+        // Tableau-Kacheln
+        const tcells = [...document.querySelectorAll('#tableautab2 td, #tableautab td')].filter(td => cellName(td).length > 2);
+        tcells.forEach(td => {
+            const k = nameKey(cellName(td));
+            if (!td.querySelector(':scope > .zp-star')) { const st = document.createElement('span'); st.className = 'zp-star'; st.title = 'Als Favorit anpinnen'; td.appendChild(st); }
+            const star = td.querySelector(':scope > .zp-star');
+            const isF = favs.has(k);
+            if (star.textContent !== (isF ? '★' : '☆')) star.textContent = isF ? '★' : '☆';
+            star.title = isF ? 'Favorit entfernen' : 'Als Favorit anpinnen';
+            setCls(td, 'zp-fav', isF); setCls(td, 'zp-me', k === myKey);
+        });
+        // Tabellen-Zeilen (Planer, Abwesenheiten): DnNr oder Name
+        const me = new Set(), fv = new Set();
+        document.querySelectorAll('#content tbody > tr').forEach(tr => {
+            if (tr.closest('#tableautab2,#tableautab')) return;
+            const tds = [...tr.children].slice(0, 4);
+            let isMe = false, isF = false;
+            tds.forEach(td => { const t = td.textContent.replace(/\s+/g, ' ').trim(); if (!t || t.length > 60) return; if (nr && t === nr) isMe = true; const k = nameKey(t); if (k && k === myKey) isMe = true; if (k && favs.has(k)) isF = true; });
+            if (isMe) me.add(tr); else if (isF) fv.add(tr);
+        });
+        // fixierte Spalten (DataTables-Kopien): gleiche Zeilennummer in Geschwister-Tabellen
+        [[me, 'zp-me'], [fv, 'zp-favrow']].forEach(([set]) => {
+            [...set].forEach(tr => {
+                const tb = tr.parentElement, idx = [...tb.children].indexOf(tr);
+                const wrap = tr.closest('.dataTables_wrapper,.DTFC_ScrollWrapper,.dtfc-scroll,.scrolldiv');
+                if (!wrap) return;
+                wrap.querySelectorAll('tbody').forEach(ob => { if (ob !== tb && ob.children.length === tb.children.length && ob.children[idx]) set.add(ob.children[idx]); });
+            });
+        });
+        document.querySelectorAll('#content tbody > tr').forEach(tr => { setCls(tr, 'zp-me', me.has(tr)); setCls(tr, 'zp-favrow', fv.has(tr)); });
+        renderFavBar(tcells);
+    }
+    function renderFavBar(tcells) {
+        const cont = document.getElementById('tableau_mitarbeiter_container');
+        if (!cont) return;
+        let host = document.getElementById('zp-fav-host');
+        if (!host) {
+            host = el('div'); host.id = 'zp-fav-host'; cont.parentNode.insertBefore(host, cont);
+            const root = mkRoot(host); const box = el('div', 'zp-font'); box.id = 'zf'; root.appendChild(box);
+            host._root = root;
+            box.addEventListener('click', e => {
+                const x = e.target.closest('[data-unfav]');
+                if (x) { e.stopPropagation(); S.favs = favList().filter(f => f.k !== x.dataset.unfav); saveS(); teamSig = ''; markTeam(); return; }
+                const c = e.target.closest('[data-fk]');
+                if (c) { const td = [...document.querySelectorAll('#tableautab2 td, #tableautab td')].find(t => nameKey(cellName(t)) === c.dataset.fk); if (td) { td.scrollIntoView({ block: 'center', behavior: 'smooth' }); td.click(); td.classList.add('zp-flash'); setTimeout(() => td.classList.remove('zp-flash'), 1200); } else toast('Nicht in der Liste', 'Diese Person ist mit dem aktuellen Filter/der Seite nicht sichtbar.', { icon: 'users' }); }
+            });
+        }
+        const byKey = new Map(tcells.map(td => [nameKey(cellName(td)), td]));
+        const favs = favList();
+        const items = favs.map(f => {
+            const td = byKey.get(f.k), img = td && td.querySelector('img');
+            const st = img ? (img.getAttribute('title') || img.getAttribute('alt') || '') : '';
+            return { f, src: img ? img.src : '', st, here: !!td };
+        });
+        const sig = JSON.stringify(items.map(i => [i.f.k, i.src, i.st, i.here]));
+        if (sig === teamSig) return;
+        teamSig = sig;
+        host._root.getElementById('zf').innerHTML = `<div class="zf-bar"><span class="zf-t">${ico('sparkle', 14)} Favoriten</span>
+            ${items.length ? items.map(i => `<button type="button" class="zf-c${i.here ? '' : ' off'}" data-fk="${esc(i.f.k)}" title="${esc(i.f.n + (i.st ? ' · ' + i.st : '') + (i.here ? '' : ' · nicht in der aktuellen Liste'))}">
+                ${i.src ? `<img src="${esc(i.src)}" alt="">` : '<i></i>'}<span>${esc(i.f.n)}</span><b data-unfav="${esc(i.f.k)}" title="Entfernen">${ico('x', 12)}</b></button>`).join('')
+              : '<span class="zf-h">Stern ☆ bei einem Kollegen anklicken, um ihn hier anzupinnen.</span>'}</div>`;
+    }
+    function watchTeam() {
+        if (PAGE !== 'other') return;
+        let t = null;
+        new MutationObserver(ms => { if (t || !ms.some(m => [...m.addedNodes].some(n => n.nodeType === 1 && !(n.classList && n.classList.contains('zp-star'))))) return; t = setTimeout(() => { t = null; safe('Team', markTeam); }, 200); })
+            .observe(document.body, { childList: true, subtree: true });
+        document.addEventListener('click', e => {
+            const st = e.target.closest && e.target.closest('.zp-star');
+            if (!st) return;
+            e.stopImmediatePropagation(); e.preventDefault();
+            const td = st.parentElement, n = cellName(td), k = nameKey(n);
+            const fl = favList();
+            S.favs = fl.some(f => f.k === k) ? fl.filter(f => f.k !== k) : fl.concat([{ k, n }]);
+            saveS(); teamSig = ''; markTeam();
+        }, true);
+        ['mousedown', 'mouseup'].forEach(tp => document.addEventListener(tp, e => { if (e.target.closest && e.target.closest('.zp-star')) e.stopImmediatePropagation(); }, true));
+        safe('Team', markTeam);
+        setInterval(() => { if (!document.hidden) safe('Team', markTeam); }, 4000);
+    }
+    /* LHR Spalten-Menü finden (Knopf = Bild „spaltenoption“, Menü = Box mit Checkboxen + „Fixiert“) */
+    function markColMenus() {
+        safe('Spalten', syncDtPopup);
+        document.querySelectorAll('.dt_popup:not(.zp-colmenu)').forEach(m => m.classList.add('zp-colmenu'));
+        document.querySelectorAll('img[src*="spaltenoption" i]:not(.zp-colbtn)').forEach(i => i.classList.add('zp-colbtn'));
+        const fixTxt = ((document.getElementById('fixiert') || {}).value || 'Fixiert').trim().toLowerCase();
+        const cands = new Set();
+        const m1 = document.getElementById('colMenue'); if (m1 && m1.querySelector('input[type=checkbox]')) cands.add(m1);
+        document.querySelectorAll('input[type=checkbox]').forEach(cb => {
+            if (cb.closest('.zp-colmenu') || cb.closest('#zp-host,#zp-list-host,#zp-shell-host,#zp-kal-host,#kalendertab_summe,table.tabelle,#zdlBody')) return;
+            let n = cb.parentElement, best = null, cnt = 0;
+            for (let k = 0; n && k < 8; k++, n = n.parentElement) {
+                if (n === document.body || n.id === 'content' || n.tagName === 'SECTION' || n.tagName === 'FORM') break;
+                if (n.querySelector('img[src*="spaltenoption" i]') || n.id === 'colHide') break;   // nie die Box mit dem Knopf erwischen
+                const c = n.querySelectorAll('input[type=checkbox]').length;
+                if (best && c > cnt) break;                       // nicht in größere Container ausbrechen
+                if (c >= 4 && (n.textContent || '').toLowerCase().includes(fixTxt)) { best = n; cnt = c; }
+            }
+            if (best) cands.add(best);
+        });
+        document.querySelectorAll('.zp-colmenu').forEach(m => { if (m.querySelector('img[src*="spaltenoption" i]')) { m.classList.remove('zp-colmenu'); m.style.removeProperty('translate'); m.style.removeProperty('max-height'); } });
+        cands.forEach(m => {
+            if (m.querySelector('img[src*="spaltenoption" i]')) return;
+            if (m.classList.contains('zp-colmenu')) return;
+            if (m.parentElement && m.parentElement.closest('.zp-colmenu')) return;
+            m.querySelectorAll('.zp-colmenu').forEach(o => o.classList.remove('zp-colmenu'));
+            m.classList.add('zp-colmenu');
+            [...m.querySelectorAll('*')].filter(e => !e.children.length && (e.textContent || '').trim().toLowerCase() === fixTxt).forEach(e => e.classList.add('zp-colhead'));
+        });
+        fitColMenus();
+    }
+    function fitColMenus() {
+        document.querySelectorAll('.zp-colmenu').forEach(m => {
+            m.style.removeProperty('translate');
+            const r = m.getBoundingClientRect();
+            if (!r.width || !r.height) return;
+            let dx = 0;
+            if (r.right > innerWidth - 14) dx = innerWidth - 14 - r.right;
+            if (r.left + dx < 10) dx = 10 - r.left;
+            if (dx) m.style.setProperty('translate', Math.round(dx) + 'px 0', 'important');
+            const room = innerHeight - Math.max(r.top, 0) - 14;
+            if (room > 160 && r.height > room) m.style.setProperty('max-height', room + 'px', 'important');
+        });
+    }
+    function watchColMenus() {
+        let t = null;
+        const run = () => { if (t) return; t = setTimeout(() => { t = null; safe('Spalten', markColMenus); }, 40); };
+        new MutationObserver(run).observe(document.body, { childList: true, subtree: true });
+        document.addEventListener('click', () => { [30, 160, 400].forEach(ms => setTimeout(() => safe('Spalten', markColMenus), ms)); }, true);
+        window.addEventListener('resize', () => safe('Spalten', fitColMenus));
+        run();
+    }
+    function watchColors() {       // Klassen-/Style-Wechsel (Markieren, Filtern, Nachladen) sofort nachfärben
+        if (PAGE === 'zdl' || !document.body) return;
+        new MutationObserver(ms => {
+            let hit = false;
+            ms.forEach(m => {
+                if (m.type === 'childList') { if (m.addedNodes.length) hit = true; return; }
+                if ((m.target.id || '').startsWith('zp-') || (m.attributeName === 'style' && cfOwn.get(m.target) === m.target.getAttribute('style'))) return;
+                cfDirty.add(m.target); hit = true;
+            });
+            if (hit) fixColorsSoon();
+        })
+            .observe(document.body, { childList: true, subtree: true, attributes: true, attributeOldValue: true, attributeFilter: ['class', 'style'] });
+        setInterval(() => { if (!document.hidden) safe('Farben', fixColors); }, 2500);
+    }
+    const fixColorsSoon = () => { if (cfTimer || PAGE === 'zdl') return; cfTimer = setTimeout(() => { cfTimer = null; safe('Farben', fixColors); }, 60); };
+    function markToday() {
+        const body = tbody();
+        if (!body) return;
+        document.querySelectorAll('table.tabelle tbody').forEach(tb => { if (tb !== body) markRows(tb); });
+        markRows(body);
+    }
+    function markRows(body) {
+        const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+        const tk = todayKey();
+        body.querySelectorAll('tr[data-periode]').forEach(r => {
+            const k = r.getAttribute('data-periode');
+            if (k === tk) r.classList.add('zp-today');
+            else if (/^\d\d\.\d\d\.\d{4}$/.test(k) && keyDate(k) > t0) r.classList.add('zp-future');
+        });
+        body.querySelectorAll('.td_text2_isDate').forEach(sp => { if (!/\d{1,2}:\d{2}/.test(sp.textContent) && /\?/.test(sp.textContent)) sp.classList.add('zp-open'); });
+        body.querySelectorAll('.td_text1_isnotDate_vorUhrzeit').forEach(sp => { if (/^[_\s?]+$/.test(sp.textContent)) sp.classList.add('zp-gap-txt'); });
+    }
+    function hideEmptyCols() {
+        const table = document.querySelector('table.tabelle');
+        if (!table) return;
+        const ths = [...table.querySelectorAll('thead tr:first-child > th')];
+        const rows = [...table.querySelectorAll('tbody > tr')].filter(r => r.children.length === ths.length);
+        if (!rows.length) return;
+        const hidden = new Set();
+        ths.forEach((th, i) => {
+            if (i < 3) return;
+            if (!rows.every(r => { const c = r.children[i]; return !c.textContent.trim() && !c.querySelector('a,img,input'); })) return;
+            hidden.add(th.getAttribute('data-ueberschrift'));
+            th.classList.add('zp-colhide');
+            rows.forEach(r => r.children[i].classList.add('zp-colhide'));
+        });
+        document.querySelectorAll('th[data-ueberschrift]').forEach(th => { if (hidden.has(th.getAttribute('data-ueberschrift'))) th.classList.add('zp-colhide'); });
+    }
+
+    /* ════════════════════ MEHRFACHERFASSUNG ════════════════════ */
+    const CP_V = 1;
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
+    function mbRows(table) {
+        const seen = new Set(), out = [];
+        table.querySelectorAll('td.mb_td').forEach(td => { const tr = td.closest('tr'); if (tr && !seen.has(tr)) { seen.add(tr); out.push(tr); } });
+        return out;
+    }
+    const textInputs = r => r.querySelectorAll('input[type="text"], input:not([type])');
+    const snap = r => [[...r.querySelectorAll('select')].map(s => s.value), [...textInputs(r)].map(i => i.value), (r.querySelector('input[type="checkbox"]') || {}).checked ? 1 : 0];
+    function applySnap(r, s) {
+        const [sv, iv, cb] = s;
+        r.querySelectorAll('select').forEach((x, i) => { if (sv[i] != null) { x.value = sv[i]; x.dispatchEvent(new Event('change', { bubbles: true })); } });
+        textInputs(r).forEach((x, i) => { if (iv[i] != null) { x.value = iv[i]; x.dispatchEvent(new Event('change', { bubbles: true })); } });
+        const c = r.querySelector('input[type="checkbox"]'); if (c) c.checked = !!cb;
+    }
+    async function ensureRows(table, n) {
+        for (let guard = 0; mbRows(table).length < n && guard < 60; guard++) {
+            const first = mbRows(table)[0];
+            const btn = first && first.querySelector('img[title="Neue Zeile"], img[alt="Neue Zeile"]');
+            if (!btn) throw new Error('Kein "Neue Zeile"-Button');
+            btn.click(); await sleep(60);
+        }
+        if (mbRows(table).length < n) throw new Error('Zu wenig Zeilen');
+    }
+    function buildCopyBar() {
+        const first = document.querySelector('td.mb_td');
+        if (!first) return;
+        const table = first.closest('table');
+        if (!table || !table.parentElement || table.parentElement.querySelector('#zp-cp')) return;
+        const bar = el('div', null, '<b>Buchungen</b><button type="button" data-a="c">Kopieren</button><button type="button" data-a="p">Einfügen</button><span>Bereit</span>');
+        bar.id = 'zp-cp';
+        const status = bar.querySelector('span');
+        bar.querySelector('[data-a="c"]').addEventListener('click', async () => {
+            const json = JSON.stringify({ v: CP_V, r: mbRows(table).map(snap) });
+            try { await navigator.clipboard.writeText(json); } catch (e) { window.prompt('JSON kopieren:', json); }
+            status.textContent = mbRows(table).length + ' Zeilen kopiert';
+        });
+        bar.querySelector('[data-a="p"]').addEventListener('click', async e => {
+            const b = e.currentTarget; b.disabled = true;
+            try {
+                let txt = '';
+                try { txt = await navigator.clipboard.readText(); } catch (er) { }
+                if (!txt) txt = window.prompt('JSON einfügen:', '') || '';
+                let d = null; try { d = JSON.parse(txt); } catch (er) { }
+                if (!d || d.v !== CP_V || !Array.isArray(d.r)) { status.textContent = 'Ungültige Daten'; return; }
+                status.textContent = 'Füge ein…';
+                await ensureRows(table, d.r.length);
+                const rows = mbRows(table);
+                d.r.forEach((s, i) => rows[i] && applySnap(rows[i], s));
+                status.textContent = d.r.length + ' Zeilen eingefügt';
+            } catch (er) { status.textContent = 'Fehler: ' + er.message; }
+            finally { b.disabled = false; }
+        });
+        table.parentElement.insertBefore(bar, table);
+    }
+    function watchDialog() {
+        let pending = false;
+        new MutationObserver(() => {
+            if (pending || !document.querySelector('td.mb_td') || document.getElementById('zp-cp')) return;
+            pending = true;
+            setTimeout(() => { pending = false; safe('Mehrfacherfassung', buildCopyBar); }, 300);
+        }).observe(document.body, { childList: true, subtree: true });
+    }
+
+    /* ════════════════════ BADGE / SHORTCUTS / START ════════════════════ */
+    function buildFab(state) {
+        const root = overlay();
+        let b = root.getElementById('zp-fab');
+        if (!b) {
+            b = el('button', 'zp-font', LOGO + '<span>Zeit+</span>');
+            b.id = 'zp-fab';
+            b.type = 'button';
+            b.addEventListener('click', () => {
+                if ($('zp')) openModal();
+                else if (b.dataset.state === 'month') location.href = location.pathname + '?modulId=0&periode=';
+                else cycleTheme();
+            });
+            root.appendChild(b);
+        }
+        b.dataset.state = state;
+        b.title = {
+            dash: 'Zeit+ aktiv – klicken für Einstellungen',
+            month: 'Zeit+ aktiv – Live-Werte gibt es nur im aktuellen Monat. Klicken = zum aktuellen Monat',
+            other: 'Zeit+ aktiv – klicken wechselt das Theme'
+        }[state] || 'Zeit+';
+        b.style.display = state === 'dash' ? 'none' : 'flex';
+    }
+
+    function shortcuts() {
+        document.addEventListener('keydown', e => {
+            if (e.key === 'Escape') { closePops(); const m = $('zp-modal'); if (m) m.classList.add('hidden'); const p = $('zp-tpop'); if (p) p.classList.add('hidden'); if (editing) setEdit(false); return; }
+            if (!e.altKey || e.ctrlKey || e.metaKey) return;
+            const tgt = (typeof e.composedPath === 'function' && e.composedPath()[0]) || e.target;
+            if (tgt && /INPUT|TEXTAREA|SELECT/.test(tgt.tagName || '')) return;
+            const k = (e.key || '').toLowerCase();
+            const act = { m: () => $('zp') && toggleView(), z: () => $('zp') && toggleFold(), t: cycleTheme, e: () => $('zp') && setEdit(!editing), s: () => openModal(), p: () => { const p = $('zp-tpop'); if (p) p.classList.toggle('hidden'); } }[k];
+            if (act && ($('zp') || k === 't' || k === 's')) { e.preventDefault(); act(); }
+        });
+    }
+
+    function killOldScript() {
+        const r = document.documentElement;
+        const had = r.classList.contains('lhr-dark') || document.getElementById('lhr-global-style') || document.getElementById('tool-workblock');
+        r.classList.remove('lhr-dark');
+        ['lhr-global-style', 'time-tool-style', 'tool-workblock', 'lhr-global-toggle'].forEach(id => { const e = document.getElementById(id); if (e) e.remove(); });
+        if (had && !sessionStorage.getItem('zplus_oldwarn')) {
+            sessionStorage.setItem('zplus_oldwarn', '1');
+            setTimeout(() => toast('Altes Script noch aktiv', 'LHR_Simplify läuft noch parallel – bitte in Tampermonkey deaktivieren, sonst stört es die Darstellung.', { bad: true, ms: 15000 }), 1500);
+        }
+    }
+
+    function watchTints() {
+        let t = null;
+        new MutationObserver(ms => {
+            if (t) return;
+            if (!ms.some(m => m.addedNodes && m.addedNodes.length)) return;
+            t = setTimeout(() => { t = null; safe('Farben', () => { tintRows(); if (tbody()) markToday(); fixColors(); if (K) renderKal(); }); }, 350);
+        }).observe(document.body, { childList: true, subtree: true });
+    }
+
+    function init() {
+        PAGE = document.getElementById('zdlBody') ? 'zdl' : document.getElementById('kalendertab') ? 'kal' : 'other';
+        document.documentElement.classList.toggle('zp-zdl', PAGE === 'zdl');
+        document.documentElement.classList.add('zp-p-' + PAGE);
+        killOldScript();
+        injectPageCss();
+        applyTheme();
+        if (mq && mq.addEventListener) mq.addEventListener('change', applyTheme);
+        safe('Tabelle', () => { tintRows(); markToday(); hideEmptyCols(); });
+        const hasShell = !!safe('App-Leiste', buildShell);
+        if (hasShell) { applyTheme(); setInterval(() => { if (!document.hidden) safe('App-Leiste', () => { readShellSource(); if (!$('zs-pop') || !$('zs-pop').innerHTML) renderShell(); }); }, 6000); setTimeout(() => safe('App-Leiste', () => { readShellSource(); renderShell(); }), 1800); }
+        if (PAGE === 'kal' && safe('Kalender', buildKal)) applyTheme();
+        const hasTable = !!tbody(), hasToday = hasTable && !!readDay(), content = document.getElementById('content');
+        document.documentElement.classList.toggle('zp-zdl', hasTable);
+        if (hasToday && content) {
+            safe('Dashboard', () => { buildDash(); render(); updClock(); });
+            setInterval(() => { if (!document.hidden) safe('Uhr', updClock); }, 1000);
+            setInterval(() => { if (!document.hidden) safe('Render', render); }, 20000);
+            document.addEventListener('visibilitychange', () => {
+                const hid = document.hidden;
+                [document.getElementById('zp-host'), document.getElementById('zp-list-host'), document.getElementById('zp-overlay')].forEach(h => { if (h) h.classList.toggle('paused', hid); });
+                if (hid) stopFx(); else { safe('Render', render); startFx(); }
+            });
+            shortcuts();
+            buildFab($('zp') ? 'dash' : 'other');
+        } else if (hasTable && content && tbody().querySelector('tr[data-periode]')) {      // anderer Monat: nur die Zeit+ Liste
+            safe('Liste', () => {
+                const lhost = el('div'); lhost.id = 'zp-list-host';
+                content.parentNode.insertBefore(lhost, content);
+                buildList(lhost); applyTheme(); renderListOnly();
+            });
+            buildFab(hasShell && S.shell ? 'dash' : 'month');
+            shortcuts();
+            document.addEventListener('visibilitychange', () => {
+                const h = document.getElementById('zp-overlay'); if (h) h.classList.toggle('paused', document.hidden);
+                if (document.hidden) stopFx(); else startFx();
+            });
+        } else if (hasShell && S.shell) {
+            buildFab('dash');
+            shortcuts();
+            document.addEventListener('visibilitychange', () => {
+                const h = document.getElementById('zp-overlay'); if (h) h.classList.toggle('paused', document.hidden);
+                if (document.hidden) stopFx(); else startFx();
+            });
+        } else {
+            buildFab(hasTable ? 'month' : 'other');
+            document.addEventListener('visibilitychange', () => {
+                const h = document.getElementById('zp-overlay'); if (h) h.classList.toggle('paused', document.hidden);
+                if (document.hidden) stopFx(); else startFx();
+            });
+        }
+        safe('Dialog', watchDialog);
+        safe('Farben', watchTints);
+        safe('Farben', watchColors);
+        safe('Spalten', watchColMenus);
+        if (PAGE === 'zdl') { safe('Spalten', watchCols); safe('Spalten', dtPopupGuard); }
+        safe('Team', watchTeam);
+        const late = () => safe('Nachladen', () => { killOldScript(); tintRows(); markToday(); fixColors(); if (K) renderKal(); if (SH) renderShell(); startFx(); render(); try { window.dispatchEvent(new Event('resize')); } catch (e) { } });
+        if (document.readyState === 'complete') setTimeout(late, 800);
+        else window.addEventListener('load', () => setTimeout(late, 800));
+        setTimeout(() => safe('Nachladen', () => { tintRows(); render(); }), 2500);
+        try {
+            window.ZeitPlus = {
+                version: VERSION, settings: () => S,
+                diag: () => ({ version: VERSION, seite: PAGE, farbLaeufe: cfRuns, kalender: !!$('zk'), tabelle: hasTable, heute: hasToday, content: !!content, dashboard: !!$('zp'), fehler: lastErr, url: location.href, datum: todayKey() })
+            };
+        } catch (e) { }
+    }
+
+    function earlyStart() {
+        const r = document.documentElement;
+        if (!r) { new MutationObserver((m, o) => { if (document.documentElement) { o.disconnect(); earlyStart(); } }).observe(document, { childList: true }); return; }
+        try {
+            const t = theme();
+            ['page', 'accent', 'text', 'surf', 'line', 'muted'].forEach(k => { if (t[k]) r.style.setProperty('--zp-' + k, t[k]); });
+            r.style.setProperty('--zp-page', t.page || t.bg || '#fff');
+            if (S.accent) r.style.setProperty('--zp-accent', S.accent);
+            r.classList.toggle('zp-dark', !!t.dark);
+            r.style.background = t.page || t.bg || '';
+            r.classList.add('zp-loading');
+            injectPageCss();
+        } catch (e) { }
+        setTimeout(reveal, 4000);    // Sicherheitsnetz
+    }
+    function reveal() {
+        const r = document.documentElement;
+        if (!r || !r.classList.contains('zp-loading')) return;
+        r.classList.remove('zp-loading'); r.classList.add('zp-ready');
+        r.style.background = '';
+    }
+    earlyStart();
+    const boot = () => { try { init(); } catch (e) { reportError('Start', e); } finally { requestAnimationFrame(() => requestAnimationFrame(reveal)); } };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+})();
