@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.17.5
+// @version      5.18.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.17.5';
+    const VERSION = '5.18.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -466,7 +466,9 @@
         // Brückentage: kurze Arbeitstag-Lücken (1–3 Tage) zwischen freien Tagen, an mindestens einem Feiertag
         const bridges = [];
         {
-            const free = d => d.we || d.hol || (d.kind === 'abs');
+            // frei = Wochenende, Feiertag oder eine Abwesenheit, an der man nicht arbeitet (Remote/Homeoffice/Dienstreise zählen als Arbeit)
+            const offAbs = d => d.kind === 'abs' && !/remote|home|dienst|berufsschul|seminar|schulung|kurs|arzt|bereitschaft|reise/i.test(d.name || '');
+            const free = d => d.we || d.hol || offAbs(d);
             let i = 0;
             while (i < all.length) {
                 if (free(all[i])) { i++; continue; }
@@ -478,7 +480,9 @@
                     const span = all.slice(a, b + 1), work = all.slice(i, j);
                     const hasHol = span.some(d => d.hol && d.wd !== 0 && d.wd !== 6);
                     if (hasHol && work.every(d => d.dt > t0)) {
-                        bridges.push({ work, from: span[0], to: span[span.length - 1], len: span.length, cost: L, ratio: span.length / L, holName: (span.find(d => d.hol && d.wd !== 0 && d.wd !== 6) || {}).key });
+                        const planned = span.filter(d => offAbs(d) && !d.we && !d.hol);      // schon eingetragene Urlaubs-/ZA-Tage im Zeitraum
+                        const tot = L + planned.length;
+                        bridges.push({ work, planned, from: span[0], to: span[span.length - 1], len: span.length, cost: L, tot, ratio: span.length / tot, holName: (span.find(d => d.hol && d.wd !== 0 && d.wd !== 6) || {}).key });
                     }
                 }
                 i = j;
@@ -588,10 +592,14 @@
         kalLastSig = sig;
         box.classList.toggle('orig', view === 'orig');
         const fmtR = b => fmtD(b.from) + (b.from !== b.to ? ' – ' + fmtD(b.to) : '');
-        const brHtml = `<div class="zk-card${S.brCollapsed ? ' slim' : ''}"><div class="zk-head zk-tog" data-brt="1" title="Ein-/ausklappen"><div class="zl-title">${ico('sparkle', 17)}<span>Brückentage ${k.y}</span></div><span class="zk-sub">${S.brCollapsed ? (bridges.length ? bridges.length + ' Tipp' + (bridges.length > 1 ? 's' : '') + ' · bester: ' + bridges[0].cost + ' → ' + bridges[0].len + ' Tage frei' : 'keine mehr') : 'mit wenig Urlaub möglichst lange frei'}</span><span class="sp"></span><span class="zk-chev${S.brCollapsed ? '' : ' open'}">${ico('chevron', 16)}</span></div>
+        const brHtml = `<div class="zk-card${S.brCollapsed ? ' slim' : ''}"><div class="zk-head zk-tog" data-brt="1" title="Ein-/ausklappen"><div class="zl-title">${ico('sparkle', 17)}<span>Brückentage ${k.y}</span></div><span class="zk-sub">${S.brCollapsed ? (bridges.length ? bridges.length + ' Tipp' + (bridges.length > 1 ? 's' : '') + ' · bester: ' + (bridges[0].planned.length ? '+' : '') + bridges[0].cost + ' → ' + bridges[0].len + ' Tage frei' : 'keine mehr') : 'mit wenig Urlaub möglichst lange frei'}</span><span class="sp"></span><span class="zk-chev${S.brCollapsed ? '' : ' open'}">${ico('chevron', 16)}</span></div>
             ${S.brCollapsed ? '' : bridges.length ? `<div class="zk-brs">${bridges.slice(0, 8).map(b => `<button type="button" class="zk-br" data-k="${b.work[0].key}" title="Urlaub an: ${esc(b.work.map(fmtD).join(', '))}\nKlicken: ersten Tag eintragen">
-                <b class="num">${b.cost} <em>Urlaubstag${b.cost > 1 ? 'e' : ''}</em> → ${b.len} <em>Tage frei</em></b>
-                <span>${esc(fmtR(b))}</span><small>Urlaub: ${esc(b.work.map(fmtD).join(', '))}</small></button>`).join('')}</div>`
+                ${b.planned.length ? `<b class="num">+${b.cost} <em>Urlaubstag${b.cost > 1 ? 'e' : ''}</em> → ${b.len} <em>Tage frei</em></b>
+                <span>${esc(fmtR(b))}</span>
+                <small class="pl">${ico('check', 12)} ${b.planned.length} schon eingetragen${b.planned.some(d => d.pend) ? ' (' + b.planned.filter(d => d.pend).length + ' beantragt)' : ''}: ${esc(b.planned.map(fmtD).join(', '))}</small>
+                <small>Dazu nehmen: ${esc(b.work.map(fmtD).join(', '))} · <b class="tot">insgesamt ${b.tot} Tage Urlaub → ${b.len} frei</b></small>`
+                : `<b class="num">${b.cost} <em>Urlaubstag${b.cost > 1 ? 'e' : ''}</em> → ${b.len} <em>Tage frei</em></b>
+                <span>${esc(fmtR(b))}</span><small>Urlaub: ${esc(b.work.map(fmtD).join(', '))}</small>`}</button>`).join('')}</div>`
                 : `<div class="zk-none">${ico('check', 14)} Für den Rest von ${k.y} gibt es keine Brückentage mehr${k.y === new Date().getFullYear() ? ' – im nächsten Jahr schauen (Pfeil oben).' : '.'}</div>`}
           </div>`;
         box.innerHTML = view === 'orig'
@@ -1977,6 +1985,8 @@ input,select{font-size:13px;margin:0}
 .zk-br b{font-size:15px;font-weight:700}.zk-br b em{font-style:normal;font-weight:500;font-size:12px;color:var(--zp-muted)}
 .zk-br span{font-size:13px;font-weight:600;color:var(--zp-accent2)}
 .zk-br small{font-size:11.5px;color:var(--zp-muted)}
+.zk-br small.pl{display:flex;align-items:center;gap:5px;color:var(--zp-ok)}
+.zk-br small b.tot{font-size:11.5px;font-weight:700;color:var(--zp-text)}
 .zk-none{font-size:13px;color:var(--zp-muted);display:flex;align-items:center;gap:7px}
 .zk-d.add{cursor:pointer}
 .zk-d.add:hover{background:color-mix(in srgb,var(--zp-accent) 24%,transparent);color:var(--zp-text);opacity:1}
