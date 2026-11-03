@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.6.0
+// @version      5.7.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -14,7 +14,7 @@
 
 (function () {
     'use strict';
-    const VERSION = '5.6.0';
+    const VERSION = '5.7.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -697,6 +697,35 @@
         return map;
     }
     const normT = t => String(t || '').replace(/\s+/g, ' ').trim();
+    /* Gesamtstunden = Saldo + ZA + Überstunden 50 % (p/f) + 100 % (p/f) */
+    const GES_COLS = [[/^ZA\b/i, 'ZA'], [/^50%p/i, 'Üst 50% pfl.'], [/^50%f/i, 'Üst 50% frei'], [/^100%p/i, 'Üst 100% pfl.'], [/^100%f/i, 'Üst 100% frei']];
+    const parseHrs = t => { t = String(t || '').trim(); if (!t || t === '-' || t === '–') return null; const d = parseDur(t); if (d != null) return d; const m = t.match(/^(-?)(\d+)(?:[.,](\d+))?$/); if (!m) return null; const v = (+m[2] + (m[3] ? +('0.' + m[3]) : 0)) * H; return m[1] ? -v : v; };
+    function gesamt(days, saldo) {
+        if (saldo == null || !days) return null;
+        const km = colKeyMap();
+        const t0 = new Date(); t0.setHours(23, 59, 59, 0);
+        const parts = [{ name: 'Saldo', v: saldo }];
+        let found = 0;
+        for (const [label, key] of km) {
+            if (!key || key[0] !== 'z') continue;
+            const g = GES_COLS.find(([re]) => re.test(label)); if (!g) continue;
+            found++;
+            const nr = key.slice(1), vals = [];
+            let span = 0;
+            for (const [k, rows] of days) {
+                if (keyDate(k) > t0) break;
+                let v = null; rows.forEach(r => { const c = r.querySelector('td[data-zsp-nr="' + nr + '"]'); const x = c && parseHrs(c.textContent); if (x != null) v = x; });
+                if (vals.length || v != null) span++;
+                if (v != null) vals.push(v);
+            }
+            // Konto (steht wie der Saldo an fast jedem Tag) → letzter Stand; sonst einzelne Tageswerte → Summe
+            const running = vals.length >= 3 && vals.length / span >= .8;
+            const v = !vals.length ? 0 : running ? vals[vals.length - 1] : vals.reduce((a, b) => a + b, 0);
+            parts.push({ name: g[1], v });
+        }
+        if (!found) return null;
+        return { total: parts.reduce((a, p) => a + p.v, 0), parts, tip: parts.map(p => p.name + ' ' + dur(p.v, true)).join(' + ') };
+    }
     function syncDtPopup() {
         if (PAGE !== 'zdl') return;
         const pops = document.querySelectorAll('.dt_popup');
@@ -801,7 +830,8 @@
         const missing = days.filter(x => x.fehl).length;
         const sc = v => v > M ? 'ok' : v < -M ? 'bad' : '';
         setHtml('zl-sum', `<span class="zl-pill">Ist${days.some(x => x.isT) || days.some(x => x.future) ? ' bis heute' : ''} <b class="num">${dur(istSum)}</b> / ${dur(sollSum)}</span>
-            ${c.saldo != null ? `<span class="zl-pill">Saldo <b class="num ${sc(c.saldo)}">${dur(c.saldo, true)}</b></span>` : ''}` +
+            ${c.saldo != null ? `<span class="zl-pill">Saldo <b class="num ${sc(c.saldo)}">${dur(c.saldo, true)}</b></span>` : ''}
+            ${(() => { const gs = safe('Gesamt', () => gesamt(d.days, c.saldo)); return gs ? `<span class="zl-pill" title="${esc(gs.tip)}">Gesamt <b class="num ${sc(gs.total)}">${dur(gs.total, true)}</b></span>` : ''; })()}` +
             (missing ? `<span class="zl-pill w">${ico('alert', 13)} ${missing} Tag${missing > 1 ? 'e' : ''} unvollständig</span>` : ''));
         const vb = $('zl-view'); if (vb) vb.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === S.tableView));
         if (S.tableView !== 'list') { rowsBox.innerHTML = ''; return; }
@@ -1720,6 +1750,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zl-title .ic{color:var(--zp-accent)}
 .zl-pill{font-size:12px;color:var(--zp-muted);background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:99px;height:26px;padding:0 11px;display:inline-flex;align-items:center;gap:5px}
 .zl-pill b{color:var(--zp-text);font-weight:650}
+.zp-fi.g small{font-size:10.5px;color:var(--zp-muted);margin-left:4px}
 .zl-pill b.ok{color:var(--zp-ok)}.zl-pill b.bad{color:var(--zp-bad)}.zl-pill.w{color:var(--zp-warn);border-color:color-mix(in srgb,var(--zp-warn) 35%,var(--zp-line))}
 .zl-head .sp{flex:1}
 #zl.orig .zl-body{display:none}
@@ -2358,13 +2389,15 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             const kz = kernEnd();
             if (kz) foot.push(fi('Kernzeit bis', clock(kz)));
             foot.push(fi('Übertrag', dur(d.carry, true)));
+            { const gs = safe('Gesamt', () => gesamt(d.days, c.saldo)); if (gs) foot.push(`<div class="zp-fi g" title="${esc(gs.tip)}"><span>Gesamt <small>Saldo+ZA+Üst</small></span><b class="num ${signCls(gs.total)}">${dur(gs.total, true)}</b></div>`); }
             if (has && c.dedFinal > 0 && !c.lunchUpcoming) foot.push(fi(c.lunch ? 'Mittag ' + mins(c.lunch.len) + ' min → Abzug' : 'Pausen-Abzug', '−' + mins(c.dedFinal) + ' min', 1));
             if (c.broken) foot.push(fi('Offene Buchungen', c.broken, 1));
             setHtml('zp-foot', foot.join(''));
             const cs = (k, v, cls) => `<div class="zp-cs"><span>${k}</span><b class="num ${cls || ''}">${v}</b></div>`;
             const wk = readWeek(d.days, c.eff);
+            const gs = safe('Gesamt', () => gesamt(d.days, c.saldo));
             setHtml('zp-cstats', cs('Heute netto', dur(c.eff)) + cs('Saldo', dur(c.saldo, true), signCls(c.saldo)) + cs('Woche', dur(wk.ist) + ' / ' + dur(wk.soll)) +
-                (has && c.dedFinal > 0 && !c.lunchUpcoming ? cs('Pausen-Abzug', mins(c.dedFinal) + ' min', 'warn') : '') + (kz ? cs('Kernzeit bis', clock(kz)) : ''));
+                (has && c.dedFinal > 0 && !c.lunchUpcoming ? cs('Pausen-Abzug', mins(c.dedFinal) + ' min', 'warn') : '') + (kz ? cs('Kernzeit bis', clock(kz)) : '') + (gs ? `<div title="${esc(gs.tip)}">${cs('Gesamt', dur(gs.total, true), signCls(gs.total))}</div>` : ''));
         });
 
         safe('Heute', () => {
