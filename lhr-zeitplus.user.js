@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.13.0
+// @version      5.14.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.13.0';
+    const VERSION = '5.14.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -174,7 +174,7 @@
         if (m) d = new Date(+m[1], +m[2] - 1, +m[3]);
         else { d = new Date(t0.getFullYear(), 11, 24); if (d < t0) d = new Date(t0.getFullYear() + 1, 11, 24); if (!S.cdName || S.cdName === 'Weihnachtsfeier') name = 'Weihnachten'; }
         const n = Math.round((d - t0) / 864e5);
-        if (n < 0) return null;
+        if (n < 0) return { name, n, d, over: true };
         return { name, n, d };
     }
     function renderShell() {
@@ -182,7 +182,7 @@
         if (!box) return;
         const u = userInfo(), P = shell.per;
         const cd = countdown(), mc = themeKey() === 'maci';
-        const cdHtml = cd ? `<button type="button" class="zs-cd${mc ? ' maci' : ''}" data-act="cd" title="${esc(cd.name)} am ${pad(cd.d.getDate())}.${pad(cd.d.getMonth() + 1)}.${cd.d.getFullYear()} – klicken zum Einstellen"><span class="e">${mc ? '🎄' : '🎉'}</span><span class="t">${esc(cd.name)}</span><b class="num">${cd.n === 0 ? 'heute!' : cd.n === 1 ? 'morgen' : cd.n + ' Tage'}</b></button>` : '';
+        const cdHtml = cd && cd.over ? `<button type="button" class="zs-cd over" data-act="cd" title="${esc(cd.name)} ist vorbei – klicken für einen neuen Countdown">${ico('plus', 13)}<span>Neuen Zieltermin festlegen</span></button>` : cd ? `<button type="button" class="zs-cd${mc ? ' maci' : ''}" data-act="cd" title="${esc(cd.name)} am ${pad(cd.d.getDate())}.${pad(cd.d.getMonth() + 1)}.${cd.d.getFullYear()} – klicken zum Einstellen"><span class="e">${mc ? '🎄' : '🎉'}</span><span class="t">${esc(cd.name)}</span><b class="num">${cd.n === 0 ? 'heute!' : cd.n === 1 ? 'morgen' : cd.n + ' Tage'}</b></button>` : '';
         const active = shell.nav.find(n => n.on);
         const navHtml = shell.nav.map((n, i) => {
             const bgEl = n.a.querySelector('.navmenu_anzahl_bg'), cnt = n.a.querySelector('.navmenu_anzahl');
@@ -395,6 +395,7 @@
         box.addEventListener('click', e => {
             const v = e.target.closest('[data-kv]');
             if (v) { S.kalView = v.dataset.kv; saveS(); applyTheme(); return; }
+            if (e.target.closest('[data-brt]')) { S.brCollapsed = !S.brCollapsed; saveS(); kalLastSig = ''; renderKal(); return; }
             const y = e.target.closest('[data-ky]');
             if (y) { const a = document.getElementById(y.dataset.ky === '-' ? 'periode_a' : 'periode_a2'); if (a && a.getAttribute('href')) location.href = a.getAttribute('href'); return; }
             const cb = e.target.closest('[data-cb]');
@@ -540,13 +541,13 @@
             <span class="sp"></span>
             <div class="zp-segc">${[['months', 'Monate'], ['strip', 'Leiste'], ['orig', 'Original']].map(([v, l]) => `<button type="button" data-kv="${v}" class="${view === v ? 'on' : ''}">${l}</button>`).join('')}</div>
           </div>`;
-        const sig = view + '|' + bridges.length + '|' + all.filter(d => d.br).length + '|' + k.ru + '|' + k.legend.map(l => l.tage + (l.cb && l.cb.checked)).join(',') + '|' + (SH && S.shell) + '|' + all.length + '|' + t0.getTime();
+        const sig = view + '|' + bridges.length + '|' + S.brCollapsed + '|' + all.filter(d => d.br).length + '|' + k.ru + '|' + k.legend.map(l => l.tage + (l.cb && l.cb.checked)).join(',') + '|' + (SH && S.shell) + '|' + all.length + '|' + t0.getTime();
         if (sig === kalLastSig && box.innerHTML) return;
         kalLastSig = sig;
         box.classList.toggle('orig', view === 'orig');
         const fmtR = b => fmtD(b.from) + (b.from !== b.to ? ' – ' + fmtD(b.to) : '');
-        const brHtml = `<div class="zk-card"><div class="zk-head"><div class="zl-title">${ico('sparkle', 17)}<span>Brückentage ${k.y}</span></div><span class="zk-sub">mit wenig Urlaub möglichst lange frei</span></div>
-            ${bridges.length ? `<div class="zk-brs">${bridges.slice(0, 8).map(b => `<button type="button" class="zk-br" data-k="${b.work[0].key}" title="Urlaub an: ${esc(b.work.map(fmtD).join(', '))}\nKlicken: ersten Tag eintragen">
+        const brHtml = `<div class="zk-card${S.brCollapsed ? ' slim' : ''}"><div class="zk-head zk-tog" data-brt="1" title="Ein-/ausklappen"><div class="zl-title">${ico('sparkle', 17)}<span>Brückentage ${k.y}</span></div><span class="zk-sub">${S.brCollapsed ? (bridges.length ? bridges.length + ' Tipp' + (bridges.length > 1 ? 's' : '') + ' · bester: ' + bridges[0].cost + ' → ' + bridges[0].len + ' Tage frei' : 'keine mehr') : 'mit wenig Urlaub möglichst lange frei'}</span><span class="sp"></span><span class="zk-chev${S.brCollapsed ? '' : ' open'}">${ico('chevron', 16)}</span></div>
+            ${S.brCollapsed ? '' : bridges.length ? `<div class="zk-brs">${bridges.slice(0, 8).map(b => `<button type="button" class="zk-br" data-k="${b.work[0].key}" title="Urlaub an: ${esc(b.work.map(fmtD).join(', '))}\nKlicken: ersten Tag eintragen">
                 <b class="num">${b.cost} <em>Urlaubstag${b.cost > 1 ? 'e' : ''}</em> → ${b.len} <em>Tage frei</em></b>
                 <span>${esc(fmtR(b))}</span><small>Urlaub: ${esc(b.work.map(fmtD).join(', '))}</small></button>`).join('')}</div>`
                 : `<div class="zk-none">${ico('check', 14)} Für den Rest von ${k.y} gibt es keine Brückentage mehr${k.y === new Date().getFullYear() ? ' – im nächsten Jahr schauen (Pfeil oben).' : '.'}</div>`}
@@ -1118,15 +1119,16 @@
     /* ════════════════════ EINSTELLUNGEN ════════════════════ */
     const KEY = 'zplus_settings';
     const DEF = {
-        v: 8,
+        v: 9,
         theme: 'saison', accent: '', fx: true, fxAmount: 'normal', density: 'normal', radius: 'round', width: 'limited', heroPos: 'top',
         pflicht: 30, abH: 6, lunchFrom: '11:30', lunchTo: '14:00', lunchMinLen: 10, planLunch: 30,
         earliest: '06:30', maxDay: 10, kern: true, kzMoDo: '15:00', kzFr: '12:00',
-        notif: { saldo: { on: true, lead: 5 }, soll: { on: false, lead: 5 }, max: { on: true, lead: 15 }, lunch: { on: false, at: '12:00' }, sound: true },
+        notif: { saldo: { on: true, lead: 5 }, soll: { on: false, lead: 5 }, max: { on: true, lead: 15 }, lunch: { on: false, at: '12:00' }, sound: false },
         confetti: true, title: true, sticky: true, hideEmpty: false, todayHl: true, tl: true, legend: true,
-        fxScope: 'page', view: 'full', hideNav: true, pretty: true, dimFuture: true, tableView: 'list', shell: true, kalView: 'months', futureDays: 'auto', brStart: '11:45', coffeeOn: true, coffee: null, sink: '', vol: 70, brZM: 'EITBR', cdOn: true, cdName: 'Weihnachtsfeier', cdDate: '', contrast: 'hoch', tlMode: 'auto', colOrder: [], colHidden: [], favs: [],
+        fxScope: 'page', view: 'full', hideNav: true, pretty: true, dimFuture: true, tableView: 'list', shell: true, kalView: 'months', futureDays: 'auto', brStart: '11:45', kernSaldo: true, brCollapsed: false, coffeeOn: true, coffee: null, sink: '', vol: 70, brZM: 'EITBR', cdOn: true, cdName: 'Weihnachtsfeier', cdDate: '', contrast: 'hoch', tlMode: 'auto', colOrder: [], colHidden: [], favs: [],
         wish: '16:30', collapsed: false, seen: 0
     };
+    const REM_DEF = () => [{ t: '09:30', on: false, name: 'Kaffeepause' }, { t: '10:00', on: true, name: 'Daily' }];
     function normalize(s) {
         s = s && typeof s === 'object' ? s : {};
         const old = s.v || 0;
@@ -1163,14 +1165,20 @@
         if (!['normal', 'hoch'].includes(o.contrast)) o.contrast = 'hoch';
         if (!Array.isArray(o.coffee)) {           // aus dem alten LHR_Simplify übernehmen, sonst Standard
             let old = null; try { old = JSON.parse(localStorage.getItem('lhr_kaffee_pausen') || 'null'); } catch (e) { }
-            o.coffee = Array.isArray(old) && old.length ? old.map(x => ({ t: x.time, on: !!x.active })) : [{ t: '10:00', on: true }, { t: '14:00', on: true }, { t: '09:00', on: false }, { t: '15:30', on: false }];
+            o.coffee = REM_DEF();
         }
+        if (old < 9) {                                  // v5.14: neue Standards – Ton aus, Kaffee 09:30 aus, Daily 10:00 an, Weihnachtsfeier 17.12.
+            o.notif.sound = false;
+            o.coffee = REM_DEF();
+            if (!s.cdDate && (!s.cdName || s.cdName === 'Weihnachtsfeier')) { o.cdName = 'Weihnachtsfeier'; o.cdDate = new Date().getFullYear() + '-12-17'; }
+        }
+        o.coffee.forEach(x => { if (!x.name) x.name = 'Kaffeepause'; });
         o.coffee = o.coffee.filter(x => x && /^\d{1,2}:\d{2}$/.test(x.t)).slice(0, 8);
         if (!o.sink) { try { const os = localStorage.getItem('lhr_audio_sink'); if (os && os !== 'default') o.sink = os; } catch (e) { } }
         o.vol = Math.max(0, Math.min(100, +o.vol || 0));
         if (old < 7) o.shell = true;
         if (old < 8) o.hideEmpty = false;          // v5.3: LHR-Spaltenwahl gilt, Zeit+ blendet nichts mehr eigenmächtig aus
-        delete o.cards; o.v = 8;
+        delete o.cards; o.v = 9;
         return o;
     }
     const loadS = () => { let s = {}; try { s = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { } return normalize(s); };
@@ -1226,6 +1234,26 @@
             bg: '#0f1826', surf: '#142238', surf2: '#1b2d48', line: '#2a4064', text: '#eef5ff', muted: '#a3b8d6',
             accent: '#f6c76b', accent2: '#7ee2a8', ok: '#6ee7a8', warn: '#fdba74', bad: '#ff8f8f',
             page: '#08101c', td: '#0c1624', td2: '#0f1a2b', th: '#142238', grid: '#1e3150' },
+        neon:      { name: 'Neon',         icon: '🌆', dark: true, fx: 'stars',
+            bg: '#0d0b1a', surf: '#141127', surf2: '#1c1836', line: '#2b2550', text: '#f3f0ff', muted: '#a49cd0',
+            accent: '#ff4fd8', accent2: '#22e4ff', ok: '#3dffa8', warn: '#ffd23f', bad: '#ff5c7a',
+            page: '#07060f', td: '#0b0918', td2: '#0e0c1f', th: '#141127', grid: '#211c3f' },
+        wald:      { name: 'Wald',         icon: '🌲', dark: true, fx: null,
+            bg: '#0e1612', surf: '#13201a', surf2: '#1a2a22', line: '#24392e', text: '#e8f3ec', muted: '#93ad9d',
+            accent: '#6fcf8f', accent2: '#e2b65c', ok: '#7ee2a0', warn: '#f2c255', bad: '#f28b82',
+            page: '#08100c', td: '#0c1510', td2: '#0f1914', th: '#13201a', grid: '#1d3026' },
+        nord:      { name: 'Nord',         icon: '🧊', dark: true, fx: 'snow',
+            bg: '#2e3440', surf: '#353c4a', surf2: '#3b4252', line: '#4c566a', text: '#eceff4', muted: '#b7c0d0',
+            accent: '#88c0d0', accent2: '#b48ead', ok: '#a3be8c', warn: '#ebcb8b', bad: '#e5838c',
+            page: '#262b35', td: '#2b313c', td2: '#2f3541', th: '#353c4a', grid: '#434c5e' },
+        oled:      { name: 'OLED Schwarz', icon: '⚫', dark: true, fx: null,
+            bg: '#000000', surf: '#0b0b0d', surf2: '#141417', line: '#26262b', text: '#f5f5f7', muted: '#9a9aa3',
+            accent: '#0a84ff', accent2: '#bf5af2', ok: '#30d158', warn: '#ffd60a', bad: '#ff453a',
+            page: '#000000', td: '#050506', td2: '#09090a', th: '#0b0b0d', grid: '#1c1c20' },
+        kaffee:    { name: 'Kaffee',       icon: '☕', dark: false, fx: null,
+            bg: '#fbf7f2', surf: '#f3ece3', surf2: '#eadfd2', line: '#dccdbb', text: '#2b1d14', muted: '#7a6556',
+            accent: '#9a5b2e', accent2: '#2f7d6d', ok: '#2f8a4c', warn: '#b7791f', bad: '#c0392b',
+            td: '#fffdf9', td2: '#faf5ee', th: '#f3ece3', grid: '#e7dccd' },
         fruehling: { name: 'Frühling',     icon: '🌸', dark: false, fx: 'petals',
             bg: '#fffbfd', surf: '#fdf3f8', surf2: '#f9e6ef', line: '#f1d8e4', text: '#2a1722', muted: '#8a6577',
             accent: '#d6337a', accent2: '#65a30d', ok: '#16a34a', warn: '#d97706', bad: '#dc2626',
@@ -1247,7 +1275,7 @@
             accent: '#b794f6', accent2: '#22d3ee', ok: '#4ade80', warn: '#facc15', bad: '#fb7185',
             page: '#0a0815', td: '#0e0c1d', td2: '#120f24', th: '#18142c', grid: '#221d40' }
     };
-    const THEME_CYCLE = ['dark', 'light', 'graphit', 'winter', 'maci', 'fruehling', 'sommer', 'herbst', 'ozean', 'nacht', 'saison', 'auto'];
+    const THEME_CYCLE = ['dark', 'light', 'graphit', 'winter', 'maci', 'neon', 'wald', 'nord', 'oled', 'kaffee', 'fruehling', 'sommer', 'herbst', 'ozean', 'nacht', 'saison', 'auto'];
     const seasonKey = () => { const m = new Date().getMonth(); return (m === 11 || m < 2) ? 'winter' : m < 5 ? 'fruehling' : m < 8 ? 'sommer' : 'herbst'; };
     const mq = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
     function themeKey() {
@@ -1556,6 +1584,9 @@ td.zp-flash{animation:zpflash 1.2s ease-out}
 html.zp-zdl table.tabelle tbody tr.zp-br > td{background-color:color-mix(in srgb,var(--zp-bad,#dc2626) 16%,var(--zp-td,#fff)) !important}
 html.zp-zdl table.tabelle tbody tr.zp-br > td.td_zm{color:var(--zp-bad,#dc2626) !important;font-weight:700}
 html.zp-zdl table.tabelle tbody tr.zp-br > td:first-child{box-shadow:inset 3px 0 0 var(--zp-bad,#dc2626) !important}
+
+/* In der Zeit+ Liste gibt es „Spalten“ – den LHR-„…“-Knopf dann ausblenden */
+html.zp-hidetable img.zp-colbtn,html.zp-hidetable #colHide{display:none !important}
 `;
 
     /* ════════════════════ CSS: OBERFLÄCHE (im Shadow DOM, isoliert) ════════════════════ */
@@ -1613,6 +1644,9 @@ input,select{font-size:13px;margin:0}
 #zp.hero-top .zp-body{grid-template-columns:1fr}
 @media (max-width:900px){.zp-body{grid-template-columns:1fr}}
 .zp-lbl{font-size:12px;font-weight:600;color:var(--zp-muted);display:flex;align-items:center;gap:7px}
+.zp-kz{display:inline-flex;align-items:center;gap:3px;height:20px;padding:0 8px;margin-left:4px;border-radius:99px;border:1px dashed var(--zp-line);font-size:10.5px;font-weight:600;color:var(--zp-muted);transition:.15s}
+.zp-kz:hover{border-color:var(--zp-accent);color:var(--zp-text)}
+.zp-kz.on{border-style:solid;border-color:color-mix(in srgb,var(--zp-accent) 55%,var(--zp-line));background:color-mix(in srgb,var(--zp-accent) 14%,transparent);color:var(--zp-text)}
 .zp-lbl .ic{opacity:.85}
 
 .zp-hero{background:radial-gradient(130% 160% at 0% 0%,var(--zp-soft),transparent 55%),var(--zp-surf);border:1px solid var(--zp-line);
@@ -1756,6 +1790,8 @@ input,select{font-size:13px;margin:0}
 .zp-icon.sm{width:26px;height:26px}
 .zs-cd{display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 12px 0 9px;border-radius:99px;border:1px solid var(--zp-line);background:var(--zp-surf);color:var(--zp-text);font-size:12.5px;font-weight:600;white-space:nowrap;transition:.15s}
 .zs-cd:hover{border-color:var(--zp-accent)}
+.zs-cd.over{border-style:dashed;color:var(--zp-muted);font-weight:600}
+.zs-cd.over:hover{color:var(--zp-text)}
 .zs-cd .e{font-size:15px;line-height:1}
 .zs-cd .t{color:var(--zp-muted);font-weight:500;max-width:140px;overflow:hidden;text-overflow:ellipsis}
 .zs-cd b{color:var(--zp-accent);font-weight:700}
@@ -1879,6 +1915,10 @@ input,select{font-size:13px;margin:0}
 .zk-d.brd::before{content:'';position:absolute;top:3px;left:4px;width:5px;height:5px;border-radius:50%;background:var(--zp-bad)}
 .zk-d.brd.abs{box-shadow:inset 0 0 0 2px var(--zp-bad),inset 0 0 0 3px var(--zp-surf)}
 .zk-sw.brs{box-shadow:inset 0 0 0 2px var(--zp-bad);background:color-mix(in srgb,var(--zp-bad) 12%,transparent)}
+.zk-tog{cursor:pointer;user-select:none}
+.zk-tog .sp{flex:1}
+.zk-chev{color:var(--zp-muted);transition:transform .2s;display:grid}
+.zk-chev.open{transform:rotate(180deg)}
 .zk-sub{font-size:12px;color:var(--zp-muted)}
 .zk-brs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
 .zk-br{display:grid;gap:3px;text-align:left;padding:11px 14px;border-radius:var(--zp-r);background:var(--zp-surf);border:1px solid var(--zp-line);transition:.15s;color:var(--zp-text)}
@@ -2362,7 +2402,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         return {
             br, noPause, night, nightMs: night.reduce((a, x) => a + (x.e - x.s), 0),
             segs, open, broken, gross, eff, gaps, lunch, smoke, smokeSum, sysDed, dedNow, dedFinal, dedShown, lunchUpcoming, plannedLen, wF, wT,
-            sollF: finish(d.soll, true), salF: finish(d.soll - d.carry, true), maxF: finish(S.maxDay * H, false),
+            sollF: finish(d.soll, true), salF: finish(d.soll - d.carry, S.kernSaldo !== false), maxF: finish(S.maxDay * H, false),
             tg, saldo: d.carry + tg, effAt, windowOver: now >= wT
         };
     }
@@ -2420,7 +2460,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
     <div class="zp-times">
       <div class="zp-time"><div class="zp-lbl">${ico('check', 14)}Soll erfüllt</div><div class="zp-big num" id="zp-soll-t">--:--</div><div class="zp-cd" id="zp-soll-cd"></div></div>
       <div class="zp-sep"></div>
-      <div class="zp-time"><div class="zp-lbl">${ico('scale', 14)}Saldo ±0</div><div class="zp-big num accent" id="zp-sal-t">--:--</div><div class="zp-cd" id="zp-sal-cd"></div></div>
+      <div class="zp-time"><div class="zp-lbl">${ico('scale', 14)}Saldo ±0<button type="button" class="zp-kz" id="zp-kz" title="Kernzeit für Saldo ±0 berücksichtigen (aus = zeigt die echte ±0-Zeit, z.B. zum Überstunden abbauen)"></button></div><div class="zp-big num accent" id="zp-sal-t">--:--</div><div class="zp-cd" id="zp-sal-cd"></div></div>
     </div>
     <div class="zp-cstats" id="zp-cstats"></div>
     <div class="zp-foot" id="zp-foot"></div>
@@ -2445,6 +2485,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         buildList(lhost);
 
         $('zp-theme').addEventListener('click', cycleTheme);
+        $('zp-kz').addEventListener('click', e => { e.stopPropagation(); S.kernSaldo = S.kernSaldo === false; saveS(); render(); toast('Saldo ±0', S.kernSaldo ? 'Mit Kernzeit – frühestens ' + (S.kzMoDo || '') + ' (Fr ' + (S.kzFr || '') + ').' : 'Ohne Kernzeit – zeigt, wann dein Saldo wirklich auf 0 ist.', { ms: 3500, icon: 'scale' }); });
         $('zp-fold').addEventListener('click', toggleFold);
         $('zp-view').addEventListener('click', toggleView);
         $('zp-gear').addEventListener('click', () => openModal());
@@ -2620,13 +2661,14 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             };
             setHero('zp-soll-t', 'zp-soll-cd', c.sollF);
             setHero('zp-sal-t', 'zp-sal-cd', c.salF);
+            { const kb = $('zp-kz'); if (kb) { const on = S.kernSaldo !== false; kb.classList.toggle('on', on); kb.innerHTML = (on ? ico('check', 11) : '') + 'Kernzeit'; kb.style.display = kernEnd() && !c.br ? '' : 'none'; } }
             const fi = (k, v, w) => `<div class="zp-fi${w ? ' w' : ''}"><span>${k}</span><b class="num">${v}</b></div>`;
             const foot = [];
             if (has) foot.push(c.maxF.done ? fi(S.maxDay + ' h-Grenze', 'überschritten', 1) : fi(S.maxDay + ' h-Grenze', clock(c.maxF.at)));
             const kz = c.br ? null : kernEnd();
             if (kz) foot.push(fi('Kernzeit bis', clock(kz)));
             foot.push(fi('Übertrag', dur(d.carry, true)));
-            { const nc = nextCoffee(); if (nc) foot.push(fi('☕ Kaffeepause', nc.t + ' <small>· in ' + human(at(nc.t) - now) + '</small>')); }
+            { const nc = nextCoffee(); if (nc) foot.push(fi((/kaffee|pause/i.test(nc.name) ? '☕ ' : '📅 ') + esc(nc.name), nc.t + ' <small>· in ' + human(at(nc.t) - now) + '</small>')); }
             { const t0 = new Date(); t0.setHours(0, 0, 0, 0); let nb = null; for (const [k, rows] of d.days) { if (keyDate(k) >= t0 && isBR(rows)) { nb = k; break; } }
               if (nb === todayKey() && c.nightMs) foot.push(`<div class="zp-fi br"><span>Nacht-Einsatz</span><b class="num">${dur(c.nightMs)}</b></div>`);
               if (nb) { const nd = keyDate(nb); foot.push(`<div class="zp-fi br"><span>${nb === todayKey() ? 'Heute Bereitschaft' : 'Nächste Bereitschaft'}</span><b class="num">${nb === todayKey() ? (d.soll ? 'Soll ' + dur(d.soll) : 'ganztags') : ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][nd.getDay()] + ' ' + nb.slice(0, 6)}</b></div>`); } }
@@ -2893,10 +2935,10 @@ ${row('Saldo ±0 erreicht', 'so viele Minuten vorher', `<span class="zp-btns"><i
 ${row('Soll erfüllt', 'so viele Minuten vorher', `<span class="zp-btns"><input type="number" class="zp-in num" style="width:70px" min="0" max="60" data-n="soll.lead">${ntgl('soll.on')}</span>`)}
 ${row('Tageshöchstgrenze', 'Vorwarnung, damit du nicht drüber kommst', `<span class="zp-btns"><input type="number" class="zp-in num" style="width:70px" min="0" max="120" data-n="max.lead">${ntgl('max.on')}</span>`)}
 ${row('Mittag nicht vergessen', 'um diese Uhrzeit, falls noch kein Mittag gestempelt', `<span class="zp-btns"><input type="time" class="zp-in num" data-n="lunch.at">${ntgl('lunch.on')}</span>`)}
-<div class="zp-sec">☕ Kaffeepausen</div>
-${row('Kaffeepausen-Erinnerung', 'Ton + Hinweis + Windows-Benachrichtigung zur Uhrzeit, auf jeder LHR-Seite', tgl('coffeeOn'))}
-<div class="zp-cof">${(S.coffee || []).map((x, i) => `<span class="zp-cofi"><input type="checkbox" class="zp-tg" data-cof-on="${i}"${x.on ? ' checked' : ''}><input type="time" class="zp-in num" data-cof-t="${i}" value="${esc(x.t)}"><button type="button" class="zp-icon sm" data-cof-del="${i}" title="Entfernen">${ico('x', 13)}</button></span>`).join('')}
-  ${(S.coffee || []).length < 8 ? `<button type="button" class="zp-btn" id="zp-cof-add">${ico('plus', 14)} Uhrzeit</button>` : ''}</div>
+<div class="zp-sec">⏰ Tägliche Erinnerungen</div>
+${row('Erinnerungen (Mo–Fr)', 'z.B. Kaffeepause, Daily – Hinweis + Windows-Benachrichtigung zur Uhrzeit, auf jeder LHR-Seite', tgl('coffeeOn'))}
+<div class="zp-cof">${(S.coffee || []).map((x, i) => `<span class="zp-cofi"><input type="checkbox" class="zp-tg" data-cof-on="${i}"${x.on ? ' checked' : ''}><input type="time" class="zp-in num" data-cof-t="${i}" value="${esc(x.t)}"><input type="text" class="zp-in" style="width:120px" maxlength="30" data-cof-n="${i}" value="${esc(x.name || '')}" placeholder="Name"><button type="button" class="zp-icon sm" data-cof-del="${i}" title="Entfernen">${ico('x', 13)}</button></span>`).join('')}
+  ${(S.coffee || []).length < 8 ? `<button type="button" class="zp-btn" id="zp-cof-add">${ico('plus', 14)} Erinnerung</button>` : ''}</div>
 <div class="zp-sec">🔊 Ton</div>
 ${row('Ton abspielen', '', ntgl('sound'))}
 ${row('Lautsprecher', '<span id="zp-sink-note">z.B. Headset statt Monitor</span>', '<select class="zp-in" id="zp-sink" style="max-width:240px"><option>Wird geladen…</option></select>')}
@@ -2910,7 +2952,7 @@ ${row('Konfetti bei Saldo ±0', 'einmal am Tag, wenn du eingestempelt bist', tgl
 <div class="zp-sec">Countdown</div>
 ${row('Countdown oben anzeigen', 'z.B. „🎄 Weihnachtsfeier · 23 Tage“ – ohne Datum: bis Weihnachten', tgl('cdOn'))}
 ${row('Name', '', '<input type="text" class="zp-in" style="width:200px" maxlength="40" data-k="cdName" placeholder="Weihnachtsfeier">')}
-${row('Datum', 'leer = 24. Dezember', '<input type="date" class="zp-in num" data-k="cdDate">')}
+${row('Datum', (() => { const c = countdown(); return c && c.over ? '<b style="color:var(--zp-warn)">abgelaufen – neues Datum eintragen</b>' : 'leer = 24. Dezember'; })(), '<input type="date" class="zp-in num" data-k="cdDate">')}
 <div class="zp-sec">Anzeige</div>
 ${row('Kontrast', 'Hoch: kräftigere Rahmen und hellere Nebentexte', segCtl('contrast', [['normal', 'Normal'], ['hoch', 'Hoch']]))}
 ${row('Live-Werte im Browser-Tab', 'z.B. „8:34 · ±0 15:34“', tgl('title'))}
@@ -2993,9 +3035,10 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         on('zp-ntest', () => fireNotify('Test-Hinweis', 'So sehen deine Zeit+ Hinweise aus.'));
         m.querySelectorAll('[data-tune]').forEach(b => b.addEventListener('click', () => beep(b.dataset.tune, true)));
         m.querySelectorAll('[data-cof-on]').forEach(cb => cb.addEventListener('change', () => { S.coffee[+cb.dataset.cofOn].on = cb.checked; saveS(); rerender(); }));
+        m.querySelectorAll('[data-cof-n]').forEach(inp => inp.addEventListener('change', () => { S.coffee[+inp.dataset.cofN].name = inp.value.trim() || 'Erinnerung'; saveS(); rerender(); }));
         m.querySelectorAll('[data-cof-t]').forEach(inp => inp.addEventListener('change', () => { if (inp.value) { S.coffee[+inp.dataset.cofT].t = inp.value; saveS(); rerender(); } }));
         m.querySelectorAll('[data-cof-del]').forEach(b => b.addEventListener('click', () => { S.coffee.splice(+b.dataset.cofDel, 1); saveS(); buildModal(); rerender(); }));
-        on('zp-cof-add', () => { S.coffee.push({ t: '12:00', on: true }); saveS(); buildModal(); });
+        on('zp-cof-add', () => { S.coffee.push({ t: '12:00', on: true, name: 'Erinnerung' }); saveS(); buildModal(); });
         const sinkSel = m.querySelector('#zp-sink');
         if (sinkSel) { safe('Ton', () => fillSinks(sinkSel, m.querySelector('#zp-sink-note'))); sinkSel.addEventListener('change', () => { S.sink = sinkSel.value; saveS(); beep('kaffee', true); }); }
         const vol = m.querySelector('#zp-vol');
@@ -3078,17 +3121,20 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     const nextCoffee = () => {
         if (!S.coffeeOn) return null;
         const now = new Date(), nm = now.getHours() * 60 + now.getMinutes();
-        const list = (S.coffee || []).filter(x => x.on).map(x => { const [h, m] = x.t.split(':').map(Number); return { t: pad(h) + ':' + pad(m), m: h * 60 + m }; }).sort((a, b) => a.m - b.m);
+        if (now.getDay() === 0 || now.getDay() === 6) return null;
+        const list = (S.coffee || []).filter(x => x.on).map(x => { const [h, m] = x.t.split(':').map(Number); return { t: pad(h) + ':' + pad(m), m: h * 60 + m, name: x.name || 'Kaffeepause' }; }).sort((a, b) => a.m - b.m);
         return list.find(x => x.m > nm) || null;
     };
     function checkCoffee() {
         if (!S.coffeeOn) return;
         const now = new Date(), nm = now.getHours() * 60 + now.getMinutes();
+        if (now.getDay() === 0 || now.getDay() === 6) return;
         (S.coffee || []).forEach(x => {
             if (!x.on) return;
             const [h, m] = x.t.split(':').map(Number), tm = h * 60 + m;
-            if (nm >= tm && nm - tm < 3 && onceToday('kaffee@' + pad(h) + ':' + pad(m)))
-                fireNotify('☕ Kaffeepause!', 'Es ist ' + pad(h) + ':' + pad(m) + ' Uhr – Zeit für eine kurze Pause.', 'kaffee');
+            const nm2 = x.name || 'Kaffeepause', isCof = /kaffee|pause/i.test(nm2);
+            if (nm >= tm && nm - tm < 3 && onceToday('rem@' + pad(h) + ':' + pad(m) + '@' + nm2))
+                fireNotify((isCof ? '☕ ' : '📅 ') + nm2, 'Es ist ' + pad(h) + ':' + pad(m) + ' Uhr' + (isCof ? ' – Zeit für eine kurze Pause.' : ' – ' + nm2 + ' beginnt.'), 'kaffee');
         });
     }
     function checkNotify(c, now) {
