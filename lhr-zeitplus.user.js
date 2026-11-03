@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.12.0
+// @version      5.13.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.12.0';
+    const VERSION = '5.13.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -756,12 +756,6 @@
                 e.stopPropagation();
                 const day = listDays.get(act.dataset.k);
                 if (act.dataset.act === 'mfe' && day) { const d0 = day.first.querySelector('.td_datum_item.popup-link'); if (d0) d0.click(); else toast('Nicht verfügbar', 'Für diesen Tag gibt es keine Mehrfacherfassung.'); }
-                if (/^eins[-+0]$/.test(act.dataset.act)) {
-                    const dd = listDays.get(act.dataset.k), E = dd && dd.eins; if (!E) return;
-                    const a2 = act.dataset.act;
-                    einsSet(act.dataset.k, a2 === 'eins0' ? null : Math.max(0, Math.min(20, E.n + (a2 === 'eins+' ? 1 : -1))));
-                    render(); return;
-                }
                 if (act.dataset.act === 'pay') { const img = document.getElementById('img_euro'); if (img) { const a = img.closest('a'); origClick(a || img); } return; }
                 if (act.dataset.act === 'future') { const cur = listState.futureEff; listState.future = !cur; S.futureDays = cur ? 'hide' : 'show'; saveS(); render(); }
                 return;
@@ -940,7 +934,7 @@
             const dow = dt.getDay();
             const day = {
                 k, dt, isT, past, future: !past && !isT, we: dow === 0 || dow === 6, segs, info: infos[0] || '', fehl: fehl && past, note, pause, editHref,
-                soll: sollOf(rows), edge: rows[0].style.getPropertyValue('--zp-edge') || '', first: rows[0], br: isBR(rows),
+                soll: sollOf(rows), edge: rows[0].style.getPropertyValue('--zp-edge') || '', first: rows[0], br: isBR(rows), pabs: partAbs(rows),
                 ist: isT ? c.eff : lastVal(rows, 2), tg: isT ? c.tg : lastVal(rows, 73), sal: isT ? c.saldo : lastVal(rows, 3)
             };
             listDays.set(k, day);
@@ -948,33 +942,6 @@
         }
         if (!days.length) { rowsBox.innerHTML = ''; return; }
         safe('Bereitschaft', () => rememberBR(d.days));
-        // Einsätze: Buchungen an Bereitschaftstagen ohne Soll (+ Fortsetzung nach Mitternacht). Lücke < 10 min = gleicher Einsatz.
-        safe('Einsatz', () => {
-            const es = einsStore(), GAP = 10 * M;
-            const endOf = (sg, x) => sg.e != null ? sg.e : (x.isT ? now : sg.s);
-            const isMidnight = t => { const q = new Date(t); return q.getHours() === 0 && q.getMinutes() === 0; };
-            days.forEach((x, i) => {
-                const prev = days[i - 1];
-                let segs = [], cont = null;
-                if (x.br && !x.soll) segs = x.segs.slice();
-                else if (prev && prev.eins && prev.eins.segs.length && x.segs.length) {
-                    const pl = prev.eins.segs[prev.eins.segs.length - 1];
-                    const fs = x.segs[0], ps = new Date(fs.s);
-                    if (pl.e != null && (isMidnight(pl.e) || /24:00/.test(pl.tb)) && ps.getHours() === 0 && ps.getMinutes() < 5) { segs = [fs]; cont = prev.k; }
-                }
-                if (!segs.length) return;
-                const groups = [];
-                segs.forEach((sg, j) => {
-                    const g = groups[groups.length - 1];
-                    if (g && sg.s - g.e < GAP) { g.e = endOf(sg, x); g.segs.push(sg); } else groups.push({ s: sg.s, e: endOf(sg, x), segs: [sg] });
-                });
-                const total = segs.reduce((a, sg) => a + (endOf(sg, x) - sg.s), 0);
-                let auto = groups.length;
-                if (cont && prev.eins) { auto = Math.max(0, auto - 1); prev.eins.carry = (prev.eins.carry || 0) + (endOf(segs[0], x) - segs[0].s); }
-                const n = es[x.k] != null ? +es[x.k] : auto;
-                x.eins = { segs, groups, auto, n, total, cont, set: es[x.k] != null };
-            });
-        });
 
         // Kopf
         const m0 = days[days.length - 1].dt;
@@ -988,11 +955,8 @@
             ${(() => { const gs = safe('Gesamt', () => gesamt(d.days, c.saldo)); return gs ? `<span class="zl-pill" title="${esc(gs.tip)}">Gesamt <b class="num ${sc(gs.total)}">${dur(gs.total, true)}</b></span>` : ''; })()}` +
             (() => {
                 const brd = days.filter(x => x.br); if (!brd.length) return '';
-                const ed = days.filter(x => x.eins && !x.future);
-                const en = ed.reduce((a, x) => a + x.eins.n, 0), eh = ed.reduce((a, x) => a + x.eins.total, 0);
-                const eins = { length: en };
                 const nx = brd.find(x => x.isT || x.future);
-                return `<span class="zl-pill br" title="Bereitschaftstage: ${esc(brd.map(x => WD[x.dt.getDay()] + ' ' + pad(x.dt.getDate()) + '.').join(', '))}">${ico('zap', 13)} ${brd.length} Bereitschaft${brd.length > 1 ? 'en' : ''}${eins.length ? ` · <b class="num">${eins.length}</b> ${eins.length === 1 ? 'Einsatz' : 'Einsätze'} <b class="num">${dur(eh)}</b>` : ''}${nx ? ` · ${nx.isT ? '<b>heute</b>' : 'nächste <b>' + WD[nx.dt.getDay()] + ' ' + pad(nx.dt.getDate()) + '.' + pad(nx.dt.getMonth() + 1) + '.</b>'}` : ''}</span>`;
+                return `<span class="zl-pill br" title="Bereitschaftstage: ${esc(brd.map(x => WD[x.dt.getDay()] + ' ' + pad(x.dt.getDate()) + '.').join(', '))}">${ico('zap', 13)} ${brd.length} Bereitschaft${brd.length > 1 ? 'en' : ''}${nx ? ` · ${nx.isT ? '<b>heute</b>' : 'nächste <b>' + WD[nx.dt.getDay()] + ' ' + pad(nx.dt.getDate()) + '.' + pad(nx.dt.getMonth() + 1) + '.</b>'}` : ''}</span>`;
             })() +
             (missing ? `<span class="zl-pill w">${ico('alert', 13)} ${missing} Tag${missing > 1 ? 'e' : ''} unvollständig</span>` : ''));
         const vb = $('zl-view'); if (vb) vb.querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.v === S.tableView));
@@ -1039,10 +1003,8 @@
             const open = listState.open.has(x.k);
             const ll = lunch ? mins(lunch.len) : 0;
             let ded = x.pause != null ? mins(x.pause) : null;
-            if (ded == null && x.isT) ded = c.lunchUpcoming ? null : mins(c.dedShown || 0);
-            if (ded == null && x.segs.length && x.segs.every(sg => sg.e != null)) { const g = x.segs.reduce((a, sg) => a + (sg.e - sg.s), 0); ded = g > S.abH * H ? Math.max(0, S.pflicht - ll) : 0; }
             const dedTip = lunch ? `Mittag ${clock(lunch.s)}–${clock(lunch.e)} = ${ll} min` : 'keine Mittagspause gestempelt';
-            const dedFull = ded ? `${dedTip}. Pflicht ${S.pflicht} min → ${ded} min werden als Pause abgezogen (keine Arbeitszeit).` : dedTip + (lunch ? '. Pflichtpause erfüllt.' : '');
+            const dedFull = ded ? `${dedTip}. LHR hat ${ded} min Pause abgezogen (Pause-Spalte, keine Arbeitszeit).` : dedTip + '. Kein Pausenabzug in LHR.';
             const cls = ['zl-row', x.br ? 'br' : '', x.isT ? 'today' : '', x.future ? 'future' : '', x.future && calc ? 'calc' : '', x.we && !x.segs.length ? 'we' : '', x.edge && !x.isT ? 'edge' : '', open ? 'open' : ''].join(' ');
             let st;
             const live = x.isT && c.open;
@@ -1052,8 +1014,7 @@
                     const isLive = live && sg.e == null && i === x.segs.length - 1;
                     const part = (t, h, lbl) => h ? `<span class="zl-p" data-href="${esc(h)}" title="${lbl} ${t} bearbeiten">${t}</span>` : `<span class="zl-p off">${t}</span>`;
                     const endTxt = isLive ? '<b>läuft</b>' : sg.e != null ? strip(sg.tb) : '?';
-                    const eg = x.eins ? x.eins.groups.findIndex(g => g.segs.includes(sg)) : -1;
-                    const chip = (eg >= 0 && (x.eins.groups[eg].segs[0] === sg) ? `<span class="zl-en" title="Einsatz ${eg + 1}${x.eins.cont && eg === 0 ? ' (Fortsetzung)' : ''}">${x.eins.cont && eg === 0 ? '↪' : eg + 1 - (x.eins.cont ? 1 : 0)}</span>` : '') + `<span class="zl-b num${isLive ? ' live' : ''}${eg >= 0 ? ' ein' : ''}">${part(strip(sg.ta), sg.ha, 'Kommen')}<em>–</em>${isLive || sg.e == null ? `<span class="zl-p${sg.hb ? '' : ' off'}"${sg.hb ? ` data-href="${esc(sg.hb)}"` : ''}>${endTxt}</span>` : part(endTxt, sg.hb, 'Gehen')}</span>`;
+                    const chip = `<span class="zl-b num${isLive ? ' live' : ''}">${part(strip(sg.ta), sg.ha, 'Kommen')}<em>–</em>${isLive || sg.e == null ? `<span class="zl-p${sg.hb ? '' : ' off'}"${sg.hb ? ` data-href="${esc(sg.hb)}"` : ''}>${endTxt}</span>` : part(endTxt, sg.hb, 'Gehen')}</span>`;
                     const lu = lunch && lunch.i === i + 1 ? `<span class="zl-lunch${ded ? '' : ' ok'}" title="${esc(dedFull)}">${ico('utensils', 12)}${ll}′${ded ? `<b>−${ded}′</b>` : ''}</span>` : '';
                     return chip + lu;
                 }).join('');
@@ -1062,12 +1023,7 @@
             else if (x.we) st = `<span class="zl-tag">Wochenende</span>`;
             else if (x.future) st = '';
             else st = '';
-            if (x.br || x.eins) {
-                const E = x.eins;
-                const eTip = E ? E.groups.map((g, gi) => `${gi + 1}. ${clock(g.s)}–${clock(g.e) === '00:00' && g.e > g.s ? '24:00' : clock(g.e)} (${dur(g.e - g.s)})`).join('\n') + (E.cont ? '\n(Fortsetzung vom Vortag)' : '') + '\nAnzahl stimmt nicht? Tag aufklappen → − / +' : '';
-                const eTag = E ? `<span class="zl-tag br e" title="${esc(eTip)}">${ico('alert', 12)} ${E.n ? E.n + (E.n === 1 ? ' Einsatz' : ' Einsätze') : 'Fortsetzung'} · ${dur(E.total)}${E.set ? ' ✎' : ''}</span>` : '';
-                st = (x.br ? `<span class="zl-tag br" title="Bereitschaft (Arbeitsmodell ${esc(zmOf(d.days.get(x.k) || []))})${x.soll ? ' · Soll ' + dur(x.soll) : ''}">${ico('zap', 12)} Bereitschaft${x.soll ? ' · ' + dur(x.soll) : ''}</span>` : '') + eTag + st;
-            }
+            if (x.br) st = `<span class="zl-tag br" title="Bereitschaft (Arbeitsmodell ${esc(zmOf(d.days.get(x.k) || []))})${x.soll ? ' · Soll ' + dur(x.soll) + ' ab ' + S.brStart + ', ohne Pflichtpause' : ''}">${ico('zap', 12)} Bereitschaft${x.soll ? ' · ' + dur(x.soll) : ''}</span>` + st;
             if (x.segs.length && !lunch && ded) st += `<span class="zl-lunch" title="${esc(dedFull)}">${ico('utensils', 12)}<b>−${ded}′</b></span>`;
             if (x.segs.length && x.fehl) st += ` <span class="zl-tag warn">${ico('alert', 12)}</span>`;
             let bar = '';
@@ -1092,13 +1048,8 @@
                 const meta = [];
                 if (x.soll) meta.push('Soll ' + dur(x.soll));
                 if (lunch || ded) meta.push(`<span class="${ded ? 'w' : ''}">${ico('utensils', 12)} ${esc(dedFull)}</span>`);
-                if (gapN && !x.eins) meta.push(gapN + ' kurze Pausen · ' + mins(gapSum) + ' min');
+                if (gapN && !x.br) meta.push(gapN + ' kurze Pausen · ' + mins(gapSum) + ' min');
                 if (x.note) meta.push('Notiz: ' + esc(x.note));
-                if (x.eins) {
-                    const E = x.eins;
-                    parts.push(`<span class="zl-ecnt" title="Wie viele Einsätze waren es wirklich?">${ico('alert', 12)} Einsätze <button type="button" data-act="eins-" data-k="${x.k}">−</button><b class="num">${E.n}</b><button type="button" data-act="eins+" data-k="${x.k}">+</button>${E.set ? `<button type="button" class="r" data-act="eins0" data-k="${x.k}" title="Automatisch (${E.auto})">auto</button>` : ''}</span>`);
-                    meta.push(E.groups.map((g, gi) => `${gi + 1}. ${clock(g.s)}–${clock(g.e) === '00:00' && g.e > g.s ? '24:00' : clock(g.e)} · ${dur(g.e - g.s)}`).join('  ·  ') + (E.cont ? ' (Fortsetzung vom Vortag)' : ''));
-                }
                 det = `<div class="zl-det">${parts.join('')}${meta.length ? `<span class="meta">${meta.join(' · ')}</span>` : ''}</div>`;
             }
             return `<div class="${cls}" data-k="${x.k}" style="${x.edge ? '--edge:' + x.edge : ''}">
@@ -1173,7 +1124,7 @@
         earliest: '06:30', maxDay: 10, kern: true, kzMoDo: '15:00', kzFr: '12:00',
         notif: { saldo: { on: true, lead: 5 }, soll: { on: false, lead: 5 }, max: { on: true, lead: 15 }, lunch: { on: false, at: '12:00' }, sound: true },
         confetti: true, title: true, sticky: true, hideEmpty: false, todayHl: true, tl: true, legend: true,
-        fxScope: 'page', view: 'full', hideNav: true, pretty: true, dimFuture: true, tableView: 'list', shell: true, kalView: 'months', futureDays: 'auto', coffeeOn: true, coffee: null, sink: '', vol: 70, brZM: 'EITBR', cdOn: true, cdName: 'Weihnachtsfeier', cdDate: '', contrast: 'hoch', tlMode: 'auto', colOrder: [], colHidden: [], favs: [],
+        fxScope: 'page', view: 'full', hideNav: true, pretty: true, dimFuture: true, tableView: 'list', shell: true, kalView: 'months', futureDays: 'auto', brStart: '11:45', coffeeOn: true, coffee: null, sink: '', vol: 70, brZM: 'EITBR', cdOn: true, cdName: 'Weihnachtsfeier', cdDate: '', contrast: 'hoch', tlMode: 'auto', colOrder: [], colHidden: [], favs: [],
         wish: '16:30', collapsed: false, seen: 0
     };
     function normalize(s) {
@@ -2031,13 +1982,6 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zl-pay img{width:24px;height:24px;border-radius:50%;background:#fff}
 .zl-pay.no{border-color:var(--zp-line);background:var(--zp-surf);color:var(--zp-muted);font-weight:500}
 .zl-tag.br{background:color-mix(in srgb,var(--zp-bad) 20%,transparent);color:var(--zp-bad);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 45%,transparent)}
-.zl-b.ein{border-color:color-mix(in srgb,var(--zp-bad) 60%,var(--zp-line));background:color-mix(in srgb,var(--zp-bad) 16%,var(--zp-surf2))}
-.zl-en{display:inline-grid;place-items:center;min-width:18px;height:18px;border-radius:99px;background:var(--zp-bad);color:var(--zp-onbad,#fff);font-size:10.5px;font-weight:800;margin-right:-2px}
-.zl-ecnt{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 6px 0 10px;border-radius:99px;border:1px solid color-mix(in srgb,var(--zp-bad) 50%,var(--zp-line));color:var(--zp-bad);font-size:12px;font-weight:600}
-.zl-ecnt button{width:22px;height:22px;border-radius:50%;background:var(--zp-surf2);color:var(--zp-text);font-weight:700}
-.zl-ecnt button:hover{background:var(--zp-bad);color:var(--zp-onbad,#fff)}
-.zl-ecnt button.r{width:auto;padding:0 8px;border-radius:99px;font-size:11px}
-.zl-ecnt b{min-width:14px;text-align:center;color:var(--zp-text)}
 .zl-tag.br.e{background:var(--zp-bad);color:var(--zp-onbad,#fff);box-shadow:none}
 .zl-row.br{background:color-mix(in srgb,var(--zp-bad) 9%,transparent)}
 .zl-row.br::after{content:'';position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:3px;background:var(--zp-bad)}
@@ -2256,9 +2200,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
     const brList = () => String(S.brZM || 'EITBR').split(/[,;\s]+/).map(x => x.trim().toUpperCase()).filter(Boolean);
     const zmOf = rows => { for (const r of rows) { const c = r.querySelector('td.td_zm'); const t = c && c.textContent.trim(); if (t) return t.toUpperCase(); } return ''; };
     const isBR = rows => { const z = zmOf(rows); return !!z && brList().includes(z); };
-    const BR_KEY = 'zplus_br', EINS_KEY = 'zplus_einsatz';
-    const einsStore = () => { try { return JSON.parse(localStorage.getItem(EINS_KEY) || '{}') || {}; } catch (e) { return {}; } };
-    const einsSet = (k, n) => { const st = einsStore(); if (n == null) delete st[k]; else st[k] = n; try { localStorage.setItem(EINS_KEY, JSON.stringify(st)); } catch (e) { } };
+    const BR_KEY = 'zplus_br';
     const brStore = () => { try { return JSON.parse(localStorage.getItem(BR_KEY) || '{}') || {}; } catch (e) { return {}; } };
     function rememberBR(days) {                 // Bereitschaftstage merken (für den Kalender)
         try {
@@ -2269,6 +2211,8 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             if (ch) localStorage.setItem(BR_KEY, JSON.stringify(st));
         } catch (e) { }
     }
+    const ABS_RE = /(\d{1,2}:\d{2})\s*(Urlaub|Zeitausgleich|Arzt|Krank\w*|Sonderurlaub|Pflege\w*|Beh(ö|oe)rde\w*|Kur\w*|Bildungs\w*|Schulung\w*|Feiertag)/i;
+    const partAbs = rows => rows.some(r => { const z = r.querySelector('td.td_zeitdaten'); const m = z && z.textContent.replace(/\s+/g, ' ').match(ABS_RE); return !!m; }) && sollOf(rows) > 0;
     const keyDate = k => { const p = k.split('.').map(Number); return new Date(p[2], p[1] - 1, p[0]); };
 
     function readDay() {
@@ -2357,8 +2301,16 @@ button.zk-li:hover{border-color:var(--zp-accent)}
        • Fehlt etwas zur Pflichtpause und der Tag ist > 6 h, zieht das System die Differenz ab
        • Alle anderen Lücken = Raucherpausen                                                    */
     function calc(d, now) {
-        const segs = d.segs.map(x => Object.assign({}, x));
-        if (S.earliest && segs[0] && segs[0].s < at(S.earliest)) segs[0].s = Math.min(at(S.earliest), segs[0].e || Infinity);
+        const br = isBR(d.rows), noPause = br || partAbs(d.rows);
+        let segs = d.segs.map(x => Object.assign({}, x));
+        let night = [];
+        const early = br && S.brStart ? S.brStart : S.earliest;
+        if (br && S.brStart) {        // Bereitschaft: Nacht-Buchungen vor dem Beginn zählen nicht zu den 5 h
+            const bs = at(S.brStart) - 30 * M;
+            night = segs.filter(x => x.e != null && x.e <= bs);
+            segs = segs.filter(x => !night.includes(x));
+        }
+        if (early && segs[0] && segs[0].s < at(early)) segs[0].s = Math.min(at(early), segs[0].e || Infinity);
         let closed = 0, openMs = 0, open = null, broken = 0;
         segs.forEach((x, i) => {
             if (x.e != null) closed += Math.max(0, x.e - x.s);
@@ -2379,16 +2331,17 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         if (lunch) lunch.lunch = true;
         const smoke = gaps.filter(g => !g.lunch);
         const smokeSum = smoke.reduce((s, g) => s + g.len, 0);
-        const pflicht = S.pflicht * M, sixH = S.abH * H;
+        const pflicht = noPause ? 0 : S.pflicht * M, sixH = S.abH * H;
         const sysDed = d.pauseCol;
-        const lunchUpcoming = !lunch && sysDed == null && now < wT && (!!open || !segs.length);
+        const lunchUpcoming = !noPause && !lunch && sysDed == null && now < wT && (!!open || !segs.length);
         const plannedLen = lunchUpcoming ? S.planLunch * M : 0;
         const lunchLen = lunch ? lunch.len : plannedLen;
-        const dedFinal = sysDed != null ? sysDed : Math.max(0, pflicht - lunchLen);
-        const dedShown = sysDed != null ? sysDed : ((gross > sixH || d.soll > sixH) ? Math.max(0, pflicht - lunchLen) : 0);   // Anzeige: nur wenn > 6 h zu erwarten
-        const dedNow = sysDed != null ? sysDed : (gross > sixH ? Math.max(0, pflicht - (lunch ? lunch.len : 0)) : 0);
+        // Pausenabzug NUR aus der LHR-Pause-Spalte (LHR trägt den gesetzlichen Abzug selbst ein)
+        const dedFinal = sysDed != null ? sysDed : 0;
+        const dedShown = sysDed != null ? sysDed : 0;
+        const dedNow = sysDed != null ? sysDed : 0;
         const eff = Math.max(0, gross - dedNow);
-        const kz = kernEnd();
+        const kz = br ? null : kernEnd();
         const finish = (target, useKern) => {
             if (eff >= target) return { done: true, at: now - (eff - target), need: 0 };
             const long = target > sixH;
@@ -2402,11 +2355,12 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             let g = gross + (open ? Math.max(0, t - now) : 0);
             let ll = lunch ? lunch.len : 0;
             if (lunchUpcoming && open && t > Math.max(now, wF)) { const taken = Math.min(plannedLen, t - Math.max(now, wF)); g -= taken; ll = taken; }
-            const ded = sysDed != null ? sysDed : (g > sixH ? Math.max(0, pflicht - ll) : 0);
+            const ded = sysDed != null ? sysDed : 0;
             return Math.max(0, g - ded);
         };
         const tg = eff - d.soll;
         return {
+            br, noPause, night, nightMs: night.reduce((a, x) => a + (x.e - x.s), 0),
             segs, open, broken, gross, eff, gaps, lunch, smoke, smokeSum, sysDed, dedNow, dedFinal, dedShown, lunchUpcoming, plannedLen, wF, wT,
             sollF: finish(d.soll, true), salF: finish(d.soll - d.carry, true), maxF: finish(S.maxDay * H, false),
             tg, saldo: d.carry + tg, effAt, windowOver: now >= wT
@@ -2647,7 +2601,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         safe('Status', () => {
             $('zp-dot').classList.toggle('on', !!c.open);
             const last = has ? c.segs[c.segs.length - 1] : null;
-            setText('zp-status', wd + ' ' + pad(dt.getDate()) + '.' + pad(dt.getMonth() + 1) + '. · ' + (isBR(d.rows) ? 'Bereitschaft · ' : '') +
+            setText('zp-status', wd + ' ' + pad(dt.getDate()) + '.' + pad(dt.getMonth() + 1) + '. · ' + (c.br ? 'Bereitschaft · ab ' + S.brStart + ' · ohne Pause · ' : c.noPause ? 'Teil-Abwesenheit · ohne Pflichtpause · ' : '') +
                 (c.open ? 'eingestempelt seit ' + clock(c.open.s) : last ? 'ausgestempelt um ' + clock(last.e) : (d.info || 'noch nicht eingestempelt')));
         });
 
@@ -2669,11 +2623,12 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             const fi = (k, v, w) => `<div class="zp-fi${w ? ' w' : ''}"><span>${k}</span><b class="num">${v}</b></div>`;
             const foot = [];
             if (has) foot.push(c.maxF.done ? fi(S.maxDay + ' h-Grenze', 'überschritten', 1) : fi(S.maxDay + ' h-Grenze', clock(c.maxF.at)));
-            const kz = kernEnd();
+            const kz = c.br ? null : kernEnd();
             if (kz) foot.push(fi('Kernzeit bis', clock(kz)));
             foot.push(fi('Übertrag', dur(d.carry, true)));
             { const nc = nextCoffee(); if (nc) foot.push(fi('☕ Kaffeepause', nc.t + ' <small>· in ' + human(at(nc.t) - now) + '</small>')); }
             { const t0 = new Date(); t0.setHours(0, 0, 0, 0); let nb = null; for (const [k, rows] of d.days) { if (keyDate(k) >= t0 && isBR(rows)) { nb = k; break; } }
+              if (nb === todayKey() && c.nightMs) foot.push(`<div class="zp-fi br"><span>Nacht-Einsatz</span><b class="num">${dur(c.nightMs)}</b></div>`);
               if (nb) { const nd = keyDate(nb); foot.push(`<div class="zp-fi br"><span>${nb === todayKey() ? 'Heute Bereitschaft' : 'Nächste Bereitschaft'}</span><b class="num">${nb === todayKey() ? (d.soll ? 'Soll ' + dur(d.soll) : 'ganztags') : ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'][nd.getDay()] + ' ' + nb.slice(0, 6)}</b></div>`); } }
             { const gs = safe('Gesamt', () => gesamt(d.days, c.saldo)); if (gs) foot.push(`<div class="zp-fi g" title="${esc(gs.tip)}"><span>Gesamt <small>Saldo+ZA+Üst</small></span><b class="num ${signCls(gs.total)}">${dur(gs.total, true)}</b></div>`); }
             if (has && c.dedShown > 0 && !c.lunchUpcoming) foot.push(fi(c.lunch ? 'Mittag ' + mins(c.lunch.len) + ' min → Abzug' : 'Pausen-Abzug', '−' + mins(c.dedShown) + ' min', 1));
@@ -2718,18 +2673,18 @@ button.zk-li:hover{border-color:var(--zp-accent)}
                 const L = mins(c.lunch.len), miss = mins(c.dedShown);
                 setHtml('zp-pause', L + '<small>min</small>'); valClass('zp-pause', miss > 0 ? 'warn' : 'ok');
                 setHtml('zp-pause-sub', `${clock(c.lunch.s)} – ${clock(c.lunch.e)} gestempelt<br>` +
-                    (miss > 0 ? `<span class="w">+${miss} min ${c.sysDed != null ? 'abgezogen' : 'werden abgezogen'}</span> auf ${S.pflicht} min` : `${S.pflicht} min erfüllt`));
+                    (miss > 0 ? `<span class="w">${miss} min Pausenabzug (LHR)</span>` : 'kein Pausenabzug'));
             } else if (c.lunchUpcoming) {
                 setHtml('zp-pause', S.planLunch + '<small>min geplant</small>'); valClass('zp-pause', '');
-                setHtml('zp-pause-sub', S.lunchFrom + ' – ' + S.lunchTo + (S.planLunch < S.pflicht ? ` · <span class="w">${S.pflicht - S.planLunch} min würden abgezogen</span>` : ''));
+                setHtml('zp-pause-sub', S.lunchFrom + ' – ' + S.lunchTo + ' · geplant, Abzug trägt LHR ein');
                 chips.innerHTML = [0, 15, 20, 30, 45, 60].map(m => `<button class="zp-chip${+S.planLunch === m ? ' on' : ''}" data-m="${m}">${m || 'keine'}</button>`).join('');
                 chips.querySelectorAll('button').forEach(b => b.addEventListener('click', ev => { ev.stopPropagation(); S.planLunch = +b.dataset.m; saveS(); render(); }));
             } else if (c.sysDed != null) {
                 setHtml('zp-pause', mins(c.sysDed) + '<small>min Abzug</small>'); valClass('zp-pause', 'warn');
                 setText('zp-pause-sub', 'vom System eingetragen');
             } else {
-                setText('zp-pause', has ? 'keine' : '–'); valClass('zp-pause', has && c.windowOver ? 'bad' : '');
-                setHtml('zp-pause-sub', has && c.windowOver ? `<span class="w">${S.pflicht} min werden abgezogen (ab ${S.abH} h)</span>` : '');
+                setText('zp-pause', has ? 'keine' : '–'); valClass('zp-pause', '');
+                setHtml('zp-pause-sub', has ? 'kein Mittag gestempelt · Abzug trägt LHR ein' : '');
             }
         });
 
@@ -2920,9 +2875,8 @@ ${row('Legende unter der Timeline', '', tgl('legend'))}
             calc: `
 <div class="zp-sec">Bereitschaft</div>
 ${row('Arbeitsmodell für Bereitschaft', 'Kürzel aus der Spalte ZM, mehrere mit Komma (z.B. EITBR)', '<input type="text" class="zp-in" style="width:160px" data-k="brZM" placeholder="EITBR">')}
+${row('Arbeitsbeginn nach Bereitschaft', 'frühestens einstempeln ab – dann das Soll ohne Pflichtpause, ohne Kernzeit', tim('brStart'))}
 <div class="zp-sec">Mittagspause</div>
-${row('Pflichtpause (min)', 'Was zur Pflichtpause fehlt, zieht das System ab', num('pflicht', 0, 120))}
-${row('Pflicht ab Arbeitszeit (h)', '', num('abH', 0, 12, .5))}
 ${row('Mittagsfenster von', 'Größte Lücke darin = Mittag', tim('lunchFrom'))}
 ${row('Mittagsfenster bis', '', tim('lunchTo'))}
 ${row('Mittag mindestens (min)', 'Kürzere Lücken zählen immer als Raucherpause', num('lunchMinLen', 1, 60))}
