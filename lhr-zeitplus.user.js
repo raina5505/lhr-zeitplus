@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.18.2
+// @version      5.18.3
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.18.2';
+    const VERSION = '5.18.3';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1499,8 +1499,8 @@ html.zp-dark.zp-pretty #colHide img,html.zp-dark.zp-pretty .xlsxexp,html.zp-dark
 html.zp-dark .dataTables_wrapper,html.zp-dark .dataTables_info,html.zp-dark .dataTables_length,html.zp-dark .dataTables_filter,html.zp-dark .dataTables_wrapper label{color:var(--zp-muted) !important}
 html.zp-dark table.dataTable,html.zp-dark table.dataTable thead th,html.zp-dark table.dataTable thead td,html.zp-dark table.dataTable tfoot th{border-color:var(--zp-grid) !important}
 html.zp-dark table.dataTable tbody tr{background-color:transparent !important}
-html.zp-dark table.dataTable.stripe tbody tr.odd > td,html.zp-dark table.dataTable.display tbody tr.odd > td{background-color:var(--zp-td2) !important}
-html.zp-dark table.dataTable tbody tr:hover > td{background-color:color-mix(in srgb,var(--zp-accent) 8%,var(--zp-td)) !important}
+html.zp-dark table.dataTable.stripe tbody tr.odd > td:not([style*="background-color: rgb("]),html.zp-dark table.dataTable.display tbody tr.odd > td:not([style*="background-color: rgb("]){background-color:var(--zp-td2) !important}
+html.zp-dark table.dataTable tbody tr:hover > td:not([style*="background-color: rgb("]){background-color:color-mix(in srgb,var(--zp-accent) 8%,var(--zp-td)) !important}
 html.zp-dark table.dataTable thead .sorting,html.zp-dark table.dataTable thead .sorting_asc,html.zp-dark table.dataTable thead .sorting_desc{background-color:var(--zp-th) !important}
 html.zp-dark .DTFC_LeftBodyWrapper,html.zp-dark .DTFC_RightBodyWrapper,html.zp-dark .DTFC_LeftHeadWrapper,html.zp-dark .dataTables_scrollHead,html.zp-dark .dataTables_scrollBody,html.zp-dark .fixedHeader-floating{background:var(--zp-page) !important}
 html.zp-dark .dataTables_wrapper .dataTables_paginate .paginate_button{color:var(--zp-text) !important;background:var(--zp-surf) !important;border:1px solid var(--zp-line) !important;border-radius:8px !important}
@@ -1615,6 +1615,12 @@ img.zp-colbtn:hover{box-shadow:0 0 0 2px var(--zp-accent) !important}
 html.zp-pretty #colMenue:empty{display:none !important}
 
 /* Team: eigene Zeile + Favoriten */
+/* Abwesenheitsübersicht (DataTables): fixierte Spalten immer im Theme, Hover ohne Überdeckung der farbigen Tage */
+#tabdiv table.dataTable tbody tr:not(.zp-me):not(.zp-favrow) > td:not(.zp-me):not(.zp-fav){box-shadow:none !important}
+html.zp-dark #tabdiv table.dataTable tbody td.dtfc-fixed-left,html.zp-dark #tabdiv table.dataTable tbody td.dtfc-fixed-left.sorting_1{background-color:var(--zp-td,var(--zp-surf)) !important;color:var(--zp-text) !important}
+html.zp-dark #tabdiv table.dataTable thead th.dtfc-fixed-left{background-color:var(--zp-th,var(--zp-surf)) !important;color:var(--zp-muted) !important}
+#tabdiv table.dataTable tbody tr:hover > td.dtfc-fixed-left{background-color:color-mix(in srgb,var(--zp-accent,#4f5bd5) 16%,var(--zp-td,#fff)) !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody tr:hover > td.dtfc-fixed-left{background-color:color-mix(in srgb,var(--zp-accent) 18%,var(--zp-td,var(--zp-surf))) !important}
 html.zp-p-other #content tr.zp-me > td{box-shadow:inset 0 2px 0 var(--zp-accent,#4f5bd5),inset 0 -2px 0 var(--zp-accent,#4f5bd5) !important}
 html.zp-p-other #content tr.zp-me > td:first-child{box-shadow:inset 3px 0 0 var(--zp-accent,#4f5bd5),inset 0 2px 0 var(--zp-accent,#4f5bd5),inset 0 -2px 0 var(--zp-accent,#4f5bd5) !important}
 html.zp-p-other #content tr.zp-me > td:not([data-zp-cf]):not([style*="background"]){color:var(--zp-accent,#4f5bd5) !important;background-color:color-mix(in srgb,var(--zp-accent,#4f5bd5) 12%,transparent) !important}
