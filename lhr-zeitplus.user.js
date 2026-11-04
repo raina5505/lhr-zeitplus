@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.20.3
+// @version      5.20.4
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.20.3';
+    const VERSION = '5.20.4';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -123,6 +123,13 @@
             }
             const spans = [...per.querySelectorAll('.periode_span')];
             const fertig = per.querySelector('a[id^="fertigmeld"]');
+            const lpt = document.getElementById('le_periode_text');
+            if (lpt && !document.getElementById('zdl_periode')) {        // Planer: Woche/Monat/Jahr per Buttons
+                const gc = per.closest('#general-controls');
+                if (gc && gc.classList.contains('hidden')) { shell.per = null; return; }
+                shell.per = { el: per, back, fwd, planer: true, label: lpt.textContent.replace(/\s+/g, ' ').trim(), status: '', fertig: null, fertigTxt: '', recalc: null };
+                return;
+            }
             const ym = ((document.getElementById('periode_text') || {}).textContent || '').match(/(\d{4})/);
             if (ym && !document.getElementById('zdl_periode')) {      // Kalender: Jahres-Navigation statt Monat
                 shell.per = { el: per, back, fwd, yearMode: true, y: +ym[1], status: '', fertig: null, fertigTxt: '', recalc: null };
@@ -198,7 +205,15 @@
             return `<a href="${esc(n.href || '#')}" class="${n.on ? 'on' : ''}" title="${esc(n.label)}" data-nav="${i}">${ico(n.icon, 17)}<span class="lb">${esc(n.short)}</span>${badge}</a>`;
         }).join('');
         let sub = '';
-        if (P && P.yearMode) {
+        if (P && P.planer) {
+            sub = `<div class="zs-sub">
+                <div class="zs-title">${esc(active ? active.label : 'Planer')}</div>
+                <div class="zs-month">
+                  <button type="button" data-act="prev" title="Vorherige Ansicht">${ico('left', 16)}</button>
+                  <span class="m num">${esc(P.label || '')}</span>
+                  <button type="button" data-act="next" title="Nächste Ansicht">${ico('right', 16)}</button>
+                </div>${cdHtml}<span class="sp"></span></div>`;
+        } else if (P && P.yearMode) {
             const ur = readUrlaub();
             const urTxt = ur && !/ermittelt/i.test(ur) ? ur.replace(/^Resturlaub\s*/i, '').replace(/^per Ende\s*/i, 'Ende ') : '';
             sub = `<div class="zs-sub">
@@ -284,6 +299,7 @@
         if (t.dataset.lang) { closePops(); if (typeof window.changeLang === 'function') window.changeLang(t.dataset.lang); return; }
         const act = t.dataset.act;
         if (act === 'yr-' || act === 'yr+') { e.stopPropagation(); pickYear += act === 'yr-' ? -1 : 1; const b = $('zs').querySelector('[data-act="month"]'); const p = $('zs-pop'); p.dataset.for = ''; monthPicker(b); return; }
+        if ((act === 'prev' || act === 'next') && P && P.planer) { const b = act === 'prev' ? P.back : P.fwd; if (b) { b.click(); setTimeout(() => safe('App-Leiste', () => { readShellSource(); renderShell(); }), 900); } return; }
         if (act === 'prev' && P && P.back) { location.href = P.back.getAttribute('href'); return; }
         if (act === 'next' && P && P.fwd && P.fwd.getAttribute('href')) { location.href = P.fwd.getAttribute('href'); return; }
         if (act === 'today') { location.href = periodUrl(''); return; }
@@ -3598,7 +3614,9 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             if (star.textContent !== (isF ? '★' : '☆')) star.textContent = isF ? '★' : '☆';
             star.title = isF ? 'Favorit entfernen' : 'Als Favorit anpinnen';
             setCls(td, 'zp-fav', isF); setCls(td, 'zp-me', meSet.has(td));
-            if (!td.title) td.title = cellName(td);
+            const full = cellName(td).replace(/(\.\.\.|…)/g, ' ').replace(/\s+/g, ' ').trim();
+            if (full.length > 3) td.querySelectorAll('*').forEach(x => { if (!x.children.length && /^(\.\.\.|…)$/.test(x.textContent.trim()) && !x.classList.contains('zp-star')) x.textContent = full; });
+            if (!td.title) td.title = full;
         });
         // Tabellen-Zeilen (Planer, Abwesenheiten): DnNr oder Name
         const me = new Set(), fv = new Set();
@@ -4483,6 +4501,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         document.documentElement.classList.toggle('zp-zdl', PAGE === 'zdl');
         document.documentElement.classList.add('zp-p-' + PAGE);
         if (/urlaubsplaner/i.test(location.pathname)) document.documentElement.classList.add('zp-planer');
+        { const lpt = document.getElementById('le_periode_text'); if (lpt) { let t = null; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => safe('App-Leiste', () => { readShellSource(); renderShell(); }), 250); }).observe(lpt.closest('#tabdivup') || lpt, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] }); } }
         try { document.title = APP_TITLE; } catch (e) { }
         killOldScript();
         injectPageCss();
