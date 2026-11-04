@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.24.3
+// @version      5.24.4
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.24.3';
+    const VERSION = '5.24.4';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -127,7 +127,7 @@
             if (lpt && !document.getElementById('zdl_periode')) {        // Planer: Woche/Monat/Jahr per Buttons
                 const gc = per.closest('#general-controls');
                 if (gc && gc.classList.contains('hidden')) { shell.per = null; return; }
-                shell.per = { el: per, back, fwd, planer: true, label: lpt.textContent.replace(/\s+/g, ' ').trim(), status: '', fertig: null, fertigTxt: '', recalc: null };
+                shell.per = null; per.classList.remove('zp-hide-orig');          // Planer: eigene Monats-Navigation in der Seite (planerNav)
                 return;
             }
             const ym = ((document.getElementById('periode_text') || {}).textContent || '').match(/(\d{4})/);
@@ -1780,6 +1780,25 @@ html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > t
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.sum_cell:not(.dtfc-fixed-left),html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.sum_cell.dtfc-fixed-left:not(.gesamt_div){position:relative}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.gesamt_div_verplant{text-align:left !important;padding-left:10px !important;color:var(--zp-accent) !important;font-weight:700 !important;font-size:12px !important;text-transform:uppercase;letter-spacing:.04em}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.gesamt_div{text-align:right !important;padding-right:10px !important}
+html.zp-planer.zp-pnav body:not(#zp-a):not(#zp-b) #general-controls{display:none !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav{position:relative !important;display:flex !important;align-items:center !important;gap:6px !important;margin:0 !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav button{all:unset;box-sizing:border-box !important;cursor:pointer !important;height:38px !important;display:inline-flex !important;align-items:center !important;justify-content:center !important;gap:6px !important;border-radius:11px !important;border:1px solid var(--zp-line,#d0d4dc) !important;background:var(--zp-surf2,#eceef3) !important;color:var(--zp-text,#222) !important;font:700 13.5px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;transition:background .15s,border-color .15s,transform .1s !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav button:hover{border-color:var(--zp-accent,#4f7cff) !important;background:color-mix(in srgb,var(--zp-accent,#4f7cff) 14%,var(--zp-surf2,#eceef3)) !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav button:active{transform:scale(.96) !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-b{width:38px !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-l{min-width:150px !important;padding:0 12px !important;font-size:14px !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-l svg{opacity:.6 !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-t{padding:0 12px !important;font-size:12.5px !important;color:var(--zp-muted,#667) !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-t.on{color:var(--zp-accent,#4f7cff) !important;border-color:color-mix(in srgb,var(--zp-accent,#4f7cff) 45%,transparent) !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav.busy .zp-pn-l{opacity:.6 !important;pointer-events:none !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-pop{position:absolute !important;top:calc(100% + 8px) !important;left:44px !important;z-index:2147480000 !important;width:248px !important;padding:10px !important;border-radius:14px !important;background:var(--zp-bg,#fff) !important;border:1px solid var(--zp-line,#d0d4dc) !important;box-shadow:0 14px 40px rgba(0,0,0,.35) !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-yh{display:flex !important;align-items:center !important;justify-content:space-between !important;margin-bottom:8px !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-yh b{font:700 14px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;color:var(--zp-text) !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-yh button{width:32px !important;height:32px !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-grid{display:grid !important;grid-template-columns:repeat(4,1fr) !important;gap:6px !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-grid button{height:34px !important;font-size:12.5px !important;font-weight:600 !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-grid button.now{border-color:var(--zp-accent,#4f7cff) !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #zp-pnav .zp-pn-grid button.sel{background:var(--zp-accent,#4f7cff) !important;border-color:var(--zp-accent,#4f7cff) !important;color:#fff !important}
 #zp-ptip{position:fixed;z-index:2147483000;pointer-events:none;max-width:230px;padding:7px 10px 6px;border-radius:10px;background:color-mix(in srgb,var(--zp-bg,#fff) 92%,transparent);backdrop-filter:blur(10px);color:var(--zp-text,#222);border:1px solid var(--zp-line,#d0d4dc);box-shadow:0 8px 24px rgba(0,0,0,.28);font:500 11.5px/1.35 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;opacity:0;transform:translateY(3px);transition:opacity .1s,transform .1s}
 #zp-ptip.on{opacity:1;transform:none}
 #zp-ptip .t{display:flex;flex-wrap:wrap;gap:4px 10px;font-weight:700;font-size:12px}
@@ -3847,7 +3866,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         });
         document.querySelectorAll('#content tbody > tr').forEach(tr => { setCls(tr, 'zp-me', me.has(tr)); setCls(tr, 'zp-favrow', fv.has(tr)); });
         if (IS_ABW) safe('Team', () => abwFavs(favs, myKey));
-        if (document.documentElement.classList.contains('zp-planer')) safe('Planer', planerMarks);
+        if (document.documentElement.classList.contains('zp-planer')) { safe('Planer', planerNav); safe('Planer', planerMarks); }
         if (IS_ABW) safe('Team', () => { if (document.querySelector('#tabdiv tbody td.kalTag, #tabdiv tbody td.kalTag_sa')) { const dt = teamParse(document, window); teamSave(dt); } });
         safe('Team', () => {
             const sel = document.getElementById('tableau_dropdown_abt');
@@ -3918,6 +3937,118 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     }
     const IS_ABW = /abwesenheitsuebersicht/i.test(location.pathname);
     /* Planer: Zellen lesbar machen, Remote/Bereitschaft erkennen, B1/B2 aus Tooltip übernehmen, Kopf kompakt (Wochentag + KW) */
+    /* ───── Planer: eigene Monats-Navigation (‹ Monat ›, Monatsauswahl, Heute) + beim Öffnen immer der aktuelle Monat ───── */
+    const MON_L = ['Jänner', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'];
+    const MON_S = ['Jän', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+    const PN_KEY = 'zp_pnav';
+    const pnSS = { get: () => { try { return JSON.parse(sessionStorage.getItem(PN_KEY) || '{}') || {}; } catch (e) { return {}; } }, set: o => { try { sessionStorage.setItem(PN_KEY, JSON.stringify(Object.assign(pnSS.get(), o))); } catch (e) { } } };
+    const pnLabel = () => ((document.getElementById('le_periode_text') || {}).textContent || '').replace(/\s+/g, ' ').trim();
+    const pnMode = () => ((document.getElementById('sel_anzeige') || {}).value || (document.getElementById('anzeige') || {}).value || 'M').toUpperCase();
+    function pnCur() {           // angezeigter Monat {y, m} (nur Monatsansicht)
+        const t = pnLabel(); let m = t.match(/^(\d{1,2})\.(\d{4})$/);
+        if (m) return { y: +m[2], m: +m[1] - 1 };
+        m = t.toLowerCase().match(/(jän|jan|feb|mär|mar|apr|mai|jun|jul|aug|sep|okt|nov|dez)[a-zä]*\.?\s*(\d{4})/);
+        if (m) { const i = m[1] === 'jan' ? 0 : m[1] === 'mar' ? 2 : MON_S.map(x => x.toLowerCase()).indexOf(m[1]); if (i >= 0) return { y: +m[2], m: i }; }
+        return null;
+    }
+    const pnWaitChange = (old, ms) => new Promise(res => { const t0 = Date.now(); const iv = setInterval(() => { if (pnLabel() !== old || Date.now() - t0 > ms) { clearInterval(iv); setTimeout(res, 250); } }, 120); });
+    function pnStep(d) {
+        pnSS.set({ user: Date.now() });
+        const fn = d < 0 ? window.get_previous_time : window.get_next_time;
+        if (typeof fn === 'function') { try { fn(); return; } catch (e) { } }
+        const b = document.getElementById(d < 0 ? 'periode_a' : 'periode_a2'); if (b) b.click();
+    }
+    let pnBusy = false;
+    async function pnGo(y, m) {
+        if (pnBusy) return; pnBusy = true;
+        try {
+            pnSS.set({ target: { y, m, ts: Date.now() }, user: Date.now() });
+            const sel = document.getElementById('sel_anzeige');
+            if (sel && sel.value !== 'M' && [...sel.options].some(o => o.value === 'M')) {
+                const old = pnLabel(); sel.value = 'M';
+                try { if (typeof window.onChangeAnzeige === 'function') window.onChangeAnzeige(sel); else sel.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) { }
+                await pnWaitChange(old, 5000);
+            }
+            // 1. Versuch: LHR-Monatsauswahl (flatpickr) direkt setzen → ein einziger Ladevorgang
+            const fp = (document.getElementById('select_datum') || {})._flatpickr;
+            let c = pnCur();
+            if (fp && c && (c.y !== y || c.m !== m)) {
+                const old = pnLabel();
+                try { fp.setDate(new Date(y, m, 1, 12), true); } catch (e) { }
+                await pnWaitChange(old, 3500);
+                c = pnCur();
+            }
+            // 2. Schrittweise mit den LHR-Pfeilen
+            for (let i = 0; i < 36; i++) {
+                c = pnCur(); if (!c) break;
+                const diff = (y - c.y) * 12 + (m - c.m); if (!diff) break;
+                const old = pnLabel(); pnStep(diff); await pnWaitChange(old, 6000);
+                if (pnLabel() === old) break;
+            }
+            c = pnCur(); if (c && c.y === y && c.m === m) pnSS.set({ target: null });
+        } finally { pnBusy = false; pnRender(); }
+    }
+    function pnRender() {
+        const nav = document.getElementById('zp-pnav'); if (!nav) return;
+        const c = pnCur(), mode = pnMode(), now = new Date();
+        const lbl = c ? MON_L[c.m] + ' ' + c.y : (pnLabel() || '…');
+        const isNow = c && c.y === now.getFullYear() && c.m === now.getMonth();
+        nav.querySelector('.zp-pn-l').innerHTML = `<span>${esc(lbl)}</span>${ico('chevron', 14)}`;
+        nav.querySelector('.zp-pn-t').classList.toggle('on', !!isNow);
+        nav.classList.toggle('busy', pnBusy);
+        nav.dataset.mode = mode;
+    }
+    function pnPicker(nav) {
+        let pop = nav.querySelector('.zp-pn-pop');
+        if (pop) { pop.remove(); return; }
+        const c = pnCur() || { y: new Date().getFullYear(), m: new Date().getMonth() }, now = new Date();
+        let yy = c.y;
+        pop = el('div', 'zp-pn-pop');
+        const draw = () => {
+            pop.innerHTML = `<div class="zp-pn-yh"><button type="button" data-y="-1">${ico('left', 15)}</button><b>${yy}</b><button type="button" data-y="1">${ico('right', 15)}</button></div><div class="zp-pn-grid">` +
+                MON_S.map((n, i) => `<button type="button" data-m="${i}" class="${yy === c.y && i === c.m ? 'sel' : ''}${yy === now.getFullYear() && i === now.getMonth() ? ' now' : ''}">${n}</button>`).join('') + '</div>';
+        };
+        draw();
+        pop.addEventListener('click', e => {
+            e.stopPropagation();
+            const yb = e.target.closest('[data-y]'); if (yb) { yy += +yb.dataset.y; draw(); return; }
+            const mb = e.target.closest('[data-m]'); if (mb) { pop.remove(); pnGo(yy, +mb.dataset.m); }
+        });
+        nav.appendChild(pop);
+        setTimeout(() => document.addEventListener('click', function off(e) { if (!nav.contains(e.target)) { pop.remove(); document.removeEventListener('click', off, true); } }, true), 0);
+    }
+    function planerNav() {
+        const lpt = document.getElementById('le_periode_text'); if (!lpt) return;
+        let nav = document.getElementById('zp-pnav');
+        if (!nav) {
+            const host = document.querySelector('#tabdivup .grid-container') || (document.getElementById('general-controls') || lpt).parentNode;
+            nav = el('div'); nav.id = 'zp-pnav';
+            nav.innerHTML = `<button type="button" class="zp-pn-b" data-d="-1" title="Vorheriger Zeitraum">${ico('left', 17)}</button><button type="button" class="zp-pn-l" title="Monat auswählen"></button><button type="button" class="zp-pn-b" data-d="1" title="Nächster Zeitraum">${ico('right', 17)}</button><button type="button" class="zp-pn-t" title="Zum aktuellen Monat">Heute</button>`;
+            const gc = document.getElementById('general-controls');
+            if (gc && gc.parentNode === host) host.insertBefore(nav, gc); else host.appendChild(nav);
+            nav.addEventListener('click', e => {
+                const b = e.target.closest('button'); if (!b || b.closest('.zp-pn-pop')) return;
+                if (b.dataset.d) { pnSS.set({ target: null }); pnStep(+b.dataset.d); return; }
+                if (b.classList.contains('zp-pn-t')) { const n = new Date(); pnGo(n.getFullYear(), n.getMonth()); return; }
+                if (b.classList.contains('zp-pn-l')) pnPicker(nav);
+            });
+            new MutationObserver(() => pnRender()).observe(lpt, { childList: true, characterData: true, subtree: true });
+            document.documentElement.classList.add('zp-pnav');
+            // Beim Öffnen: angefangene Auswahl fortsetzen, sonst immer der aktuelle Monat (außer man hat gerade selbst geblättert)
+            const start = Date.now();
+            const boot = () => {
+                const ready = pnCur() || /\d/.test(pnLabel());
+                if (!ready) { if (Date.now() - start < 15000) setTimeout(boot, 400); return; }
+                const st = pnSS.get(), n = new Date();
+                if (st.target && Date.now() - st.target.ts < 60000) { pnGo(st.target.y, st.target.m); return; }
+                if (st.user && Date.now() - st.user < 20000) return;
+                const c = pnCur();
+                if (!c || c.y !== n.getFullYear() || c.m !== n.getMonth()) pnGo(n.getFullYear(), n.getMonth());
+            };
+            setTimeout(boot, 900);
+        }
+        pnRender();
+    }
     function planerMarks() {
         const tab = document.getElementById('tabdiv'); if (!tab) return;
         tab.querySelectorAll('tbody tr:not(.sum_row) > td:not(.dtfc-fixed-left)').forEach(td => {
@@ -5083,6 +5214,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         document.documentElement.classList.toggle('zp-zdl', PAGE === 'zdl');
         document.documentElement.classList.add('zp-p-' + PAGE);
         if (/urlaubsplaner/i.test(location.pathname)) document.documentElement.classList.add('zp-planer');
+        if (/urlaubsplaner/i.test(location.pathname)) setTimeout(() => safe('Planer', planerNav), 300);
         { const upd = () => { const h = document.getElementById('zp-shell-host'); document.documentElement.style.setProperty('--zp-sh', (h ? Math.round(h.getBoundingClientRect().height) : 0) + 'px'); }; setTimeout(upd, 500); setInterval(upd, 3000); window.addEventListener('resize', upd); }
         if (IS_ABW) document.documentElement.classList.add('zp-abwp');
         { const lpt = document.getElementById('le_periode_text'); if (lpt) { let t = null; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => safe('App-Leiste', () => { readShellSource(); renderShell(); }), 250); }).observe(lpt.closest('#tabdivup') || lpt, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] }); } }
