@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.23.5
+// @version      5.23.6
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.23.5';
+    const VERSION = '5.23.6';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1725,13 +1725,17 @@ html.zp-pretty.zp-planer #tabdiv tbody td.zp-rb::after{content:'';position:absol
 html.zp-pretty.zp-planer #tabdiv tbody td:not(.dtfc-fixed-left):hover{filter:brightness(1.12)}
 /* Farben gedämpft: Fläche leicht getönt, kräftiger Strich oben, Schrift in der Farbe → ruhig, aber eindeutig */
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-col{background:color-mix(in srgb,var(--zc) 38%,var(--zp-surf2,#eceef3)) !important;box-shadow:inset 0 0 0 2px var(--pg),inset 0 5px 0 0 var(--zc) !important;color:color-mix(in srgb,var(--zc) 35%,#fff) !important}
-html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-col *{color:inherit !important;background:transparent !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.dtfc-fixed-left) *{color:inherit !important;background:transparent !important;border-color:transparent !important;box-shadow:none !important;outline:0 !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.zp-col):not(.zp-rem):not(.zp-rb):not(.dtfc-fixed-left):not([colspan]),html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.zp-col):not(.zp-rem):not(.zp-rb):not(.dtfc-fixed-left):not([colspan]) *{color:var(--zp-muted) !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.zp-col):not(.zp-rem):not(.zp-rb):not(.dtfc-fixed-left)[style*="background-color"]:not([style*="rgba(0, 0, 0, 0)"]){background:color-mix(in srgb,var(--zp-surf2) 55%,var(--pg)) !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem *{font-size:12px !important;font-weight:800 !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem > *,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb > *{background:transparent !important}
 /* Kopf kompakt */
 html.zp-planer #tabdiv thead tr.zp-hidehead{display:none !important}
+/* Datum bleibt beim Scrollen über den Zeilen stehen */
+html.zp-planer #tabdiv .dataTables_scrollHead{position:sticky !important;top:var(--zp-sh,0px);z-index:6;background:var(--zp-surf,#f6f7fa)}
+html.zp-planer #tabdiv table > thead > tr > th{position:sticky;top:var(--zp-sh,0px);z-index:4}
+html.zp-planer #tabdiv table > thead > tr > th.dtfc-fixed-left{z-index:7}
 html.zp-planer #tabdiv thead th .grid-vertical-item-img,html.zp-planer #tabdiv thead th .kw-zeile,html.zp-planer #tabdiv thead th .kw-arbeitstage{display:none !important}
 html.zp-pretty.zp-planer #tabdiv thead th [class*="grid-vertical"]{background:transparent !important;border:0 !important;color:inherit !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.dtfc-fixed-left{text-align:left !important;vertical-align:bottom;padding:6px 10px !important;color:var(--zp-muted) !important;font-size:11px !important;text-transform:uppercase;letter-spacing:.05em}
@@ -3821,13 +3825,16 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                 if (m) { const leaf = [td, ...td.querySelectorAll('*')].reverse().find(x => !x.children.length && /\bB\b/.test(x.textContent)); if (leaf) { leaf.textContent = leaf.textContent.replace(/\bB\b/, 'B' + (m[1] || m[2] || m[3])); t = (td.textContent || '').toUpperCase(); } }
                 if (tips.trim() && !td.title) td.title = tips.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
             }
-            const bg = rgbOf(td.style.backgroundColor) || rgbOf((td.firstElementChild && td.firstElementChild.style.backgroundColor) || '');
+            const chroma = c => c ? Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) : 0;
+            // LHR färbt oft ein inneres Element, die Zelle selbst ist grau → die kräftigste Farbe gewinnt
+            const cands = [td, ...td.querySelectorAll('[style*="background"]')].map(x => rgbOf(x.style.backgroundColor)).filter(c => c && c.a > .3);
+            const bg = cands.sort((a, b) => chroma(b) - chroma(a))[0] || null;
             const pink = bg && bg.r > 230 && bg.g > 90 && bg.g < 170 && bg.b > 150;           // LHR-Remote-Rosa
             const hasB = /B\d*/.test(t.replace(/\s+/g, '')), hasR = /(^|\s)R(\s|$)|^RB/.test(t) || pink;
             const rb = hasR && hasB, r = hasR && !hasB;
             if (td.classList.contains('zp-rem') !== r) td.classList.toggle('zp-rem', r);
             if (td.classList.contains('zp-rb') !== rb) td.classList.toggle('zp-rb', rb);
-            const colored = bg && bg.a > .3 && !r && !rb && !(Math.max(bg.r, bg.g, bg.b) - Math.min(bg.r, bg.g, bg.b) < 40 && lumOf(bg) < .35);
+            const colored = bg && bg.a > .3 && !r && !rb && chroma(bg) >= 45;
             td.classList.toggle('zp-col', !!colored);
             if (colored) { const c = cssRgb(bg); if (td.style.getPropertyValue('--zc') !== c) td.style.setProperty('--zc', c); }
             td.classList.remove('zp-ink');
@@ -4803,6 +4810,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         document.documentElement.classList.toggle('zp-zdl', PAGE === 'zdl');
         document.documentElement.classList.add('zp-p-' + PAGE);
         if (/urlaubsplaner/i.test(location.pathname)) document.documentElement.classList.add('zp-planer');
+        { const upd = () => { const h = document.getElementById('zp-shell-host'); document.documentElement.style.setProperty('--zp-sh', (h ? Math.round(h.getBoundingClientRect().height) : 0) + 'px'); }; setTimeout(upd, 500); setInterval(upd, 3000); window.addEventListener('resize', upd); }
         if (IS_ABW) document.documentElement.classList.add('zp-abwp');
         { const lpt = document.getElementById('le_periode_text'); if (lpt) { let t = null; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => safe('App-Leiste', () => { readShellSource(); renderShell(); }), 250); }).observe(lpt.closest('#tabdivup') || lpt, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] }); } }
         try { document.title = APP_TITLE; } catch (e) { }
