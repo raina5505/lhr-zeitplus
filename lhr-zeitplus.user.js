@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.21.1
+// @version      5.22.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.21.1';
+    const VERSION = '5.22.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1702,7 +1702,8 @@ html body #zp-abw-bar button{height:32px;padding:0 13px;border-radius:10px !impo
 html body #zp-abw-bar button.on{background:var(--zp-accent) !important;border-color:var(--zp-accent) !important;color:var(--zp-onacc,#fff) !important}
 #zp-abw-bar button:disabled{opacity:.5;cursor:not-allowed}
 #zp-abw-bar .h{color:var(--zp-muted);font-size:12px;margin-left:6px}
-html.zp-abw-only #tabdiv tbody > tr:not(.zp-me):not(.zp-favrow){display:none !important}
+html.zp-abw-only #tabdiv{display:none !important}
+#zp-abw-fav{display:block;margin:0 0 14px}
 #tabdiv td.dtfc-fixed-left:has(> .zp-star){padding-right:24px !important}
 #tabdiv tr:hover td > .zp-star{opacity:.85}
 #tabdiv td.zp-fav > .zp-star{opacity:1;color:#f5c542 !important}
@@ -2048,8 +2049,14 @@ input,select{font-size:13px;margin:0}
 .zk-d.brd{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 75%,transparent)}
 .zk-d.brd:not(.abs){background:color-mix(in srgb,var(--zp-bad) 7%,transparent);color:color-mix(in srgb,var(--zp-bad) 70%,var(--zp-text))}
 .zk-d.brd.past{opacity:1 !important;filter:none !important}
-.zk-d.rem{box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)}
-.zk-d.rem.brd,.zk-d.rem.brd.abs{box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf),inset 0 0 0 2.5px color-mix(in srgb,var(--zp-bad) 85%,transparent)}
+.zk-d.rem,.zk-d.rem.abs{background:transparent !important;color:var(--zp-text);box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)}
+.zk-d.rem.abs i{color:var(--zp-rem,#2dd4bf);opacity:1}
+.zk-d.rem.past{opacity:.75}
+/* Bereitschaft + Remote: Neon-Rahmen, der rot/türkis durchläuft */
+.zk-d.rem.brd,.zk-d.rem.brd.abs{box-shadow:none !important;border:2px solid transparent;background:linear-gradient(var(--zp-surf),var(--zp-surf)) padding-box,linear-gradient(90deg,var(--zp-bad),var(--zp-rem,#2dd4bf),var(--zp-bad),var(--zp-rem,#2dd4bf),var(--zp-bad)) border-box !important;background-size:100% 100%,300% 100% !important;animation:zkneon 3s linear infinite;filter:drop-shadow(0 0 3px color-mix(in srgb,var(--zp-rem,#2dd4bf) 45%,transparent))}
+.zk-d.rem.brd::before{display:none}
+@keyframes zkneon{to{background-position:0 0,150% 0}}
+@media (prefers-reduced-motion:reduce){.zk-d.rem.brd{animation:none}}
 .zk-d.brd::before{content:'';position:absolute;top:3px;left:4px;width:5px;height:5px;border-radius:50%;background:var(--zp-bad)}
 .zk-d.brd.abs{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 85%,transparent)}
 .zk-sw.brs{box-shadow:inset 0 0 0 2px var(--zp-bad);background:color-mix(in srgb,var(--zp-bad) 12%,transparent)}
@@ -3665,6 +3672,61 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         { const sp = ['tabl_det_erreichbarkeit_span', 'tabl_det_abwesenheit_span', 'detaildn_name'].map(i => document.getElementById(i)).filter(Boolean);
           if (sp.length) document.documentElement.classList.toggle('zp-tdet', sp.some(x => x.textContent.replace(/\u00a0/g, ' ').trim().length > 0)); }
     }
+    /* Abwesenheitsübersicht „Ich + Favoriten“: eigene Übersicht aus den Team-Daten (LHR lädt seitenweise, Filtern geht dort nicht) */
+    const ABWP_CSS = `
+.ap{font:13px/1.3 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text);background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:16px;padding:12px 14px;overflow-x:auto}
+.ap .hd{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.ap .hd b{font-size:14px;display:inline-flex;align-items:center;gap:6px}.ap .hd span{color:var(--zp-muted);font-size:12px}.ap .hd .sp{flex:1}
+.ap .hd button{border:0;background:transparent;color:var(--zp-muted);cursor:pointer;display:grid;place-items:center;padding:4px;border-radius:7px}
+.ap .hd button:hover{background:var(--zp-surf2);color:var(--zp-text)}
+.ap table{border-collapse:separate;border-spacing:3px;min-width:100%}
+.ap th{font-size:11px;font-weight:600;color:var(--zp-muted);text-align:center;padding:2px 0;white-space:nowrap}
+.ap th.we{opacity:.55}.ap th.t{color:var(--zp-accent)}
+.ap td.n{white-space:nowrap;font-weight:600;padding-right:10px;position:sticky;left:0;background:var(--zp-surf);z-index:1}
+.ap td.n small{color:var(--zp-muted);font-weight:500;margin-left:6px}
+.ap td.c{width:30px;min-width:30px;height:26px;border-radius:6px;background:var(--zp-surf2);text-align:center;font-size:11px;font-weight:700}
+.ap td.c.frei{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--zp-muted) 18%,transparent) 0 2px,transparent 2px 6px)}
+.ap td.c.rem{background:transparent;box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf);color:var(--zp-rem,#2dd4bf)}
+.ap td.c.abs{color:#111}
+.ap td.c.t{outline:1.5px solid var(--zp-accent);outline-offset:1px}
+.ap tr.me td.n{color:var(--zp-accent)}
+.ap .lg{display:flex;gap:14px;margin-top:8px;font-size:11.5px;color:var(--zp-muted);flex-wrap:wrap}
+.ap .lg i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-2px;margin-right:5px}
+.ap .none{color:var(--zp-muted);padding:6px 2px}`;
+    function renderAbwPanel(show) {
+        let host = document.getElementById('zp-abw-fav');
+        const tabdiv = document.getElementById('tabdiv'); if (!tabdiv) return;
+        if (!show) { if (host) host.style.display = 'none'; return; }
+        if (!host) {
+            host = el('div'); host.id = 'zp-abw-fav'; tabdiv.parentNode.insertBefore(host, tabdiv);
+            const root = mkRoot(host); const st = document.createElement('style'); st.textContent = ABWP_CSS; root.appendChild(st);
+            const box = el('div', 'ap zp-font'); box.id = 'ap'; root.appendChild(box);
+            box.addEventListener('click', e => { if (e.target.closest('[data-ar]')) { teamRefresh(() => renderAbwPanel(true)); renderAbwPanel(true); } });
+        }
+        host.style.display = '';
+        const box = host.shadowRoot.getElementById('ap'), data = teamStore(), u = userInfo(), me = nameKey(u.name);
+        const people = [{ k: me, n: u.name, me: true }].concat(favList().filter(f => f.k !== me));
+        const t0 = new Date(); t0.setHours(0, 0, 0, 0);
+        const keys = data ? Object.keys(data.days).filter(k => dParse(k) >= t0).sort((a, b) => dParse(a) - dParse(b)).slice(0, 31) : [];
+        const head = `<div class="hd"><b>${ico('users', 14)} Ich + Favoriten</b><span>${data ? 'Stand ' + clock(data.ts) : ''}${teamBusy ? ' · wird aktualisiert …' : ''}</span><span class="sp"></span><button type="button" data-ar="1" title="Neu laden (auch andere Abteilungen)">${ico('refresh', 14)}</button></div>`;
+        if (!keys.length) { box.innerHTML = head + `<div class="none">${teamBusy ? 'Daten werden geladen …' : 'Noch keine Daten – ↻ klicken.'}</div>`; return; }
+        const tk = dayKey(new Date());
+        const th = keys.map(k => { const dt = dParse(k), we = dt.getDay() === 0 || dt.getDay() === 6; return `<th class="${we ? 'we' : ''}${k === tk ? ' t' : ''}">${WD_SHORT[dt.getDay()]}<br>${pad(dt.getDate())}.${pad(dt.getMonth() + 1)}.</th>`; }).join('');
+        const rows = people.map(p => {
+            const has = keys.some(k => data.days[k] && data.days[k][p.k]);
+            const cells = keys.map(k => {
+                const e = data.days[k] && data.days[k][p.k], t = k === tk ? ' t' : '';
+                if (!e) return `<td class="c${t}" title="keine Daten"></td>`;
+                if (e.st === 'frei') return `<td class="c frei${t}"></td>`;
+                if (e.st === 'rem') return `<td class="c rem${t}" title="Remote / Homeoffice">R</td>`;
+                if (e.st === 'abs') return `<td class="c abs${t}" style="background:${esc(e.c || 'var(--zp-bad)')}" title="abwesend${e.l ? ' (' + esc(e.l) + ')' : ''}">${esc(e.l || '')}</td>`;
+                return `<td class="c${t}" title="da"></td>`;
+            }).join('');
+            return `<tr class="${p.me ? 'me' : ''}"><td class="n">${esc((data.names[p.k] || p.n).replace(/\s+/g, ' '))}${has ? '' : '<small>keine Daten</small>'}</td>${cells}</tr>`;
+        }).join('');
+        box.innerHTML = head + `<table><thead><tr><th></th>${th}</tr></thead><tbody>${rows}</tbody></table>
+            <div class="lg"><span><i style="background:var(--zp-surf2)"></i>da</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)"></i>Remote</span><span><i style="background:#ff3300"></i>abwesend (Farbe wie in LHR)</span><span><i style="background:repeating-linear-gradient(135deg,#8886 0 2px,transparent 2px 6px)"></i>Wochenende / Feiertag</span></div>`;
+    }
     // Abwesenheitsübersicht: Stern am Namen + Filter „Nur Favoriten“
     function abwFavs(favs, myKey) {
         const tabdiv = document.getElementById('tabdiv');
@@ -3696,11 +3758,17 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                 return data.slice(0, 3).some(c => { const t = String(c || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim(); if (u.nr && t === u.nr) return true; const k = nameKey(t); return k && (fk.has(k) || k === mk); });
             });
         }
+        document.documentElement.classList.toggle('zp-abw-only', only);
+        if (only) {
+            const td = teamStore(), me = nameKey(userInfo().name);
+            const miss = !td || Date.now() - td.ts > 20 * 60e3 || favList().some(f => f.k !== me && !td.names[f.k]);
+            if (miss && !teamBusy && !window.__zpAbwTried) { window.__zpAbwTried = true; teamRefresh(() => renderAbwPanel(true)); }
+        }
+        renderAbwPanel(only);
         if (dtOk) {
-            document.documentElement.classList.remove('zp-abw-only');
             const want = only ? 'fav:' + [...favs].sort().join('|') : 'all';
             if (window.__zpAbwOnlyKey !== want) { window.__zpAbwOnly = only; window.__zpAbwOnlyKey = want; try { jq('#tabdiv table.dataTable').each((i, t) => { if (jq.fn.dataTable.isDataTable(t)) jq(t).DataTable().draw(); }); } catch (e) { } }
-        } else document.documentElement.classList.toggle('zp-abw-only', only);
+        }
         const sig = mode + '|' + nf;
         if (bar.dataset.sig === sig) return; bar.dataset.sig = sig;
         bar.innerHTML = `<span class="t">${ico('users', 14)} Anzeigen</span><button type="button" data-af="all" class="${mode !== 'fav' ? 'on' : ''}">Alle</button><button type="button" data-af="fav" class="${mode === 'fav' ? 'on' : ''}"${nf ? '' : ' disabled title="Erst mit ☆ beim Namen Favoriten markieren"'}>★ Ich + Favoriten${nf ? ' (' + nf + ')' : ''}</button><span class="h">☆ beim Namen anklicken, um jemanden als Favorit zu markieren.</span>`;
@@ -3717,16 +3785,20 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                 const x = e.target.closest('[data-unfav]');
                 if (x) { e.stopPropagation(); S.favs = favList().filter(f => f.k !== x.dataset.unfav); saveS(); teamSig = ''; markTeam(); return; }
                 const c = e.target.closest('[data-fk]');
-                if (c) { const td = [...document.querySelectorAll('#tableautab2 td, #tableautab td')].find(t => nameKey(cellName(t)) === c.dataset.fk); if (td) { td.scrollIntoView({ block: 'center', behavior: 'smooth' }); td.click(); td.classList.add('zp-flash'); setTimeout(() => td.classList.remove('zp-flash'), 1200); } else toast('Nicht in der Liste', 'Diese Person ist mit dem aktuellen Filter/der Seite nicht sichtbar.', { icon: 'users' }); }
+                if (c) { const td = [...document.querySelectorAll('#tableautab2 td, #tableautab td')].find(t => nameKey(cellName(t)) === c.dataset.fk); if (!td) { const sf = document.getElementById('tableau_suchfeld'), f = favList().find(x => x.k === c.dataset.fk); if (sf && f) { sf.value = f.n.split(/[\s,]+/).sort((x, y) => y.length - x.length)[0]; ['input', 'keyup'].forEach(ev => sf.dispatchEvent(new Event(ev, { bubbles: true }))); return; } } if (td) { td.scrollIntoView({ block: 'center', behavior: 'smooth' }); td.click(); td.classList.add('zp-flash'); setTimeout(() => td.classList.remove('zp-flash'), 1200); } else toast('Nicht in der Liste', 'Diese Person ist mit dem aktuellen Filter/der Seite nicht sichtbar.', { icon: 'users' }); }
             });
         }
         const byKey = new Map(tcells.map(td => [nameKey(cellName(td)), td]));
         const favs = favList();
+        let tst = {}; try { tst = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
         const items = favs.map(f => {
             const td = byKey.get(f.k), img = td && td.querySelector('img');
+            if (!td && tst[f.k] && Date.now() - tst[f.k].ts < 15 * 60e3) return { f, src: tst[f.k].src, st: tst[f.k].st + ' · andere Abteilung', here: true, other: true };
             const st = img ? (img.getAttribute('title') || img.getAttribute('alt') || '') : '';
             return { f, src: img ? img.src : '', st, here: !!td };
         });
+        const stale = favs.some(f => !byKey.get(f.k) && !(tst[f.k] && Date.now() - tst[f.k].ts < 3 * 60e3));
+        if (stale && tcells.length && !tstBusy) tableauRefresh(() => { teamSig = ''; safe('Team', markTeam); });
         const sig = JSON.stringify(items.map(i => [i.f.k, i.src, i.st, i.here]));
         if (sig === teamSig) return;
         teamSig = sig;
@@ -4121,6 +4193,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                     const dv = td.querySelector('div'), bg = rgbOf(td.style.backgroundColor) || rgbOf(dv && dv.style.backgroundColor);
                     const colored = bg && bg.a > .1 && !(bg.r > 245 && bg.g > 245 && bg.b > 245);
                     if (/^R$/i.test(l)) st = 'rem'; else if (colored || l) st = 'abs';
+                    if (colored) { (days[dk] = days[dk] || {})[k] = { st, l, c: cssRgb(bg) }; return; }
                 }
                 (days[dk] = days[dk] || {})[k] = { st, l };
             });
@@ -4137,41 +4210,85 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         try { localStorage.setItem(TEAM_KEY, JSON.stringify(data)); } catch (e) { }
     }
     let teamBusy = false;
-    function teamRefresh(done) {
+    const zsleep = ms => new Promise(r => setTimeout(r, ms));
+    async function zwait(fn, ms, step) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { const v = fn(); if (v) return v; } catch (e) { } await zsleep(step || 400); } return null; }
+    function teamMerge(a, b) {
+        if (!a) return b; if (!b) return a;
+        Object.entries(b.days).forEach(([dk, ppl]) => { a.days[dk] = Object.assign(a.days[dk] || {}, ppl); });
+        Object.assign(a.names, b.names); a.ts = Math.max(a.ts, b.ts); return a;
+    }
+    function hiddenFrame(name, src) {
+        const fr = document.createElement('iframe'); fr.name = name; fr.setAttribute('aria-hidden', 'true');
+        fr.style.cssText = 'position:fixed;left:-9999px;top:0;width:1400px;height:900px;border:0;visibility:hidden';
+        fr.src = src; document.body.appendChild(fr); return fr;
+    }
+    const setSel = (w, x, val, fn) => { if (!x || x.value === val || ![...x.options].some(o => o.value === val)) return false; x.value = val; try { if (typeof w[fn] === 'function') w[fn](x); else x.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) { try { x.dispatchEvent(new Event('change', { bubbles: true })); } catch (e2) { } } return true; };
+    async function teamRefresh(done) {
         if (teamBusy) return; teamBusy = true;
         const a = document.getElementById('zm_abw_uebersicht');
-        const fr = document.createElement('iframe'); fr.name = 'zp-team'; fr.setAttribute('aria-hidden', 'true');
-        fr.style.cssText = 'position:fixed;left:-9999px;top:0;width:1400px;height:900px;border:0;visibility:hidden';
-        fr.src = a ? a.getAttribute('href') : '/Self/Abwesenheitsuebersicht?modulId=0';
-        let tries = 0;
-        const fin = ok => { teamBusy = false; setTimeout(() => fr.remove(), 500); if (done) done(ok); };
-        let widened = 0, waitUntil = 0, sig0 = '';
-        const wantK = () => favList().map(f => f.k).filter(k => k !== nameKey(userInfo().name));
-        const poll = () => {
-            tries++;
-            let data = null;
-            try { const d = fr.contentDocument; if (d && d.querySelector('#tabdiv tbody td')) { data = teamParse(d, fr.contentWindow); } } catch (e) { }
-            if (data) {
-                const miss = wantK().filter(k => !data.names[k]);
-                const sig = (() => { try { const d = fr.contentDocument; return (d.querySelector('#tabdiv .dataTables_info') || {}).textContent + '|' + d.querySelectorAll('#tabdiv tbody tr').length; } catch (e) { return ''; } })();
-                if (miss.length && widened && Date.now() < waitUntil && sig === sig0) { setTimeout(poll, 700); return; }   // neue Liste noch nicht da
-                if (miss.length && widened < 2 && tries < 140) {      // Favoriten aus anderen Abteilungen/Firmen: 1) alle Abteilungen, 2) alle Firmen
-                    widened++; teamSave(data); sig0 = sig; waitUntil = Date.now() + 25000;
-                    try {
-                        const d = fr.contentDocument, w = fr.contentWindow, fa = d.getElementById('abw_dropdown_fa'), ab = d.getElementById('abw_dropdown_abt');
-                        const set = (x, fn) => { if (!x || x.value === '0' || ![...x.options].some(o => o.value === '0')) return false; x.value = '0'; try { if (typeof w[fn] === 'function') w[fn](); else x.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) { x.dispatchEvent(new Event('change', { bubbles: true })); } return true; };
-                        if (widened === 1) { if (!set(ab, 'changeAbteilung')) { widened = 2; set(fa, 'changeAbt'); setTimeout(() => { try { set(d.getElementById('abw_dropdown_abt'), 'changeAbteilung'); } catch (e) { } }, 2500); } }
-                        else { set(fa, 'changeAbt'); setTimeout(() => { try { set(d.getElementById('abw_dropdown_abt'), 'changeAbteilung'); } catch (e) { } }, 2500); }
-                    } catch (e) { }
-                    setTimeout(poll, 1500); return;
+        const fr = hiddenFrame('zp-team', a ? a.getAttribute('href') : '/Self/Abwesenheitsuebersicht?modulId=0');
+        let ok = false;
+        try {
+            await zwait(() => fr.contentDocument && fr.contentDocument.readyState === 'complete', 25000);
+            const d = () => fr.contentDocument, w = () => fr.contentWindow;
+            const ready = () => d() && d().querySelector('#tabdiv tbody td.kalTag, #tabdiv tbody td.kalTag_sa, #tabdiv tbody td.kalTag_so_fe');
+            if (!await zwait(ready, 25000)) throw 'keine Tabelle';
+            await zsleep(500);
+            const sig = () => { const x = d(); return ((x.querySelector('#tabdiv .dataTables_info') || {}).textContent || '') + '|' + x.querySelectorAll('#tabdiv tbody tr').length + '|' + ((x.querySelector('#tabdiv tbody tr') || {}).textContent || '').slice(0, 40); };
+            const settle = async s0 => { await zwait(() => sig() !== s0 && ready(), 20000); await zsleep(700); };
+            const me = nameKey(userInfo().name);
+            const missing = acc => favList().filter(f => f.k !== me && !(acc && acc.names[f.k]));
+            let acc = teamParse(d(), w());
+            const api = () => { const jq = w().jQuery, t = [...d().querySelectorAll('#tabdiv table')].find(x => x.querySelector('tbody td.kalTag, tbody td.kalTag_sa')); return jq && jq.fn && jq.fn.dataTable && t && jq.fn.dataTable.isDataTable(t) ? jq(t).DataTable() : null; };
+            const searchMissing = async () => {          // jede fehlende Person gezielt suchen (klappt auch, wenn LHR seitenweise lädt)
+                for (const f of missing(acc)) {
+                    const term = (f.n || '').split(/[\s,]+/).filter(x => x.length > 1).sort((x, y) => y.length - x.length)[0]; if (!term) continue;
+                    const s0 = sig(), A = api();
+                    if (A) A.search(term).draw();
+                    else { const inp = d().getElementById('csuche'); if (!inp) break; inp.value = term; ['input', 'keyup', 'search'].forEach(ev => inp.dispatchEvent(new Event(ev, { bubbles: true }))); }
+                    await settle(s0); acc = teamMerge(acc, teamParse(d(), w()));
                 }
-                teamSave(data); fin(true); return;
+                const A = api(); if (A) { const s0 = sig(); A.search('').draw(); await settle(s0); }
+            };
+            if (missing(acc).length) {
+                const s0 = sig(); if (setSel(w(), d().getElementById('abw_dropdown_abt'), '0', 'changeAbteilung')) { await settle(s0); acc = teamMerge(acc, teamParse(d(), w())); }
             }
-            if (tries > 140) { fin(false); return; }
-            setTimeout(poll, 500);
-        };
-        fr.addEventListener('load', () => setTimeout(poll, 800));
-        document.body.appendChild(fr);
+            if (missing(acc).length) await searchMissing();
+            if (missing(acc).length) {
+                const s0 = sig();
+                if (setSel(w(), d().getElementById('abw_dropdown_fa'), '0', 'changeAbt')) {
+                    await zsleep(2500); setSel(w(), d().getElementById('abw_dropdown_abt'), '0', 'changeAbteilung');
+                    await settle(s0); acc = teamMerge(acc, teamParse(d(), w()));
+                    if (missing(acc).length) await searchMissing();
+                }
+            }
+            if (acc) { teamSave(acc); ok = true; }
+        } catch (e) { }
+        teamBusy = false; setTimeout(() => fr.remove(), 500); if (done) done(ok);
+    }
+    /* Tableau: Status von Favoriten aus anderen Abteilungen im Hintergrund holen */
+    const TST_KEY = 'zplus_tstat';
+    let tstBusy = false;
+    async function tableauRefresh(done) {
+        if (tstBusy) return; tstBusy = true;
+        const a = document.getElementById('zm_tableau');
+        const fr = hiddenFrame('zp-tst', a ? a.getAttribute('href') : '/Self/Tableau?modulId=0');
+        try {
+            const d = () => fr.contentDocument, w = () => fr.contentWindow;
+            const cells = () => [...d().querySelectorAll('#tableautab2 td, #tableautab td')].filter(td => cellName(td).length > 2);
+            if (!await zwait(() => d() && cells().length, 25000)) throw 'leer';
+            const s0 = cells().length + '|' + cells().map(cellName).join('').length;
+            const sig = () => cells().length + '|' + cells().map(cellName).join('').length;
+            setSel(w(), d().getElementById('per_page_count'), '1000', 'onChangePerPage');
+            await zsleep(1200);
+            setSel(w(), d().getElementById('tableau_dropdown_abt'), '0', 'changeAbteilung');
+            await zwait(() => sig() !== s0 && cells().length, 20000); await zsleep(1500);
+            const st = {}; const favs = new Set(favList().map(f => f.k));
+            cells().forEach(td => { const k = nameKey(cellName(td)); if (!favs.has(k)) return; const img = td.querySelector('img'); st[k] = { src: img ? img.src : '', st: img ? (img.getAttribute('title') || img.getAttribute('alt') || '') : '', ts: Date.now() }; });
+            let old = {}; try { old = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
+            try { localStorage.setItem(TST_KEY, JSON.stringify(Object.assign(old, st))); } catch (e) { }
+        } catch (e) { }
+        tstBusy = false; setTimeout(() => fr.remove(), 500); if (done) done();
     }
     const TEAM_CSS = `
 .tm{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 16px;border-radius:16px;background:var(--zp-surf);border:1px solid var(--zp-line);font:13px/1.3 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
