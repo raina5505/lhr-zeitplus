@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.23.9
+// @version      5.24.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.23.9';
+    const VERSION = '5.24.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -312,7 +312,7 @@
         if (act === 'pdf') { openPop(t, `<h5>Report drucken</h5>${shell.pdf.map((m, i) => `<button type="button" class="zs-mi" data-pdf="${i}">${ico('pdf', 15)}${esc(m.label)}</button>`).join('')}<div class="zs-sepl"></div><button type="button" class="zs-mi" data-act="pdfyear">${ico('calendar', 15)}Ganzes Jahr herunterladen…</button>`, 250); return; }
         if (act === 'pdfyear') { closePops(); openYearPdf(); return; }
         if (act === 'upd') { closePops(); openUpdate(); return; }
-        if (act === 'updcheck') { closePops(); openUpdate(); checkUpdate(false, true); return; }
+        if (act === 'updcheck') { closePops(); openUpdate(); return; }
         if (act === 'theme') { cycleTheme(); return; }
         if (act === 'gear') { openModal(); return; }
         if (act === 'cd') { openModal('extra'); return; }
@@ -2486,28 +2486,60 @@ button.zk-li:hover{border-color:var(--zp-accent)}
     const vNewer = (a, b) => { const x = vNum(a), y = vNum(b); for (let i = 0; i < 3; i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
     const updState = () => { try { return JSON.parse(localStorage.getItem('zplus_upd') || '{}') || {}; } catch (e) { return {}; } };
     const updAvail = () => { const u = updState(); return !!(u.latest && vNewer(u.latest, VERSION)); };
-    function openUpdate() {           // muss direkt im Klick passieren, sonst blockt der Browser den neuen Tab
-        const a = document.createElement('a'); a.href = RAW_URL; a.target = '_blank'; a.rel = 'noopener';
-        let ok = false; try { const w = window.open(RAW_URL, '_blank'); ok = !!w; } catch (e) { }
-        if (!ok) { try { document.body.appendChild(a); a.click(); a.remove(); } catch (e) { location.href = RAW_URL; } }
-        toast('Update öffnet sich', 'Im neuen Tab auf <b>„Aktualisieren“</b> klicken, danach diese Seite neu laden.', { icon: 'refresh', ms: 12000 });
+    const API_URL = 'https://api.github.com/repos/raina5505/lhr-zeitplus/commits/main';
+    const pinUrl = sha => 'https://raw.githubusercontent.com/raina5505/lhr-zeitplus/' + sha + '/lhr-zeitplus.user.js';
+    const tfetch = (url, ms, opt) => { let ctl = null; try { ctl = new AbortController(); setTimeout(() => ctl.abort(), ms || 8000); } catch (e) { } return fetch(url, Object.assign({ cache: 'no-store', credentials: 'omit', signal: ctl ? ctl.signal : undefined }, opt || {})); };
+    // neueste Version holen – zuerst über den letzten Commit (Link mit Commit-Kennung → kein Zwischenspeicher dazwischen), sonst direkt
+    async function latestInfo() {
+        const errs = [];
+        try {
+            const r = await tfetch(API_URL, 8000, { headers: { Accept: 'application/vnd.github+json' } });
+            if (!r.ok) throw 'GitHub ' + r.status;
+            const sha = ((await r.json()) || {}).sha; if (!sha) throw 'kein Commit';
+            const r2 = await tfetch(pinUrl(sha)); if (!r2.ok) throw 'Datei ' + r2.status;
+            const m = (await r2.text()).match(/@version\s+([\d.]+)/); if (!m) throw 'keine Version';
+            return { latest: m[1], url: pinUrl(sha) };
+        } catch (e) { errs.push(String(e && e.name === 'AbortError' ? 'Zeitüberschreitung' : e && e.message || e)); }
+        try {
+            const r = await tfetch(RAW_URL + '?t=' + Date.now()); if (!r.ok) throw 'Datei ' + r.status;
+            const m = (await r.text()).match(/@version\s+([\d.]+)/); if (!m) throw 'keine Version';
+            return { latest: m[1], url: RAW_URL };
+        } catch (e) { errs.push(String(e && e.name === 'AbortError' ? 'Zeitüberschreitung' : e && e.message || e)); }
+        throw errs.join(' / ');
+    }
+    function openUpdate() {           // Tab muss direkt im Klick aufgehen, sonst blockt ihn der Browser → leer öffnen, Link danach setzen
+        let w = null; try { w = window.open('', '_blank'); } catch (e) { }
+        const go = url => {
+            if (w && !w.closed) { try { w.location.href = url; return; } catch (e) { } }
+            const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener';
+            try { document.body.appendChild(a); a.click(); a.remove(); } catch (e) { location.href = url; }
+        };
+        if (w) { try { w.document.write('<title>LHR Zeit + – Update</title><body style="font:15px system-ui;background:#16130f;color:#eee;display:grid;place-items:center;height:90vh">Neueste Version wird geladen …</body>'); } catch (e) { } }
+        const u = updState();
+        latestInfo().then(i => {
+            try { localStorage.setItem('zplus_upd', JSON.stringify({ latest: i.latest, url: i.url, checked: Date.now() })); } catch (e) { }
+            if (SH) safe('App-Leiste', renderShell);
+            go(i.url);
+            toast(vNewer(i.latest, VERSION) ? 'Update ' + i.latest + ' öffnet sich' : 'Du hast schon ' + VERSION, vNewer(i.latest, VERSION) ? 'Im neuen Tab auf <b>„Aktualisieren“</b> klicken, danach diese Seite neu laden.' : 'Im neuen Tab kannst du sie trotzdem neu installieren.', { icon: 'refresh', ms: 12000 });
+        }).catch(err => {
+            go(u.url || RAW_URL);
+            toast('GitHub nicht erreichbar', 'Ich öffne den Update-Link direkt. (' + String(err).slice(0, 120) + ')', { icon: 'alert', ms: 12000 });
+        });
     }
     function checkUpdate(manual, force) {
         const u = updState();
         if (!manual && !force && u.checked && Date.now() - u.checked < 15 * 60e3) { if (updAvail() && SH) renderShell(); return; }
-        let ctl = null; try { ctl = new AbortController(); setTimeout(() => ctl.abort(), 8000); } catch (e) { }
-        fetch(RAW_URL + '?t=' + Date.now(), { cache: 'no-store', signal: ctl ? ctl.signal : undefined }).then(r => r.ok ? r.text() : Promise.reject(r.status)).then(txt => {
-            const m = txt.match(/@version\s+([\d.]+)/); if (!m) throw 'keine Version';
-            const latest = m[1], had = u.latest;
-            try { localStorage.setItem('zplus_upd', JSON.stringify({ latest, checked: Date.now() })); } catch (e) { }
+        latestInfo().then(i => {
+            const latest = i.latest, had = u.latest;
+            try { localStorage.setItem('zplus_upd', JSON.stringify({ latest, url: i.url, checked: Date.now() })); } catch (e) { }
             if (SH) safe('App-Leiste', renderShell);
             if (vNewer(latest, VERSION)) {
                 if (manual || had !== latest) {
-                    const box = overlay(); toast('Update verfügbar: ' + latest, 'Du hast ' + VERSION + '. Oben auf „Update“ klicken → dann in Tampermonkey „Aktualisieren“.', { icon: 'refresh', ms: 15000 });
+                    const box = overlay(); toast('Update verfügbar: ' + latest, 'Du hast ' + VERSION + '. Hier oder oben auf „Update“ klicken → dann in Tampermonkey „Aktualisieren“.', { icon: 'refresh', ms: 15000 });
                     const ts = box.getElementById('zp-toasts'), t = ts && ts.lastElementChild; if (t) t.addEventListener('click', openUpdate);
                 }
             } else if (manual) toast('Alles aktuell', 'Du hast die neueste Version ' + VERSION + '.', { icon: 'check', ms: 5000 });
-        }).catch(() => { });
+        }).catch(err => { if (manual) toast('Update-Prüfung fehlgeschlagen', String(err).slice(0, 140), { icon: 'alert', ms: 9000 }); });
     }
     function toast(title, text, opts) {
         opts = opts || {};
