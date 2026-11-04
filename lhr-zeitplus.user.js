@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.20.4
+// @version      5.21.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.20.4';
+    const VERSION = '5.21.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1515,7 +1515,27 @@ html.zp-pretty.zp-p-other #content select:focus,html.zp-pretty.zp-p-other #conte
 html.zp-pretty.zp-p-other #content hr{border:0 !important;border-top:1px solid var(--zp-line) !important;margin:14px 0 !important}
 html.zp-pretty.zp-p-other #content table.dataTable tbody td,html.zp-pretty.zp-p-other #content table.dataTable thead th{border-color:var(--zp-grid) !important}
 html.zp-pretty.zp-p-other #content table.dataTable thead th{font-size:12px;letter-spacing:.03em}
-html.zp-pretty #tableau_mitarbeiter_container .scrolldiv{border:1px solid var(--zp-line) !important;border-radius:14px;overflow:hidden}
+html.zp-pretty #tableau_mitarbeiter_container .scrolldiv{border:0 !important;border-radius:0;overflow:visible !important;background:transparent !important;width:100%}
+/* Tableau als Karten-Raster */
+html.zp-pretty #tableautab2,html.zp-pretty #tableautab{border-collapse:separate !important;border-spacing:8px !important;margin:-8px !important;background:transparent !important;width:calc(100% + 16px) !important;table-layout:fixed !important}
+html.zp-pretty #tableautab2 td,html.zp-pretty #tableautab td{min-width:0 !important;width:auto !important;max-width:none !important;height:auto !important;padding:9px 30px 9px 12px !important;border:1px solid var(--zp-line) !important;border-radius:12px !important;background-color:var(--zp-surf,#f6f7fa) !important;font:600 14px/1.25 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;color:var(--zp-text) !important;cursor:pointer;transition:border-color .12s,background-color .12s,transform .1s;vertical-align:middle}
+html.zp-pretty #tableautab2 td:empty,html.zp-pretty #tableautab td:empty{border:0 !important;background:transparent !important;cursor:default}
+html.zp-pretty #tableautab2 td img,html.zp-pretty #tableautab td img,html.zp-pretty #tableautab2 td > span:first-child,html.zp-pretty #tableautab td > span:first-child{width:22px !important;height:22px !important;vertical-align:middle;margin-right:8px !important}
+html.zp-pretty #tableautab2 td:not(:empty):hover,html.zp-pretty #tableautab td:not(:empty):hover{border-color:var(--zp-accent) !important;background-color:color-mix(in srgb,var(--zp-accent) 10%,var(--zp-surf,#f6f7fa)) !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) #tableautab2 td:not(:empty),html.zp-dark body:not(#zp-a):not(#zp-b) #tableautab td:not(:empty){background-color:var(--zp-surf) !important}
+html.zp-dark body:not(#zp-a):not(#zp-b) #tableautab2 td:not(:empty):hover,html.zp-dark body:not(#zp-a):not(#zp-b) #tableautab td:not(:empty):hover{background-color:color-mix(in srgb,var(--zp-accent) 12%,var(--zp-surf)) !important}
+html.zp-pretty #tableautab2 td.zp-me,html.zp-pretty #tableautab td.zp-me{border-color:var(--zp-accent) !important;box-shadow:0 0 0 1px var(--zp-accent) !important}
+html.zp-pretty #tableautab2 td.zp-fav,html.zp-pretty #tableautab td.zp-fav{border-color:color-mix(in srgb,#f5c542 70%,transparent) !important;box-shadow:none !important}
+html.zp-pretty #dtab_wrapper{margin-top:14px}
+/* Detailbereich (Erreichbarkeit/Abwesenheit) erst zeigen, wenn eine Person angeklickt wurde */
+html.zp-pretty:not(.zp-tdet) #tableaudetailtab,html.zp-pretty:not(.zp-tdet) .detaildn_name_abt_wrapper,html.zp-pretty:not(.zp-tdet) #tableau_a_zdl{display:none !important}
+html.zp-pretty #content > hr.tableauTrennstrich:last-of-type{display:none}
+html.zp-pretty.zp-tdet .detaildn_name_abt_wrapper{max-width:1240px;margin:18px auto 6px;font:700 17px/1.3 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
+html.zp-pretty.zp-tdet #detaildn_abteilung{font-size:13px;font-weight:500;color:var(--zp-muted)}
+html.zp-pretty #tableaudetailtab{border-collapse:separate !important;border-spacing:12px 0 !important}
+html.zp-pretty #tableaudetailtab td.empty{display:none !important}
+html.zp-pretty #tableaudetailtab td strong{display:block;margin-bottom:6px;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--zp-muted)}
+html.zp-pretty #tableaudetailtab td span{font-size:14px;line-height:1.6}
 html.zp-pretty #tableautab2 td,html.zp-pretty #tableautab td{white-space:nowrap !important;overflow:hidden !important;text-overflow:clip !important;border-color:var(--zp-grid) !important}
 html.zp-pretty #tableautab2 td *,html.zp-pretty #tableautab td *{text-overflow:clip !important}
 /* Tableau im Dark-Mode: Zellen immer im Theme (LHR färbt ausgewählte Zeilen sonst weiß) */
@@ -1671,8 +1691,8 @@ td.zp-flash{animation:zpflash 1.2s ease-out}
 @keyframes zpflash{0%{box-shadow:inset 0 0 0 3px var(--zp-accent)}100%{box-shadow:inset 0 0 0 0 transparent}}
 #zp-fav-host{display:block;margin:0 0 12px}
 /* Planer: Kopfzeilen (Datum / KW / Arbeitstage, DnNr, Dienstnehmer) lesbar statt hellblau mit weißer Schrift */
-html.zp-dark.zp-planer #content thead th,html.zp-dark.zp-planer #content thead td{background-color:var(--zp-th,var(--zp-surf)) !important;background-image:none !important;color:var(--zp-text) !important;border-color:var(--zp-grid) !important;font-weight:600 !important}
-html.zp-dark.zp-planer #content thead th *,html.zp-dark.zp-planer #content thead td *{color:inherit !important}
+html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #content thead th,html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #content thead td,html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv th,html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv th *{background-color:var(--zp-th,var(--zp-surf)) !important;background-image:none !important;color:var(--zp-text) !important;border-color:var(--zp-grid) !important;font-weight:600 !important}
+html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #content thead th *,html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #content thead td *{color:inherit !important;background:transparent !important}
 html.zp-planer #content thead th,html.zp-planer #content thead td{font-size:12px !important}
 #zp-team-host{display:block;max-width:1240px;margin:0 auto 16px}
 #zp-host.wide ~ #zp-team-host{max-width:none}
@@ -3640,6 +3660,8 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         safe('Team', () => abwFavs(favs, myKey));
         safe('Team', () => { if (document.querySelector('#tabdiv tbody td.kalTag, #tabdiv tbody td.kalTag_sa')) { const dt = teamParse(document, window); teamSave(dt); } });
         renderFavBar(tcells);
+        { const sp = ['tabl_det_erreichbarkeit_span', 'tabl_det_abwesenheit_span', 'detaildn_name'].map(i => document.getElementById(i)).filter(Boolean);
+          if (sp.length) document.documentElement.classList.toggle('zp-tdet', sp.some(x => x.textContent.replace(/\u00a0/g, ' ').trim().length > 0)); }
     }
     // Abwesenheitsübersicht: Stern am Namen + Filter „Nur Favoriten“
     function abwFavs(favs, myKey) {
