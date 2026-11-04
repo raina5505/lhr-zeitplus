@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.23.4
+// @version      5.23.5
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.23.4';
+    const VERSION = '5.23.5';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1732,6 +1732,13 @@ html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem,html
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem > *,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb > *{background:transparent !important}
 /* Kopf kompakt */
 html.zp-planer #tabdiv thead tr.zp-hidehead{display:none !important}
+html.zp-planer #tabdiv thead th .grid-vertical-item-img,html.zp-planer #tabdiv thead th .kw-zeile,html.zp-planer #tabdiv thead th .kw-arbeitstage{display:none !important}
+html.zp-pretty.zp-planer #tabdiv thead th [class*="grid-vertical"]{background:transparent !important;border:0 !important;color:inherit !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.dtfc-fixed-left{text-align:left !important;vertical-align:bottom;padding:6px 10px !important;color:var(--zp-muted) !important;font-size:11px !important;text-transform:uppercase;letter-spacing:.05em}
+html.zp-pretty.zp-planer #tabdiv thead th .zp-kw0{display:block;height:15px}
+html.zp-pretty.zp-planer #tabdiv thead th .zp-kw{display:inline-block;margin-top:3px;white-space:nowrap;padding:1px 4px !important;font-size:9px !important}
+html.zp-pretty.zp-planer #tabdiv thead th{white-space:nowrap}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-hol b,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-hol .zp-wd{color:var(--zp-warn) !important;opacity:1}
 html.zp-pretty.zp-planer #tabdiv thead th .zp-wd{display:block;font-size:10px;font-weight:600;color:var(--zp-muted);text-transform:none}
 html.zp-pretty.zp-planer #tabdiv thead th b{display:block;font-size:12px;color:var(--zp-text)}
 html.zp-pretty.zp-planer #tabdiv thead th .zp-kw{display:inline-block;margin-top:3px;padding:1px 5px;border-radius:99px;font-size:9.5px;font-weight:700;background:color-mix(in srgb,var(--zp-accent) 18%,transparent);color:var(--zp-accent)}
@@ -3826,20 +3833,30 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             td.classList.remove('zp-ink');
             if (!/\bB\b/.test((td.textContent || '').toUpperCase()) || /B\d/.test((td.textContent || '').toUpperCase())) td.dataset.zpPm = (td.getAttribute('style') || '') + '|' + td.textContent;
         });
-        // Kopf: Wochentag zum Datum, KW als kleines Schild am Montag, Zeilen „KW“/„Arbeitstage“ ausblenden
+        // Kopf: LHR stapelt pro Spalte Bild / Datum / KW / Arbeitstage → wir zeigen eine Zeile: Wochentag, Datum, KW-Schild (Montag)
         const y = +(((document.getElementById('le_periode_text') || {}).textContent || '').match(/(\d{4})/) || [])[1] || +((document.getElementById('tSpanDate') || document.getElementById('jahr') || {}).value || new Date().getFullYear());
-        tab.querySelectorAll('thead').forEach(th => [...th.rows].forEach((tr, ri) => { if (ri > 0 && !tr.classList.contains('zp-hidehead')) tr.classList.add('zp-hidehead'); }));
-        tab.querySelectorAll('thead th[rowspan], thead td[rowspan]').forEach(c => { if (c.getAttribute('rowspan') !== '1') { c.dataset.zpRs = c.getAttribute('rowspan'); c.setAttribute('rowspan', '1'); } });
         let lastM = null, yy = y;
-        tab.querySelectorAll('thead th, thead td').forEach(th => {
+        tab.querySelectorAll('thead th').forEach(th => {
             if (th.dataset.zpWd) return;
-            const m = (th.textContent || '').replace(/\s+/g, '').match(/^(\d{1,2})\.(\d{1,2})\.?(?:\d{0,4})$/); if (!m) return;
-            const mo = +m[2] - 1; if (lastM != null && mo < lastM) yy++; lastM = mo;
-            const dt = new Date(yy, mo, +m[1], 12), wd = dt.getDay();
+            const dtEl = th.querySelector('[data-dt]');
+            let dt = null;
+            if (dtEl) dt = dParse(dtEl.getAttribute('data-dt'));
+            if (!dt) {
+                const lab = (th.getAttribute('aria-label') || th.textContent || '').replace(/&nbsp;| /g, ' ').trim();
+                const m = lab.match(/^(\d{1,2})\.(\d{1,2})\.?(?:\s|$)/); if (!m) return;
+                const mo = +m[2] - 1; if (lastM != null && mo < lastM) yy++;
+                dt = new Date(yy, mo, +m[1], 12);
+            }
+            lastM = dt.getMonth(); yy = dt.getFullYear();
+            const wd = dt.getDay();
+            const kwT = ((th.querySelector('.kw-zeile') || {}).textContent || '').trim(), atT = ((th.querySelector('.kw-arbeitstage') || {}).textContent || '').trim();
+            const kw = kwT && /^\d+$/.test(kwT) ? +kwT : (wd === 1 ? isoWeek(dt) : 0);
+            const hol = /feiertag/i.test(th.className);
             th.dataset.zpWd = '1';
-            const kw = wd === 1 ? isoWeek(dt) : 0;
-            th.innerHTML = `<span class="zp-wd">${WD_SHORT[wd]}</span><b>${+m[1]}.${+m[2]}.</b>${kw ? `<span class="zp-kw">KW ${kw}</span>` : ''}`;
+            th.innerHTML = `<span class="zp-wd">${WD_SHORT[wd]}</span><b>${dt.getDate()}.${dt.getMonth() + 1}.</b>${kw ? `<span class="zp-kw">KW ${kw}</span>` : '<span class="zp-kw0"></span>'}`;
+            if (atT) th.title = `KW ${kw} · ${atT} Arbeitstage`;
             th.classList.toggle('zp-we', wd === 0 || wd === 6);
+            th.classList.toggle('zp-hol', hol);
             if (dayKey(dt) === todayKey()) th.classList.add('zp-today');
         });
     }
