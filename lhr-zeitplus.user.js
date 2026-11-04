@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.21.0
+// @version      5.21.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.21.0';
+    const VERSION = '5.21.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -3285,10 +3285,10 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         if (Notification.permission === 'default') Notification.requestPermission();
         else if (explicit) toast('Benachrichtigungen', Notification.permission === 'granted' ? 'Sind bereits erlaubt.' : 'Sind im Browser blockiert – über das Schloss-Symbol in der Adressleiste erlauben.');
     }
-    function fireNotify(title, text, kind) {
-        beep(kind || 'feierabend');
-        toast(title, text, { ms: 20000, icon: kind === 'alarm' ? 'alert' : kind === 'kaffee' ? 'timer' : 'bell' });
-        try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') new Notification(title, { body: text, tag: 'zeitplus' }); } catch (e) { }
+    function fireNotify(title, text, kind, sticky) {
+        safe('Ton', () => beep(kind || 'feierabend'));
+        toast(title, text, { ms: sticky ? 120000 : 20000, icon: kind === 'alarm' ? 'alert' : kind === 'kaffee' ? 'timer' : 'bell' });
+        try { if (typeof Notification !== 'undefined' && Notification.permission === 'granted') { const n = new Notification(title, { body: text, tag: 'zeitplus-' + title, requireInteraction: !!sticky, renotify: true }); n.onclick = () => { try { window.focus(); n.close(); } catch (e) { } }; } } catch (e) { }
     }
     function onceToday(id) {
         const k = 'zplus_fired', today = todayKey();
@@ -3315,8 +3315,10 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             if (!x.on) return;
             const [h, m] = x.t.split(':').map(Number), tm = h * 60 + m;
             const nm2 = x.name || 'Kaffeepause', isCof = /kaffee|pause/i.test(nm2);
-            if (nm >= tm && nm - tm < 3 && onceToday('rem@' + pad(h) + ':' + pad(m) + '@' + nm2))
-                fireNotify((isCof ? '☕ ' : '📅 ') + nm2, 'Es ist ' + pad(h) + ':' + pad(m) + ' Uhr' + (isCof ? ' – Zeit für eine kurze Pause.' : ' – ' + nm2 + ' beginnt.'), 'kaffee');
+            if (nm >= tm && nm - tm < 20 && onceToday('rem@' + pad(h) + ':' + pad(m) + '@' + nm2)) {
+                const late = nm - tm >= 2 ? ' (vor ' + (nm - tm) + ' min)' : '';
+                fireNotify((isCof ? '☕ ' : '📅 ') + nm2, (late ? 'Um ' : 'Es ist ') + pad(h) + ':' + pad(m) + ' Uhr' + late + (isCof ? ' – Zeit für eine kurze Pause.' : ' – ' + nm2 + (late ? ' hat begonnen.' : ' beginnt.')), 'kaffee', true);
+            }
         });
     }
     function checkNotify(c, now) {
@@ -4090,7 +4092,18 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         let y = start.getFullYear(), lastM = start.getMonth();
         const colDate = head.map(th => { const m = th.textContent.trim().match(/^(\d{1,2})\.(\d{1,2})\.?$/); if (!m) return null; const mo = +m[2] - 1; if (mo < lastM - 6) y++; lastM = mo; return dayKey(new Date(y, mo, +m[1], 12)); });
         let rows = [];
-        try { const jq = win && win.jQuery; if (jq && jq.fn && jq.fn.dataTable) rows = [...jq(tbl).DataTable().rows().nodes()]; } catch (e) { }
+        try {
+            const jq = win && win.jQuery;
+            if (jq && jq.fn && jq.fn.dataTable && jq.fn.dataTable.isDataTable(tbl)) {
+                const api = jq(tbl).DataTable(), nodes = api.rows().nodes().toArray(), data = api.rows().data().toArray();
+                rows = data.map((r, i) => {
+                    if (nodes[i]) return nodes[i];
+                    const tr = doc.createElement('tr');           // Zeile auf einer anderen Seite (noch nicht gezeichnet): aus den Rohdaten bauen
+                    (Array.isArray(r) ? r : Object.values(r)).forEach(c => { const td = doc.createElement('td'); td.innerHTML = String(c == null ? '' : c); const dv = td.firstElementChild; if (dv && dv.className) td.className = dv.className; tr.appendChild(td); });
+                    return tr;
+                });
+            }
+        } catch (e) { }
         if (!rows.length) rows = [...tbl.querySelectorAll('tbody > tr')];
         const favs = new Set(favList().map(f => f.k)), myKey = nameKey(userInfo().name);
         const days = {}, names = {};
@@ -4132,28 +4145,29 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         fr.src = a ? a.getAttribute('href') : '/Self/Abwesenheitsuebersicht?modulId=0';
         let tries = 0;
         const fin = ok => { teamBusy = false; setTimeout(() => fr.remove(), 500); if (done) done(ok); };
-        let widened = false, waitFor = 0;
+        let widened = 0, waitUntil = 0, sig0 = '';
         const wantK = () => favList().map(f => f.k).filter(k => k !== nameKey(userInfo().name));
         const poll = () => {
             tries++;
             let data = null;
-            try { const d = fr.contentDocument; if (d && d.querySelector('#tabdiv tbody td') && Date.now() >= waitFor) { data = teamParse(d, fr.contentWindow); } } catch (e) { }
+            try { const d = fr.contentDocument; if (d && d.querySelector('#tabdiv tbody td')) { data = teamParse(d, fr.contentWindow); } } catch (e) { }
             if (data) {
                 const miss = wantK().filter(k => !data.names[k]);
-                if (miss.length && !widened && tries < 60) {      // Favoriten aus anderen Abteilungen/Firmen: Filter auf „alle“ stellen
-                    widened = true; teamSave(data);
+                const sig = (() => { try { const d = fr.contentDocument; return (d.querySelector('#tabdiv .dataTables_info') || {}).textContent + '|' + d.querySelectorAll('#tabdiv tbody tr').length; } catch (e) { return ''; } })();
+                if (miss.length && widened && Date.now() < waitUntil && sig === sig0) { setTimeout(poll, 700); return; }   // neue Liste noch nicht da
+                if (miss.length && widened < 2 && tries < 140) {      // Favoriten aus anderen Abteilungen/Firmen: 1) alle Abteilungen, 2) alle Firmen
+                    widened++; teamSave(data); sig0 = sig; waitUntil = Date.now() + 25000;
                     try {
-                        const d = fr.contentDocument, fa = d.getElementById('abw_dropdown_fa'), ab = d.getElementById('abw_dropdown_abt');
-                        const fire = x => { x.dispatchEvent(new Event('change', { bubbles: true })); };
-                        if (fa && fa.value !== '0' && [...fa.options].some(o => o.value === '0')) { fa.value = '0'; fire(fa); }
-                        setTimeout(() => { try { const ab2 = d.getElementById('abw_dropdown_abt') || ab; if (ab2 && ab2.value !== '0' && [...ab2.options].some(o => o.value === '0')) { ab2.value = '0'; fire(ab2); } } catch (e) { } }, 1500);
-                        waitFor = Date.now() + 4000;
+                        const d = fr.contentDocument, w = fr.contentWindow, fa = d.getElementById('abw_dropdown_fa'), ab = d.getElementById('abw_dropdown_abt');
+                        const set = (x, fn) => { if (!x || x.value === '0' || ![...x.options].some(o => o.value === '0')) return false; x.value = '0'; try { if (typeof w[fn] === 'function') w[fn](); else x.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) { x.dispatchEvent(new Event('change', { bubbles: true })); } return true; };
+                        if (widened === 1) { if (!set(ab, 'changeAbteilung')) { widened = 2; set(fa, 'changeAbt'); setTimeout(() => { try { set(d.getElementById('abw_dropdown_abt'), 'changeAbteilung'); } catch (e) { } }, 2500); } }
+                        else { set(fa, 'changeAbt'); setTimeout(() => { try { set(d.getElementById('abw_dropdown_abt'), 'changeAbteilung'); } catch (e) { } }, 2500); }
                     } catch (e) { }
-                    setTimeout(poll, 600); return;
+                    setTimeout(poll, 1500); return;
                 }
                 teamSave(data); fin(true); return;
             }
-            if (tries > 70) { fin(false); return; }
+            if (tries > 140) { fin(false); return; }
             setTimeout(poll, 500);
         };
         fr.addEventListener('load', () => setTimeout(poll, 800));
@@ -4583,6 +4597,9 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         if (PAGE === 'zdl') { safe('Spalten', watchCols); safe('Spalten', dtPopupGuard); }
         safe('Team', watchTeam);
         setInterval(() => safe('Kaffee', checkCoffee), 15000); setTimeout(() => safe('Kaffee', checkCoffee), 3000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) safe('Kaffee', checkCoffee); });
+        // Hintergrund-Tabs drosselt der Browser stark – ein Worker-Takt hält die Erinnerungen pünktlich
+        safe('Kaffee', () => { const w = new Worker(URL.createObjectURL(new Blob(['setInterval(()=>postMessage(0),20000)'], { type: 'text/javascript' }))); w.onmessage = () => safe('Kaffee', checkCoffee); });
         const late = () => safe('Nachladen', () => { killOldScript(); tintRows(); markToday(); fixColors(); if (K) renderKal(); if (SH) renderShell(); startFx(); render(); try { window.dispatchEvent(new Event('resize')); } catch (e) { } });
         if (document.readyState === 'complete') setTimeout(late, 800);
         else window.addEventListener('load', () => setTimeout(late, 800));
