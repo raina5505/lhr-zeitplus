@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.20.1
+// @version      5.20.2
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.20.1';
+    const VERSION = '5.20.2';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -3575,6 +3575,10 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const favs = new Set(favList().map(f => f.k));
         // Tableau-Kacheln
         const tcells = [...document.querySelectorAll('#tableautab2 td, #tableautab td')].filter(td => cellName(td).length > 2);
+        const nrRe = nr ? new RegExp('(^|[^0-9])' + nr + '([^0-9]|$)') : null;
+        const hasNr = td => { if (!nrRe) return false; for (const a of td.attributes) if (nrRe.test(a.value)) return true; return [...td.querySelectorAll('*')].some(x => [...x.attributes].some(a => a.name !== 'style' && nrRe.test(a.value))); };
+        const meCells = tcells.filter(td => nameKey(cellName(td)) === myKey), meByNr = meCells.filter(hasNr);
+        const meSet = new Set(meByNr.length ? meByNr : meCells);
         tcells.forEach(td => {
             const k = nameKey(cellName(td));
             if (!td.querySelector(':scope > .zp-star')) { const st = document.createElement('span'); st.className = 'zp-star'; st.title = 'Als Favorit anpinnen'; td.appendChild(st); }
@@ -3582,7 +3586,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             const isF = favs.has(k);
             if (star.textContent !== (isF ? '★' : '☆')) star.textContent = isF ? '★' : '☆';
             star.title = isF ? 'Favorit entfernen' : 'Als Favorit anpinnen';
-            setCls(td, 'zp-fav', isF); setCls(td, 'zp-me', k === myKey);
+            setCls(td, 'zp-fav', isF); setCls(td, 'zp-me', meSet.has(td));
             if (!td.title) td.title = cellName(td);
         });
         // Tabellen-Zeilen (Planer, Abwesenheiten): DnNr oder Name
@@ -3629,8 +3633,21 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             tabdiv.parentNode.insertBefore(bar, tabdiv);
             bar.addEventListener('click', e => { const b = e.target.closest('[data-af]'); if (!b) return; S.abwFilter = b.dataset.af; saveS(); bar.dataset.sig = ''; safe('Team', markTeam); });
         }
-        const mode = S.abwFilter || 'all', nf = favs.size;
-        document.documentElement.classList.toggle('zp-abw-only', mode === 'fav' && nf > 0);
+        const mode = S.abwFilter || 'all', nf = favs.size, only = mode === 'fav' && nf > 0;
+        const jq = window.jQuery, dtOk = !!(jq && jq.fn && jq.fn.dataTable && jq.fn.dataTable.ext);
+        if (dtOk && !window.__zpAbwFilter) {
+            window.__zpAbwFilter = true;
+            jq.fn.dataTable.ext.search.push((st, data) => {
+                if (!window.__zpAbwOnly || !st.nTable || !st.nTable.closest || !st.nTable.closest('#tabdiv')) return true;
+                const u = userInfo(), fk = new Set(favList().map(f => f.k)), mk = nameKey(u.name);
+                return data.slice(0, 3).some(c => { const t = String(c || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').trim(); if (u.nr && t === u.nr) return true; const k = nameKey(t); return k && (fk.has(k) || k === mk); });
+            });
+        }
+        if (dtOk) {
+            document.documentElement.classList.remove('zp-abw-only');
+            const want = only ? 'fav:' + [...favs].sort().join('|') : 'all';
+            if (window.__zpAbwOnlyKey !== want) { window.__zpAbwOnly = only; window.__zpAbwOnlyKey = want; try { jq('#tabdiv table.dataTable').each((i, t) => { if (jq.fn.dataTable.isDataTable(t)) jq(t).DataTable().draw(); }); } catch (e) { } }
+        } else document.documentElement.classList.toggle('zp-abw-only', only);
         const sig = mode + '|' + nf;
         if (bar.dataset.sig === sig) return; bar.dataset.sig = sig;
         bar.innerHTML = `<span class="t">${ico('users', 14)} Anzeigen</span><button type="button" data-af="all" class="${mode !== 'fav' ? 'on' : ''}">Alle</button><button type="button" data-af="fav" class="${mode === 'fav' ? 'on' : ''}"${nf ? '' : ' disabled title="Erst mit ☆ beim Namen Favoriten markieren"'}>★ Ich + Favoriten${nf ? ' (' + nf + ')' : ''}</button><span class="h">☆ beim Namen anklicken, um jemanden als Favorit zu markieren.</span>`;
@@ -4046,7 +4063,15 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         });
         return { ts: Date.now(), days, names };
     }
-    function teamSave(data) { if (data && Object.keys(data.names).length) try { localStorage.setItem(TEAM_KEY, JSON.stringify(data)); } catch (e) { } }
+    function teamSave(data) {
+        if (!data || !Object.keys(data.names).length) return;
+        const old = teamStore();
+        if (old && old.days && Date.now() - old.ts < 2 * 864e5) {         // zusammenführen: neue Werte gewinnen, andere Personen bleiben
+            Object.entries(old.days).forEach(([dk, ppl]) => { const nd = data.days[dk] = data.days[dk] || {}; Object.entries(ppl).forEach(([k, v]) => { if (!(k in data.names) && !(k in nd)) nd[k] = v; }); });
+            Object.entries(old.names || {}).forEach(([k, n]) => { if (!data.names[k]) data.names[k] = n; });
+        }
+        try { localStorage.setItem(TEAM_KEY, JSON.stringify(data)); } catch (e) { }
+    }
     let teamBusy = false;
     function teamRefresh(done) {
         if (teamBusy) return; teamBusy = true;
@@ -4056,12 +4081,28 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         fr.src = a ? a.getAttribute('href') : '/Self/Abwesenheitsuebersicht?modulId=0';
         let tries = 0;
         const fin = ok => { teamBusy = false; setTimeout(() => fr.remove(), 500); if (done) done(ok); };
+        let widened = false, waitFor = 0;
+        const wantK = () => favList().map(f => f.k).filter(k => k !== nameKey(userInfo().name));
         const poll = () => {
             tries++;
             let data = null;
-            try { const d = fr.contentDocument; if (d && d.querySelector('#tabdiv tbody td')) { data = teamParse(d, fr.contentWindow); } } catch (e) { }
-            if (data) { teamSave(data); fin(true); return; }
-            if (tries > 40) { fin(false); return; }
+            try { const d = fr.contentDocument; if (d && d.querySelector('#tabdiv tbody td') && Date.now() >= waitFor) { data = teamParse(d, fr.contentWindow); } } catch (e) { }
+            if (data) {
+                const miss = wantK().filter(k => !data.names[k]);
+                if (miss.length && !widened && tries < 60) {      // Favoriten aus anderen Abteilungen/Firmen: Filter auf „alle“ stellen
+                    widened = true; teamSave(data);
+                    try {
+                        const d = fr.contentDocument, fa = d.getElementById('abw_dropdown_fa'), ab = d.getElementById('abw_dropdown_abt');
+                        const fire = x => { x.dispatchEvent(new Event('change', { bubbles: true })); };
+                        if (fa && fa.value !== '0' && [...fa.options].some(o => o.value === '0')) { fa.value = '0'; fire(fa); }
+                        setTimeout(() => { try { const ab2 = d.getElementById('abw_dropdown_abt') || ab; if (ab2 && ab2.value !== '0' && [...ab2.options].some(o => o.value === '0')) { ab2.value = '0'; fire(ab2); } } catch (e) { } }, 1500);
+                        waitFor = Date.now() + 4000;
+                    } catch (e) { }
+                    setTimeout(poll, 600); return;
+                }
+                teamSave(data); fin(true); return;
+            }
+            if (tries > 70) { fin(false); return; }
             setTimeout(poll, 500);
         };
         fr.addEventListener('load', () => setTimeout(poll, 800));
