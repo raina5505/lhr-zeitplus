@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.23.1
+// @version      5.23.2
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.23.1';
+    const VERSION = '5.23.2';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1723,6 +1723,18 @@ html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb{backg
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb *{color:var(--zp-text) !important}
 html.zp-pretty.zp-planer #tabdiv tbody td.zp-rb::after{content:'';position:absolute;inset:3px;padding:1.5px;background:linear-gradient(90deg,var(--zp-bad) 50%,var(--zp-rem,#2dd4bf) 50%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 html.zp-pretty.zp-planer #tabdiv tbody td:not(.dtfc-fixed-left):hover{filter:brightness(1.12)}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-ink,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-ink *{color:#15120d !important;font-weight:800 !important;text-shadow:none !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.zp-ink):not(.zp-rem):not(.zp-rb):not(.dtfc-fixed-left),html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.zp-ink):not(.zp-rem):not(.zp-rb):not(.dtfc-fixed-left) *{color:#fff !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem *{font-size:12px !important;font-weight:800 !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem > *,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb > *{background:transparent !important}
+/* Kopf kompakt */
+html.zp-planer #tabdiv thead tr.zp-hidehead{display:none !important}
+html.zp-pretty.zp-planer #tabdiv thead th .zp-wd{display:block;font-size:10px;font-weight:600;color:var(--zp-muted);text-transform:none}
+html.zp-pretty.zp-planer #tabdiv thead th b{display:block;font-size:12px;color:var(--zp-text)}
+html.zp-pretty.zp-planer #tabdiv thead th .zp-kw{display:inline-block;margin-top:3px;padding:1px 5px;border-radius:99px;font-size:9.5px;font-weight:700;background:color-mix(in srgb,var(--zp-accent) 18%,transparent);color:var(--zp-accent)}
+html.zp-pretty.zp-planer #tabdiv thead th.zp-we b,html.zp-pretty.zp-planer #tabdiv thead th.zp-we .zp-wd{opacity:.5}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-today{box-shadow:inset 0 -3px 0 var(--zp-accent) !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-today b{color:var(--zp-accent) !important}
 #zp-team-host{display:block;max-width:1240px;margin:0 auto 16px}
 #zp-host.wide ~ #zp-team-host{max-width:none}
 #zp-abw-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 12px;font:13px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
@@ -3714,12 +3726,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         });
         document.querySelectorAll('#content tbody > tr').forEach(tr => { setCls(tr, 'zp-me', me.has(tr)); setCls(tr, 'zp-favrow', fv.has(tr)); });
         if (IS_ABW) safe('Team', () => abwFavs(favs, myKey));
-        if (document.documentElement.classList.contains('zp-planer')) document.querySelectorAll('#tabdiv tbody td:not(.dtfc-fixed-left)').forEach(td => {
-            const t = (td.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
-            const r = t === 'R', rb = /^R ?B\d*$|^B\d* ?R$/.test(t);
-            if (td.classList.contains('zp-rem') !== r) td.classList.toggle('zp-rem', r);
-            if (td.classList.contains('zp-rb') !== rb) td.classList.toggle('zp-rb', rb);
-        });
+        if (document.documentElement.classList.contains('zp-planer')) safe('Planer', planerMarks);
         if (IS_ABW) safe('Team', () => { if (document.querySelector('#tabdiv tbody td.kalTag, #tabdiv tbody td.kalTag_sa')) { const dt = teamParse(document, window); teamSave(dt); } });
         safe('Team', () => {
             const sel = document.getElementById('tableau_dropdown_abt');
@@ -3789,6 +3796,49 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             <div class="lg"><span><i style="background:var(--zp-surf2)"></i>da</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)"></i>Remote</span><span><i style="background:#ff3300"></i>abwesend (Farbe wie in LHR)</span><span><i style="background:repeating-linear-gradient(135deg,#8886 0 2px,transparent 2px 6px)"></i>Wochenende / Feiertag</span></div>`;
     }
     const IS_ABW = /abwesenheitsuebersicht/i.test(location.pathname);
+    /* Planer: Zellen lesbar machen, Remote/Bereitschaft erkennen, B1/B2 aus Tooltip übernehmen, Kopf kompakt (Wochentag + KW) */
+    function planerMarks() {
+        const tab = document.getElementById('tabdiv'); if (!tab) return;
+        tab.querySelectorAll('tbody td:not(.dtfc-fixed-left)').forEach(td => {
+            if (td.dataset.zpPm === (td.getAttribute('style') || '') + '|' + td.textContent) return;
+            const raw = (td.textContent || '').replace(/\s+/g, ' ').trim();
+            let t = raw.toUpperCase();
+            // B1/B2 & Co.: steht oft nur im Tooltip → Nummer mit anzeigen
+            if (/\bB\b/.test(t) && !/B\d/.test(t)) {
+                const tips = [td, ...td.querySelectorAll('*')].map(x => [...x.attributes].filter(a => /title|tippy|data-/.test(a.name)).map(a => a.value).join(' ')).join(' ');
+                const m = tips.match(/\bB\s?([0-9])\b|Bereitschaft\s*([0-9])/i);
+                if (m) { const leaf = [td, ...td.querySelectorAll('*')].reverse().find(x => !x.children.length && /\bB\b/.test(x.textContent)); if (leaf) { leaf.textContent = leaf.textContent.replace(/\bB\b/, 'B' + (m[1] || m[2])); t = (td.textContent || '').toUpperCase(); } }
+                if (tips.trim() && !td.title) td.title = tips.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+            }
+            const bg = rgbOf(td.style.backgroundColor) || rgbOf((td.firstElementChild && td.firstElementChild.style.backgroundColor) || '');
+            const pink = bg && bg.r > 230 && bg.g > 90 && bg.g < 170 && bg.b > 150;           // LHR-Remote-Rosa
+            const hasB = /B\d*/.test(t.replace(/\s+/g, '')), hasR = /(^|\s)R(\s|$)|^RB/.test(t) || pink;
+            const rb = hasR && hasB, r = hasR && !hasB;
+            if (td.classList.contains('zp-rem') !== r) td.classList.toggle('zp-rem', r);
+            if (td.classList.contains('zp-rb') !== rb) td.classList.toggle('zp-rb', rb);
+            const light = bg && bg.a > .3 && lumOf(bg) > .45;
+            td.classList.toggle('zp-ink', !!light && !r && !rb);
+            td.dataset.zpPm = (td.getAttribute('style') || '') + '|' + td.textContent;
+        });
+        // Kopf: Wochentag zum Datum, KW als kleines Schild am Montag, Zeilen „KW“/„Arbeitstage“ ausblenden
+        const y = +(((document.getElementById('le_periode_text') || {}).textContent || '').match(/(\d{4})/) || [])[1] || +((document.getElementById('tSpanDate') || document.getElementById('jahr') || {}).value || new Date().getFullYear());
+        tab.querySelectorAll('thead tr').forEach((tr, ri) => {
+            const lab = (tr.textContent || '').replace(/\s+/g, ' ');
+            if (ri > 0 && /KW|Arbeitstage|Kalenderwoche/i.test(lab)) tr.classList.add('zp-hidehead');
+        });
+        let lastM = null, yy = y;
+        tab.querySelectorAll('thead tr:first-child th, thead tr:first-child td').forEach(th => {
+            if (th.dataset.zpWd) return;
+            const m = (th.textContent || '').trim().match(/^(\d{1,2})\.(\d{1,2})\.?$/); if (!m) return;
+            const mo = +m[2] - 1; if (lastM != null && mo < lastM) yy++; lastM = mo;
+            const dt = new Date(yy, mo, +m[1], 12), wd = dt.getDay();
+            th.dataset.zpWd = '1';
+            const kw = wd === 1 ? isoWeek(dt) : 0;
+            th.innerHTML = `<span class="zp-wd">${WD_SHORT[wd]}</span><b>${+m[1]}.${+m[2]}.</b>${kw ? `<span class="zp-kw">KW ${kw}</span>` : ''}`;
+            th.classList.toggle('zp-we', wd === 0 || wd === 6);
+            if (dayKey(dt) === todayKey()) th.classList.add('zp-today');
+        });
+    }
     // Abwesenheitsübersicht: Stern am Namen + Filter „Nur Favoriten“
     function abwFavs(favs, myKey) {
         const tabdiv = document.getElementById('tabdiv');
