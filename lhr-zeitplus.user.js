@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.23.2
+// @version      5.23.3
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.23.2';
+    const VERSION = '5.23.3';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -3805,9 +3805,10 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             let t = raw.toUpperCase();
             // B1/B2 & Co.: steht oft nur im Tooltip → Nummer mit anzeigen
             if (/\bB\b/.test(t) && !/B\d/.test(t)) {
-                const tips = [td, ...td.querySelectorAll('*')].map(x => [...x.attributes].filter(a => /title|tippy|data-/.test(a.name)).map(a => a.value).join(' ')).join(' ');
-                const m = tips.match(/\bB\s?([0-9])\b|Bereitschaft\s*([0-9])/i);
-                if (m) { const leaf = [td, ...td.querySelectorAll('*')].reverse().find(x => !x.children.length && /\bB\b/.test(x.textContent)); if (leaf) { leaf.textContent = leaf.textContent.replace(/\bB\b/, 'B' + (m[1] || m[2])); t = (td.textContent || '').toUpperCase(); } }
+                const tipOf = x => { let v = [...x.attributes].filter(a => /title|tippy|data-|aria-label/.test(a.name)).map(a => a.value).join(' '); try { const tp = x._tippy; if (tp && tp.props) { const c = tp.props.content; v += ' ' + (typeof c === 'string' ? c : c && c.textContent ? c.textContent : ''); } } catch (e) { } return v; };
+                const tips = [td, ...td.querySelectorAll('*')].map(tipOf).join(' ');
+                const m = tips.replace(/<[^>]*>/g, ' ').match(/\bB\s?([0-9])\b|Bereitschaft\s*([0-9])|BR\s?([0-9])\b/i);
+                if (m) { const leaf = [td, ...td.querySelectorAll('*')].reverse().find(x => !x.children.length && /\bB\b/.test(x.textContent)); if (leaf) { leaf.textContent = leaf.textContent.replace(/\bB\b/, 'B' + (m[1] || m[2] || m[3])); t = (td.textContent || '').toUpperCase(); } }
                 if (tips.trim() && !td.title) td.title = tips.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
             }
             const bg = rgbOf(td.style.backgroundColor) || rgbOf((td.firstElementChild && td.firstElementChild.style.backgroundColor) || '');
@@ -3818,7 +3819,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             if (td.classList.contains('zp-rb') !== rb) td.classList.toggle('zp-rb', rb);
             const light = bg && bg.a > .3 && lumOf(bg) > .45;
             td.classList.toggle('zp-ink', !!light && !r && !rb);
-            td.dataset.zpPm = (td.getAttribute('style') || '') + '|' + td.textContent;
+            if (!/\bB\b/.test((td.textContent || '').toUpperCase()) || /B\d/.test((td.textContent || '').toUpperCase())) td.dataset.zpPm = (td.getAttribute('style') || '') + '|' + td.textContent;
         });
         // Kopf: Wochentag zum Datum, KW als kleines Schild am Montag, Zeilen „KW“/„Arbeitstage“ ausblenden
         const y = +(((document.getElementById('le_periode_text') || {}).textContent || '').match(/(\d{4})/) || [])[1] || +((document.getElementById('tSpanDate') || document.getElementById('jahr') || {}).value || new Date().getFullYear());
