@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.24.0
+// @version      5.24.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.24.0';
+    const VERSION = '5.24.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1766,6 +1766,17 @@ html.zp-planer #tabdiv .dataTables_scrollBody,html.zp-planer #tabdiv .dataTables
 html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar{height:12px}
 html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar-thumb,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--zp-muted,#888) 55%,transparent);border-radius:99px;border:3px solid transparent;background-clip:padding-box}
 html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar-thumb:hover,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar-thumb:hover{background-color:var(--zp-accent,#4f7cff)}
+html.zp-planer #tabdiv .zp-hidesum{display:none !important}
+html.zp-planer #tabdiv tbody td:not(.dtfc-fixed-left){left:auto !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.sum_cell.dtfc-fixed-left:not(.gesamt_div){position:relative !important;left:auto !important;z-index:auto !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td{background:var(--pg) !important;box-shadow:inset 0 2px 0 var(--zp-line,#d0d4dc) !important;height:auto !important;padding:7px 2px 6px !important;vertical-align:middle;color:var(--zp-text) !important;text-align:center;font:600 11px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td *{background:transparent !important;border:0 !important;box-shadow:none !important;padding:0 !important;margin:0 !important;height:auto !important;width:auto !important;float:none !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td .sum_div_bt{display:block;font-size:12.5px !important;font-weight:800 !important;color:var(--zp-text) !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td .sum_div{display:block;font-size:10px !important;font-weight:600 !important;color:var(--zp-muted) !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.sum_cell{display:table-cell}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.sum_cell:not(.dtfc-fixed-left),html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.sum_cell.dtfc-fixed-left:not(.gesamt_div){position:relative}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.gesamt_div_verplant{text-align:left !important;padding-left:10px !important;color:var(--zp-accent) !important;font-weight:700 !important;font-size:12px !important;text-transform:uppercase;letter-spacing:.04em}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.gesamt_div{text-align:right !important;padding-right:10px !important}
 #zp-ptip{position:fixed;z-index:2147483000;pointer-events:none;max-width:230px;padding:7px 10px 6px;border-radius:10px;background:color-mix(in srgb,var(--zp-bg,#fff) 92%,transparent);backdrop-filter:blur(10px);color:var(--zp-text,#222);border:1px solid var(--zp-line,#d0d4dc);box-shadow:0 8px 24px rgba(0,0,0,.28);font:500 11.5px/1.35 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;opacity:0;transform:translateY(3px);transition:opacity .1s,transform .1s}
 #zp-ptip.on{opacity:1;transform:none}
 #zp-ptip .t{display:flex;flex-wrap:wrap;gap:4px 10px;font-weight:700;font-size:12px}
@@ -1784,7 +1795,6 @@ html.zp-planer #tabdiv thead th .zp-cnt[data-l="1"]{opacity:1;color:var(--zp-tex
 html.zp-planer #tabdiv thead th .zp-cnt[data-l="2"]{opacity:1;color:#1a1306;background:#f5b942}
 html.zp-planer #tabdiv thead th .zp-cnt[data-l="3"]{opacity:1;color:#fff;background:var(--zp-bad,#e5484d)}
 html.zp-planer #tabdiv thead th[data-zp-stat]{cursor:default}
-html.zp-planer #tabdiv .dataTables_scrollFoot,html.zp-planer #tabdiv table.dataTable > tfoot{display:none !important}
 html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container{display:flex !important;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:10px 12px;margin:6px 0 4px;background:var(--zp-surf,#f6f7fa) !important;border:1px solid var(--zp-line,#d0d4dc);border-radius:16px}
 html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container > div{display:flex;align-items:center;gap:8px;margin:0 !important;padding:0 !important;float:none !important;min-height:0}
 html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container > div.hidden{display:none !important}
@@ -3899,7 +3909,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     /* Planer: Zellen lesbar machen, Remote/Bereitschaft erkennen, B1/B2 aus Tooltip übernehmen, Kopf kompakt (Wochentag + KW) */
     function planerMarks() {
         const tab = document.getElementById('tabdiv'); if (!tab) return;
-        tab.querySelectorAll('tbody td:not(.dtfc-fixed-left)').forEach(td => {
+        tab.querySelectorAll('tbody tr:not(.sum_row) > td:not(.dtfc-fixed-left)').forEach(td => {
             if (td.dataset.zpPm === (td.getAttribute('style') || '') + '|' + td.textContent) return;
             const raw = (td.textContent || '').replace(/\s+/g, ' ').trim();
             let t = raw.toUpperCase();
@@ -3956,6 +3966,23 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         if (rewrote) { clearTimeout(planerMarks.adj); planerMarks.adj = setTimeout(() => { try { const jq = window.jQuery; if (jq && jq.fn && jq.fn.dataTable) jq('#tabdiv table.dataTable').filter((i, t) => !t.closest('.dataTables_scrollHead')).each((i, t) => { if (jq.fn.dataTable.isDataTable(t)) jq(t).DataTable().columns.adjust(); }); } catch (e) { } }, 120); }
         planerTipInit();
         planerStats(tab);
+    }
+    // LHR-Summenzeile („Gesamt verplant – Tage/Köpfe“): eigene, breitere Tabelle → verrutscht und blockiert das seitliche Scrollen. Die Zahlen stehen jetzt oben im Kopf.
+    function planerHideSum(tab) {
+        const w = document.createTreeWalker(tab, NodeFilter.SHOW_TEXT, { acceptNode: n => /gesamt\s*verplant/i.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP });
+        const main = [...tab.querySelectorAll('table')].find(t => t.querySelector('tbody tr.dtrg-group, tbody td.zp-col, tbody td.zp-rem')) || null;
+        let n; while ((n = w.nextNode())) {
+            const el = n.parentElement; if (!el || el.closest('.zp-hidesum')) continue;
+            const t = el.closest('table');
+            if (t && main && t !== main) {
+                let blk = t; while (blk.parentElement && blk.parentElement !== tab && !blk.parentElement.contains(main)) blk = blk.parentElement;
+                blk.classList.add('zp-hidesum');
+            } else {
+                const tr = el.closest('tr'); if (!tr) continue;
+                let r = tr; while (r) { r.classList.add('zp-hidesum'); r = r.nextElementSibling; }
+                const sec = tr.parentElement; if (sec && /TFOOT/.test(sec.tagName)) sec.classList.add('zp-hidesum');
+            }
+        }
     }
     // Planer-Hover: was ist an dem Tag? (LHR zeigt nur bei manchen Zellen einen Tooltip)
     const LEG_KEY = 'zplus_leg';
@@ -4036,17 +4063,24 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             }
             const td = e.target.closest && e.target.closest('tbody td'); if (!td || !tab.contains(td)) { if (!th) hide(); return; }
             if (td === cur) return;
+            if (td.closest('tr.sum_row')) {
+                const a = td.querySelector('.sum_div'), k = td.querySelector('.sum_div_bt');
+                if (!a || !k || !/^\d/.test(a.textContent.trim()) || td.classList.contains('gesamt_div')) { hide(); return; }
+                let idx = 0; for (const c of td.parentElement.children) { if (c === td) break; idx += +(c.getAttribute('colspan') || 1); }
+                show(td, `<div class="h">${esc(dateOf(heads()[idx]))}</div><div class="r"><i style="background:var(--zp-accent,#4f7cff)"></i>Personen verplant<b>${esc(k.textContent.trim())}</b></div><div class="r"><i style="background:var(--zp-muted,#888)"></i>Einträge gesamt<b>${esc(a.textContent.trim())}</b></div><div class="d">„Köpfe“ = Personen · „Tage“ = Einträge (z.B. Feiertag + Bereitschaft = 2)</div>`);
+                return;
+            }
             if (td.classList.contains('dtfc-fixed-left') || td.hasAttribute('colspan')) { hide(); return; }
-            const lhr = [td, ...td.querySelectorAll('*')].map(tippyText).join('\n') + '\n' + (td.dataset.zpTipTxt || '');
+            const lhr = [td, ...td.querySelectorAll('*')].map(tippyText).join(' ') + ' ' + (td.dataset.zpTipTxt || '');
             const inf = planerCellInfo(td);
-            if (!inf.n && !lhr.trim()) { hide(); return; }
+            if (!inf.n) { hide(); return; }
+            if (/^Abwesenheit/.test(inf.abs)) { const leg = ((legStore() || {}).l || []).map(x => x.n).filter(n => n && new RegExp('\\b' + n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i').test(lhr)); if (leg.length) inf.abs = leg[0]; else { const m = lhr.match(/\b(Urlaub|Krankenstand|Krank|Zeitausgleich|Sonderurlaub|Pflegeurlaub|Dienstreise|Schulung|Seminar|Berufsschule|Arzt)\w*/i); if (m) inf.abs = m[0]; } }
             const tags = [];
             if (inf.abs) tags.push(['', inf.abs, inf.sw || 'var(--zp-bad,#e5484d)']);
             if (inf.br) tags.push(['', 'Bereitschaft' + (inf.bnum ? ' ' + inf.bnum : ''), '#e6c229']);
             if (inf.rem) tags.push(['', 'Remote', 'var(--zp-rem,#2dd4bf)']);
             if (inf.fei) tags.push(['', 'Feiertag', '#f59e0b']);
-            const norm = l => l.toLowerCase().replace(/\bb\s?(\d)\b/g, '$1').replace(/[^a-zäöüß0-9]+/g, ' ').trim(); const known = tags.map(t => norm(t[1]));
-            const extra = [...new Set(lhr.split(/\n+/).map(l => l.replace(/\s+/g, ' ').trim()).filter(l => l.length > 1 && l.toUpperCase() !== inf.txt && !known.includes(norm(l))))].slice(0, 5);
+            const extra = [];
             const tr = td.parentElement, nm = [...tr.children].filter(x => x.classList.contains('dtfc-fixed-left')).map(x => x.textContent.trim()).find(x => /[a-zäöü]{2}/i.test(x)) || '';
             const th2 = heads()[[...tr.children].indexOf(td)];
             show(td, `<div class="t">${tags.map(t => `<span><i style="background:${esc(t[2])}"></i>${esc(t[1])}</span>`).join('') || `<span>${esc(inf.txt)}</span>`}</div>` +
@@ -4054,21 +4088,13 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                 `<div class="d">${esc([dateOf(th2), nm].filter(Boolean).join(' · '))}</div>`);
         });
         tab.addEventListener('mouseleave', hide);
-        // Scrollleisten: alles, was in der Tabelle seitlich scrollt, läuft gemeinsam (anteilig) – egal welche Leiste man zieht
-        let syncing = false;
-        tab.addEventListener('scroll', e => {
-            const el = e.target; if (syncing || !el || el.nodeType !== 1 || el.scrollWidth - el.clientWidth < 2) return;
-            const max = el.scrollWidth - el.clientWidth, f = el.scrollLeft / max;
-            syncing = true;
-            try { tab.querySelectorAll('.dataTables_scrollHead,.dataTables_scrollBody,.dataTables_scrollFoot,.dataTables_wrapper,.dtfc-scrolling').forEach(o => { if (o === el) return; const m = o.scrollWidth - o.clientWidth; if (m < 2) return; const sl = Math.round(f * m); if (Math.abs(o.scrollLeft - sl) > 1) o.scrollLeft = sl; }); } finally { requestAnimationFrame(() => { syncing = false; }); }
-        }, true);
         window.addEventListener('scroll', hide, true);
     }
     // Planer-Kopf: pro Tag zählen, wer weg / remote / in Bereitschaft ist (ersetzt die schwer lesbare LHR-Summenzeile)
     function planerStats(tab) {
         const hs = (() => { const sh = tab.querySelector('.dataTables_scrollHead thead tr:last-child'); return sh ? [...sh.children] : [...(tab.querySelector('thead tr:last-child') || { children: [] }).children]; })();
         if (!hs.length) return;
-        const rows = [...tab.querySelectorAll('.dataTables_scrollBody tbody tr, :scope > table tbody tr, .dataTables_wrapper > table tbody tr')].filter(tr => !tr.classList.contains('dtrg-group') && tr.children.length > 5);
+        const rows = [...tab.querySelectorAll('.dataTables_scrollBody tbody tr, :scope > table tbody tr, .dataTables_wrapper > table tbody tr')].filter(tr => !tr.classList.contains('dtrg-group') && !tr.classList.contains('sum_row') && !tr.classList.contains('zp-hidesum') && tr.children.length > 5);
         const st = hs.map(() => ({ a: 0, r: 0, b: 0, f: 0, k: 0, t: 0, p: rows.length }));
         rows.forEach(tr => [...tr.children].forEach((td, i) => {
             if (!st[i] || td.classList.contains('dtfc-fixed-left')) return;
