@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.23.6
+// @version      5.23.7
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.23.6';
+    const VERSION = '5.23.7';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -364,6 +364,7 @@
             });
         });
         const absLeg = legend.filter(l => l.kind === 'abs');
+        legSave(legend);
         const findLeg = (letter, col) => {
             const same = absLeg.filter(l => l.letter === letter);
             if (col) { const m = same.find(l => l.color && colDist(l.color, col) < 30); if (m) return m; }
@@ -1734,8 +1735,9 @@ html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem > *,
 html.zp-planer #tabdiv thead tr.zp-hidehead{display:none !important}
 /* Datum bleibt beim Scrollen über den Zeilen stehen */
 html.zp-planer #tabdiv .dataTables_scrollHead{position:sticky !important;top:var(--zp-sh,0px);z-index:6;background:var(--zp-surf,#f6f7fa)}
-html.zp-planer #tabdiv table > thead > tr > th{position:sticky;top:var(--zp-sh,0px);z-index:4}
-html.zp-planer #tabdiv table > thead > tr > th.dtfc-fixed-left{z-index:7}
+html.zp-planer #tabdiv .dataTables_scrollHead thead th.dtfc-fixed-left{z-index:7}
+html.zp-planer:not(.zp-n1):not(.zp-n2):not(.zp-n3) body:not(#zp-a):not(#zp-b) #tabdiv .dataTables_scrollBody > table > thead > tr > th,html.zp-planer:not(.zp-n1):not(.zp-n2):not(.zp-n3) body:not(#zp-a):not(#zp-b) #tabdiv .dataTables_scrollBody > table > thead > tr > td{padding-top:0 !important;padding-bottom:0 !important;height:0 !important;max-height:0 !important;line-height:0 !important;border-top:0 !important;border-bottom:0 !important;box-shadow:none !important;position:static !important;overflow:hidden !important}
+html.zp-planer #tabdiv .dataTables_scrollBody > table > thead .dataTables_sizing{height:0 !important;overflow:hidden !important}
 html.zp-planer #tabdiv thead th .grid-vertical-item-img,html.zp-planer #tabdiv thead th .kw-zeile,html.zp-planer #tabdiv thead th .kw-arbeitstage{display:none !important}
 html.zp-pretty.zp-planer #tabdiv thead th [class*="grid-vertical"]{background:transparent !important;border:0 !important;color:inherit !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.dtfc-fixed-left{text-align:left !important;vertical-align:bottom;padding:6px 10px !important;color:var(--zp-muted) !important;font-size:11px !important;text-transform:uppercase;letter-spacing:.05em}
@@ -1749,6 +1751,27 @@ html.zp-pretty.zp-planer #tabdiv thead th .zp-kw{display:inline-block;margin-top
 html.zp-pretty.zp-planer #tabdiv thead th.zp-we b,html.zp-pretty.zp-planer #tabdiv thead th.zp-we .zp-wd{opacity:.5}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-today{box-shadow:inset 0 -3px 0 var(--zp-accent) !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-today b{color:var(--zp-accent) !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #periode:not(.zp-hide-orig){display:flex !important;align-items:center;gap:8px;background:transparent !important;border:0 !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #periode .periode_span{display:flex;align-items:center;background:transparent !important;border:0 !important;margin:0 !important;padding:0 !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #periode .planer-btn{width:38px !important;height:38px !important;min-width:0 !important;border-radius:12px !important;border:1px solid var(--zp-line,#d0d4dc) !important;background:var(--zp-surf2,#eceef3) !important;background-image:none !important;display:grid !important;place-items:center;cursor:pointer;padding:0 !important;margin:0 !important;box-shadow:none !important;transition:background .15s,border-color .15s,transform .1s}
+html.zp-planer body:not(#zp-a):not(#zp-b) #periode .planer-btn:hover{background:color-mix(in srgb,var(--zp-accent,#4f7cff) 16%,var(--zp-surf2,#eceef3)) !important;border-color:var(--zp-accent,#4f7cff) !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #periode .planer-btn:active{transform:scale(.94)}
+html.zp-planer body:not(#zp-a):not(#zp-b) #periode .planer-btn img{display:none !important}
+html.zp-planer #periode .planer-btn::before{content:'';width:8px;height:8px;border:solid var(--zp-text,#222);border-width:0 0 2.5px 2.5px;border-radius:1px;transform:translateX(2px) rotate(45deg)}
+html.zp-planer #periode #periode_a2::before{transform:translateX(-2px) rotate(-135deg)}
+html.zp-planer body:not(#zp-a):not(#zp-b) #le_periode_text{text-align:center;font:700 15px/38px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;color:var(--zp-text) !important;background:transparent !important;border:0 !important}
+html.zp-planer #tabdiv{box-sizing:border-box;max-width:100%;overflow-x:clip}
+html.zp-planer #tabdiv .dataTables_wrapper,html.zp-planer #tabdiv .dataTables_scroll{max-width:100% !important}
+html.zp-planer #tabdiv .dataTables_scrollBody,html.zp-planer #tabdiv .dataTables_scrollFoot{max-width:100% !important}
+html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar{height:12px}
+html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar-thumb,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--zp-muted,#888) 55%,transparent);border-radius:99px;border:3px solid transparent;background-clip:padding-box}
+html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar-thumb:hover,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar-thumb:hover{background-color:var(--zp-accent,#4f7cff)}
+#zp-ptip{position:fixed;z-index:2147483000;pointer-events:none;max-width:280px;padding:9px 12px;border-radius:12px;background:var(--zp-bg,#fff);color:var(--zp-text,#222);border:1px solid var(--zp-line,#d0d4dc);box-shadow:0 10px 30px rgba(0,0,0,.35);font:500 12.5px/1.4 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
+#zp-ptip.on{opacity:1;transform:none}
+#zp-ptip .h{font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:7px}
+#zp-ptip .h i{width:10px;height:10px;border-radius:3px;flex:none}
+#zp-ptip .d{color:var(--zp-muted,#667);font-size:11.5px}
+#zp-ptip .x{margin-top:4px;font-size:12px}
 #zp-team-host{display:block;max-width:1240px;margin:0 auto 16px}
 #zp-host.wide ~ #zp-team-host{max-width:none}
 #zp-abw-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 12px;font:13px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
@@ -3842,9 +3865,10 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         });
         // Kopf: LHR stapelt pro Spalte Bild / Datum / KW / Arbeitstage → wir zeigen eine Zeile: Wochentag, Datum, KW-Schild (Montag)
         const y = +(((document.getElementById('le_periode_text') || {}).textContent || '').match(/(\d{4})/) || [])[1] || +((document.getElementById('tSpanDate') || document.getElementById('jahr') || {}).value || new Date().getFullYear());
-        let lastM = null, yy = y;
+        let lastM = null, yy = y, rewrote = false;
         tab.querySelectorAll('thead th').forEach(th => {
-            if (th.dataset.zpWd) return;
+            if (th.dataset.zpWd || th.closest('.dataTables_scrollBody')) return;
+            rewrote = true;
             const dtEl = th.querySelector('[data-dt]');
             let dt = null;
             if (dtEl) dt = dParse(dtEl.getAttribute('data-dt'));
@@ -3866,6 +3890,81 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             th.classList.toggle('zp-hol', hol);
             if (dayKey(dt) === todayKey()) th.classList.add('zp-today');
         });
+        if (rewrote) { clearTimeout(planerMarks.adj); planerMarks.adj = setTimeout(() => { try { const jq = window.jQuery; if (jq && jq.fn && jq.fn.dataTable) jq('#tabdiv table.dataTable').filter((i, t) => !t.closest('.dataTables_scrollHead')).each((i, t) => { if (jq.fn.dataTable.isDataTable(t)) jq(t).DataTable().columns.adjust(); }); } catch (e) { } }, 120); }
+        planerTipInit();
+    }
+    // Planer-Hover: was ist an dem Tag? (LHR zeigt nur bei manchen Zellen einen Tooltip)
+    const LEG_KEY = 'zplus_leg';
+    const legStore = () => { try { return JSON.parse(localStorage.getItem(LEG_KEY) || 'null'); } catch (e) { return null; } };
+    function legSave(legend) { try { const l = legend.filter(x => x.kind === 'abs' && x.name).map(x => ({ n: x.name, l: x.letter || '', c: x.color ? cssRgb(x.color) : '' })); if (l.length) localStorage.setItem(LEG_KEY, JSON.stringify({ ts: Date.now(), l })); } catch (e) { } }
+    async function legFetch() {
+        if (legFetch.busy) return; const st = legStore(); if (st && Date.now() - st.ts < 7 * 864e5) return; legFetch.busy = true;
+        try {
+            const a = [...document.querySelectorAll('a[href]')].find(x => /kalender/i.test(x.getAttribute('href')) && !/planer|tableau/i.test(x.getAttribute('href')));
+            if (!a) return;
+            const r = await fetch(a.getAttribute('href'), { credentials: 'same-origin' }); if (!r.ok) return;
+            const doc = new DOMParser().parseFromString(await r.text(), 'text/html'), l = [];
+            doc.querySelectorAll('#kalendertab_summe tbody tr').forEach(tr => {
+                const nm = tr.querySelector('[id="kal_td_abwesenheit"]'); if (!nm) return;
+                const sw = [...tr.children].find(td => /background/i.test(td.getAttribute('style') || '')); const col = sw ? rgbOf((sw.getAttribute('style').match(/background(?:-color)?\s*:\s*([^;]+)/i) || [])[1]) : null;
+                if (sw && /kalTag_sa|kalTag_so_fe/.test(sw.className)) return;
+                l.push({ n: nm.textContent.replace(/\s+/g, ' ').trim(), l: sw ? sw.textContent.replace(/\s+/g, '').trim() : '', c: col ? cssRgb(col) : '' });
+            });
+            if (l.length) localStorage.setItem(LEG_KEY, JSON.stringify({ ts: Date.now(), l }));
+        } catch (e) { } finally { legFetch.busy = false; }
+    }
+    function planerTipInit() {
+        const tab = document.getElementById('tabdiv'); if (!tab || tab.dataset.zpTip) return; tab.dataset.zpTip = '1';
+        legFetch();
+        let tip = null, cur = null;
+        const hide = () => { cur = null; if (tip) tip.classList.remove('on'); };
+        const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+        const clean = t => String(t || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+        tab.addEventListener('mouseover', e => {
+            const td = e.target.closest && e.target.closest('tbody td'); if (!td || !tab.contains(td)) return;
+            if (td === cur) return;
+            if (td.classList.contains('dtfc-fixed-left') || td.hasAttribute('colspan') || td.closest('.dataTables_scrollHead')) { hide(); return; }
+            if ([td, ...td.querySelectorAll('*')].some(x => x._tippy)) { hide(); return; }      // LHR hat eigenen Tooltip
+            const txt = (td.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
+            const colored = td.classList.contains('zp-col') || td.classList.contains('zp-rem') || td.classList.contains('zp-rb');
+            if (!txt && !colored) { hide(); return; }
+            const lines = [];
+            if (/(^|\s)R(\s|$)|^R[B ]/.test(txt) || td.classList.contains('zp-rem') || td.classList.contains('zp-rb')) lines.push('Remote / Homeoffice');
+            const bm = txt.match(/B\s?(\d)/); if (bm || /(^|\s)B(\s|$)/.test(txt)) lines.push('Bereitschaft' + (bm ? ' ' + bm[1] : ''));
+            if (/(^|\s)F(\s|$)/.test(txt)) lines.push('Feiertag');
+            let sw = '';
+            if (td.classList.contains('zp-col')) {
+                const c = rgbOf(td.style.getPropertyValue('--zc')); sw = td.style.getPropertyValue('--zc');
+                const leg = (legStore() || {}).l || [];
+                let best = null, bd = 1e9; if (c) leg.forEach(x => { const lc = rgbOf(x.c); if (!lc) return; const d = colDist(c, lc); if (d < bd) { bd = d; best = x; } });
+                const known = lines.length > 0;
+                if (best && bd < 90) { if (!lines.some(l => l.toLowerCase() === best.n.toLowerCase())) lines.push(best.n); }
+                else if (!known) lines.push('Abwesenheit');
+            }
+            const own = [td, ...td.querySelectorAll('*')].map(x => [...x.attributes].filter(a => /^(title|data-original-title|aria-label|data-tip|data-tooltip|data-title)$/i.test(a.name)).map(a => clean(a.value)).join(' ')).join(' ').trim();
+            let raw = '';
+            try { const jq = window.jQuery, t = td.closest('table'); if (jq && jq.fn.dataTable && jq.fn.dataTable.isDataTable(t)) { const d = jq(t).DataTable().cell(td).data(); raw = clean(typeof d === 'string' ? d : d && typeof d === 'object' ? Object.values(d).filter(v => typeof v === 'string').join(' · ') : ''); } } catch (e2) { }
+            const extra = [own, raw].map(x => x.replace(/\s*[·|]\s*$/, '')).filter(x => x && x.toUpperCase() !== txt && x.length > 2 && !lines.some(l => x.toLowerCase() === l.toLowerCase()));
+            // Name & Datum der Zelle
+            const tr = td.parentElement, nmTd = [...tr.children].filter(x => x.classList.contains('dtfc-fixed-left')).map(x => x.textContent.trim()).find(x => /[a-zäöü]{2}/i.test(x)) || '';
+            let dl = '';
+            try { const idx = [...tr.children].indexOf(td), heads = [...tab.querySelectorAll('.dataTables_scrollHead thead tr:last-child th, table:not(.dataTables_scrollBody table) > thead tr:last-child th')]; const th = heads[idx]; if (th) dl = ((th.querySelector('.zp-wd') || {}).textContent || '') + ' ' + ((th.querySelector('b') || {}).textContent || clean(th.textContent)); } catch (e3) { }
+            if (!tip) { tip = document.createElement('div'); tip.id = 'zp-ptip'; document.body.appendChild(tip); }
+            tip.innerHTML = `<div class="h">${sw ? `<i style="background:${esc(sw)}"></i>` : ''}${esc(lines.join(' + ') || txt)}</div><div class="d">${esc([dl.trim(), nmTd].filter(Boolean).join(' · '))}</div>${extra.length ? `<div class="x">${esc(extra.join(' · ').slice(0, 220))}</div>` : ''}`;
+            const r = td.getBoundingClientRect(); tip.classList.add('on'); cur = td;
+            const w = tip.offsetWidth, h = tip.offsetHeight;
+            let x = r.left + r.width / 2 - w / 2, y = r.top - h - 8; if (y < 8) y = r.bottom + 8; x = Math.max(8, Math.min(innerWidth - w - 8, x));
+            tip.style.left = x + 'px'; tip.style.top = y + 'px';
+        });
+        tab.addEventListener('mouseleave', hide);
+        // Scrollleisten: Kopf, Tabelle und Summenzeile laufen immer gemeinsam, egal welche Leiste man zieht
+        let syncing = false;
+        tab.addEventListener('scroll', e => {
+            const el = e.target; if (syncing || !el.classList || !/dataTables_scroll(Head|Body|Foot)/.test(el.className)) return;
+            syncing = true;
+            try { const sl = el.scrollLeft; tab.querySelectorAll('.dataTables_scrollHead,.dataTables_scrollBody,.dataTables_scrollFoot').forEach(o => { if (o !== el && Math.abs(o.scrollLeft - sl) > 1) o.scrollLeft = sl; }); } finally { requestAnimationFrame(() => { syncing = false; }); }
+        }, true);
+        window.addEventListener('scroll', hide, true);
     }
     // Abwesenheitsübersicht: Stern am Namen + Filter „Nur Favoriten“
     function abwFavs(favs, myKey) {
