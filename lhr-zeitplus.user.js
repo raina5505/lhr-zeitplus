@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.20.0
+// @version      5.20.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.20.0';
+    const VERSION = '5.20.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1494,6 +1494,10 @@ html.zp-pretty.zp-p-other #content table.dataTable tbody td,html.zp-pretty.zp-p-
 html.zp-pretty.zp-p-other #content table.dataTable thead th{font-size:12px;letter-spacing:.03em}
 html.zp-pretty #tableau_mitarbeiter_container .scrolldiv{border:1px solid var(--zp-line) !important;border-radius:14px;overflow:hidden}
 html.zp-pretty #tableautab2 td,html.zp-pretty #tableautab td{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;border-color:var(--zp-grid) !important}
+html.zp-pretty #tableautab2 td > :not(img):not(.zp-star):not(:empty),html.zp-pretty #tableautab td > :not(img):not(.zp-star):not(:empty){max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+/* Tableau im Dark-Mode: Zellen immer im Theme (LHR färbt ausgewählte Zeilen sonst weiß) */
+html.zp-dark #tableautab2 td,html.zp-dark #tableautab td,html.zp-dark #tableautab2 tr,html.zp-dark #tableautab tr{background-color:var(--zp-td,var(--zp-surf)) !important;background-image:none !important;color:var(--zp-text) !important}
+html.zp-dark #tableautab2 td *,html.zp-dark #tableautab td *{color:inherit}
 html.zp-pretty #tableautab2 tr:hover > td,html.zp-pretty #tableautab tr:hover > td{background-color:color-mix(in srgb,var(--zp-accent) 12%,transparent) !important;cursor:pointer}
 html.zp-pretty #tableaudetailtab td:not(.empty){background:var(--zp-surf,#f6f7fa) !important;border:1px solid var(--zp-line) !important;border-radius:14px;padding:12px 16px !important;vertical-align:top}
 html.zp-pretty #tableaudetailtab td#tableau_detail_foto{background:transparent !important;border:0 !important}
@@ -3579,6 +3583,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             if (star.textContent !== (isF ? '★' : '☆')) star.textContent = isF ? '★' : '☆';
             star.title = isF ? 'Favorit entfernen' : 'Als Favorit anpinnen';
             setCls(td, 'zp-fav', isF); setCls(td, 'zp-me', k === myKey);
+            if (!td.title) td.title = cellName(td);
         });
         // Tabellen-Zeilen (Planer, Abwesenheiten): DnNr oder Name
         const me = new Set(), fv = new Set();
