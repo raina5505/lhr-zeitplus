@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.20.2
+// @version      5.20.3
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.20.2';
+    const VERSION = '5.20.3';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -113,7 +113,14 @@
             const pv = (document.getElementById('zdl_periode') || {}).getAttribute ? document.getElementById('zdl_periode').getAttribute('value') : null;
             const inp = document.getElementById('zdlMonth');
             const val = pv || (inp && inp.value) || '';
-            const mm = val.match(/(\d{1,2})\.(\d{4})/);
+            let mm = val.match(/(\d{1,2})\.(\d{4})/);
+            if (!mm) {           // andere Seiten mit Monatsleiste (z.B. Planer): Monat aus dem Text der LHR-Leiste lesen
+                const tx = (per.textContent || '').replace(/\s+/g, ' ');
+                const mn = ['jän', 'feb', 'mär', 'apr', 'mai', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dez'];
+                const mt = tx.toLowerCase().match(/(jän|jan|feb|mär|mar|apr|mai|jun|jul|aug|sep|okt|nov|dez)[a-zä]*\.?\s*(\d{4})/);
+                if (mt) { const i = mt[1] === 'jan' ? 0 : mt[1] === 'mar' ? 2 : mn.indexOf(mt[1]); if (i >= 0) mm = [mt[0], String(i + 1), mt[2]]; }
+                else mm = tx.match(/(\d{1,2})\.(\d{4})/);
+            }
             const spans = [...per.querySelectorAll('.periode_span')];
             const fertig = per.querySelector('a[id^="fertigmeld"]');
             const ym = ((document.getElementById('periode_text') || {}).textContent || '').match(/(\d{4})/);
@@ -1493,8 +1500,8 @@ html.zp-pretty.zp-p-other #content hr{border:0 !important;border-top:1px solid v
 html.zp-pretty.zp-p-other #content table.dataTable tbody td,html.zp-pretty.zp-p-other #content table.dataTable thead th{border-color:var(--zp-grid) !important}
 html.zp-pretty.zp-p-other #content table.dataTable thead th{font-size:12px;letter-spacing:.03em}
 html.zp-pretty #tableau_mitarbeiter_container .scrolldiv{border:1px solid var(--zp-line) !important;border-radius:14px;overflow:hidden}
-html.zp-pretty #tableautab2 td,html.zp-pretty #tableautab td{white-space:nowrap !important;overflow:hidden !important;text-overflow:ellipsis !important;border-color:var(--zp-grid) !important}
-html.zp-pretty #tableautab2 td > :not(img):not(.zp-star):not(:empty),html.zp-pretty #tableautab td > :not(img):not(.zp-star):not(:empty){max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle}
+html.zp-pretty #tableautab2 td,html.zp-pretty #tableautab td{white-space:nowrap !important;overflow:hidden !important;text-overflow:clip !important;border-color:var(--zp-grid) !important}
+html.zp-pretty #tableautab2 td *,html.zp-pretty #tableautab td *{text-overflow:clip !important}
 /* Tableau im Dark-Mode: Zellen immer im Theme (LHR färbt ausgewählte Zeilen sonst weiß) */
 html.zp-dark #tableautab2 td,html.zp-dark #tableautab td,html.zp-dark #tableautab2 tr,html.zp-dark #tableautab tr{background-color:var(--zp-td,var(--zp-surf)) !important;background-image:none !important;color:var(--zp-text) !important}
 html.zp-dark #tableautab2 td *,html.zp-dark #tableautab td *{color:inherit}
@@ -1647,6 +1654,10 @@ html.zp-p-other #content td.zp-me{box-shadow:inset 0 0 0 2px var(--zp-accent,#4f
 td.zp-flash{animation:zpflash 1.2s ease-out}
 @keyframes zpflash{0%{box-shadow:inset 0 0 0 3px var(--zp-accent)}100%{box-shadow:inset 0 0 0 0 transparent}}
 #zp-fav-host{display:block;margin:0 0 12px}
+/* Planer: Kopfzeilen (Datum / KW / Arbeitstage, DnNr, Dienstnehmer) lesbar statt hellblau mit weißer Schrift */
+html.zp-dark.zp-planer #content thead th,html.zp-dark.zp-planer #content thead td{background-color:var(--zp-th,var(--zp-surf)) !important;background-image:none !important;color:var(--zp-text) !important;border-color:var(--zp-grid) !important;font-weight:600 !important}
+html.zp-dark.zp-planer #content thead th *,html.zp-dark.zp-planer #content thead td *{color:inherit !important}
+html.zp-planer #content thead th,html.zp-planer #content thead td{font-size:12px !important}
 #zp-team-host{display:block;max-width:1240px;margin:0 auto 16px}
 #zp-host.wide ~ #zp-team-host{max-width:none}
 #zp-abw-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 12px;font:13px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
@@ -4471,6 +4482,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         PAGE = document.getElementById('zdlBody') ? 'zdl' : document.getElementById('kalendertab') ? 'kal' : 'other';
         document.documentElement.classList.toggle('zp-zdl', PAGE === 'zdl');
         document.documentElement.classList.add('zp-p-' + PAGE);
+        if (/urlaubsplaner/i.test(location.pathname)) document.documentElement.classList.add('zp-planer');
         try { document.title = APP_TITLE; } catch (e) { }
         killOldScript();
         injectPageCss();
