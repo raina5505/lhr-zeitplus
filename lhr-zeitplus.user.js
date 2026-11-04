@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.19.0
+// @version      5.20.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.19.0';
+    const VERSION = '5.20.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1625,6 +1625,7 @@ html.zp-dark #tabdiv table.dataTable tbody td.dtfc-fixed-left,html.zp-dark #tabd
 html.zp-dark #tabdiv table.dataTable thead th.dtfc-fixed-left{background-color:var(--zp-th,var(--zp-surf)) !important;color:var(--zp-muted) !important}
 #tabdiv table.dataTable tbody tr:hover > td.dtfc-fixed-left{background-color:color-mix(in srgb,var(--zp-accent,#4f5bd5) 16%,var(--zp-td,#fff)) !important}
 html.zp-dark body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody tr:hover > td.dtfc-fixed-left{background-color:color-mix(in srgb,var(--zp-accent) 18%,var(--zp-td,var(--zp-surf))) !important}
+#mehrfacherfassung_submit.zp-mfe-err{box-shadow:0 0 0 2px var(--zp-bad,#e5484d) !important}
 html.zp-p-other #content tr.zp-me > td{box-shadow:inset 0 2px 0 var(--zp-accent,#4f5bd5),inset 0 -2px 0 var(--zp-accent,#4f5bd5) !important}
 html.zp-p-other #content tr.zp-me > td:first-child{box-shadow:inset 3px 0 0 var(--zp-accent,#4f5bd5),inset 0 2px 0 var(--zp-accent,#4f5bd5),inset 0 -2px 0 var(--zp-accent,#4f5bd5) !important}
 html.zp-p-other #content tr.zp-me > td:not([data-zp-cf]):not([style*="background"]){color:var(--zp-accent,#4f5bd5) !important;background-color:color-mix(in srgb,var(--zp-accent,#4f5bd5) 12%,transparent) !important}
@@ -1642,6 +1643,8 @@ html.zp-p-other #content td.zp-me{box-shadow:inset 0 0 0 2px var(--zp-accent,#4f
 td.zp-flash{animation:zpflash 1.2s ease-out}
 @keyframes zpflash{0%{box-shadow:inset 0 0 0 3px var(--zp-accent)}100%{box-shadow:inset 0 0 0 0 transparent}}
 #zp-fav-host{display:block;margin:0 0 12px}
+#zp-team-host{display:block;max-width:1240px;margin:0 auto 16px}
+#zp-host.wide ~ #zp-team-host{max-width:none}
 #zp-abw-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 12px;font:13px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
 #zp-abw-bar .t{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--zp-muted);margin-right:2px}
 html body #zp-abw-bar button{height:32px;padding:0 13px;border-radius:10px !important;border:1px solid var(--zp-line) !important;background:var(--zp-surf) !important;background-image:none !important;color:var(--zp-text) !important;font:600 13px/1 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;cursor:pointer;margin:0 !important}
@@ -3597,6 +3600,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         });
         document.querySelectorAll('#content tbody > tr').forEach(tr => { setCls(tr, 'zp-me', me.has(tr)); setCls(tr, 'zp-favrow', fv.has(tr)); });
         safe('Team', () => abwFavs(favs, myKey));
+        safe('Team', () => { if (document.querySelector('#tabdiv tbody td.kalTag, #tabdiv tbody td.kalTag_sa')) { const dt = teamParse(document, window); teamSave(dt); } });
         renderFavBar(tcells);
     }
     // Abwesenheitsübersicht: Stern am Namen + Filter „Nur Favoriten“
@@ -3848,12 +3852,285 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         });
         table.parentElement.insertBefore(bar, table);
     }
+    /* ───── Mehrfacherfassung: Vorschau, wie die Tage danach in der Zeitdatenliste aussehen + Fehlbuchungs-Hinweise ───── */
+    const MFE_CSS = `
+.mp{font:13px/1.4 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text);background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:14px;padding:14px 16px;margin:16px auto 14px;max-width:880px;text-align:left}
+.mp h4{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:8px}
+.mp .s{color:var(--zp-muted);font-size:12px;margin-bottom:10px}
+.mp .sum{display:inline-flex;gap:6px;margin-left:auto;font-size:12px;font-weight:600}
+.mp .sum b{padding:2px 9px;border-radius:99px}
+.mp .sum .w{background:color-mix(in srgb,var(--zp-warn) 18%,transparent);color:var(--zp-warn)}
+.mp .sum .e{background:color-mix(in srgb,var(--zp-bad) 18%,transparent);color:var(--zp-bad)}
+.mp .sum .k{background:color-mix(in srgb,var(--zp-ok) 18%,transparent);color:var(--zp-ok)}
+.d{display:grid;grid-template-columns:86px 1fr 70px;gap:4px 12px;align-items:center;padding:9px 0;border-top:1px solid var(--zp-line)}
+.d .dt{font-weight:700}.d .dt small{display:block;font-weight:500;color:var(--zp-muted);font-size:11px}
+.d .tl{position:relative;height:18px;border-radius:6px;background:var(--zp-surf2)}
+.d .tl i{position:absolute;top:3px;bottom:3px;border-radius:4px}
+.d .tl i.old{background:color-mix(in srgb,var(--zp-muted) 55%,transparent)}
+.d .tl i.new{background:var(--zp-accent);top:1px;bottom:1px;box-shadow:0 0 0 1px var(--zp-surf)}
+.d .tl i.bad{background:var(--zp-bad)}
+.d .tot{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
+.d .ch{grid-column:2/4;display:flex;flex-wrap:wrap;gap:5px}
+.c{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;border-radius:7px;font-size:12px;font-weight:600;background:var(--zp-surf2);color:var(--zp-muted);font-variant-numeric:tabular-nums}
+.c.new{background:color-mix(in srgb,var(--zp-accent) 18%,transparent);color:var(--zp-text);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-accent) 45%,transparent)}
+.c.abs{background:color-mix(in srgb,var(--zp-accent2) 18%,transparent);color:var(--zp-accent2)}
+.c.rem{background:color-mix(in srgb,var(--zp-rem,#2dd4bf) 18%,transparent);color:var(--zp-rem,#2dd4bf)}
+.m{grid-column:2/4;font-size:12px;display:flex;gap:6px;align-items:flex-start}
+.m.e{color:var(--zp-bad)}.m.w{color:var(--zp-warn)}.m.i{color:var(--zp-muted)}
+.ax{display:flex;justify-content:space-between;font-size:10px;color:var(--zp-muted);margin:0 70px 0 98px}
+.none{color:var(--zp-muted);font-size:12.5px}`;
+    const mmOf = t => { const m = String(t || '').trim().match(/^(\d{1,2}):?(\d{2})$/); if (!m) return null; const h = +m[1], mi = +m[2]; return h < 24 && mi < 60 ? h * 60 + mi : NaN; };
+    const mmTxt = v => pad(Math.floor(v / 60)) + ':' + pad(v % 60);
+    const dParse = t => { const m = String(t || '').match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/); return m ? new Date(+m[3], +m[2] - 1, +m[1], 12) : null; };
+    const mfeMonths = new Map();               // "MM.YYYY" → Map(tag → rows) | 'loading' | null
+    function mfeMonthDays(dt, redraw) {
+        const per = pad(dt.getMonth() + 1) + '.' + dt.getFullYear();
+        const cur = groupDays(); const any = cur.keys().next().value;
+        if (any && any.slice(3) === per) return cur;
+        if (mfeMonths.has(per)) { const v = mfeMonths.get(per); return v === 'loading' ? 'loading' : v; }
+        mfeMonths.set(per, 'loading');
+        fetch(monthUrl(per), { credentials: 'same-origin' }).then(r => r.ok ? r.text() : '').then(html => {
+            const doc = new DOMParser().parseFromString(html || '', 'text/html'), tb = doc.getElementById('zdlBody'), map = new Map();
+            if (tb) tb.querySelectorAll('tr[data-periode]').forEach(r => { const k = r.getAttribute('data-periode'); if (!/^\d\d\.\d\d\.\d{4}$/.test(k)) return; if (!map.has(k)) map.set(k, []); map.get(k).push(r); });
+            mfeMonths.set(per, tb ? map : null); redraw();
+        }).catch(() => { mfeMonths.set(per, null); redraw(); });
+        return 'loading';
+    }
+    function mfeExisting(rows) {
+        const segs = []; let info = '';
+        (rows || []).forEach(r => {
+            const zd = r.querySelector('td.td_zeitdaten'); if (!zd) return;
+            const a = zd.querySelector('.td_text1_isDate'), b = zd.querySelector('.td_text2_isDate');
+            if (a) { const s = mmOf((a.textContent.match(/\d{1,2}:\d{2}/) || [])[0]); const e = b ? mmOf((b.textContent.match(/\d{1,2}:\d{2}/) || [])[0]) : null; if (s != null && !isNaN(s)) segs.push({ s, e: e != null && !isNaN(e) ? e : null }); }
+            else if (!info) { const t = zd.textContent.replace(/[_?]/g, '').replace(/\s+/g, ' ').trim(); if (t && !/^\d{1,2}:\d{2}$/.test(t) && !/Periodenschluss|Abrechnung|Übertrag|Vortr/.test(t)) info = t.replace(/^\d{1,2}:\d{2}\s*/, ''); }
+        });
+        return { segs, info };
+    }
+    function mfeRead(dlg) {
+        const bookings = [], absences = [];
+        dlg.querySelectorAll('#mbu_tbody > tr').forEach((tr, i) => {
+            const art = tr.querySelector('select.buchung_art'), dIn = tr.querySelector('input.datum'), v = tr.querySelector('input.vonzeit'), b = tr.querySelector('input.biszeit');
+            const raw = [dIn && dIn.value, v && v.value, b && b.value];
+            if (!raw.some(x => x && x.trim())) return;
+            bookings.push({ i: i + 1, art: art ? art.options[art.selectedIndex].text.trim() : 'Buchung', normal: !art || art.value === '-1', dt: dParse(raw[0]), dRaw: raw[0], s: mmOf(raw[1]), e: mmOf(raw[2]), sRaw: raw[1], eRaw: raw[2], end: !!(tr.querySelector('input.mb_checkbox:not(.rk_reisestart):not(.rk_reiseende)') || {}).checked });
+        });
+        const showAbw = dlg.querySelector('#showAbwesenheit');
+        if (showAbw && showAbw.checked) dlg.querySelectorAll('#abw_tbody > tr').forEach((tr, i) => {
+            const sel = tr.querySelector('select.multi-urlaub-abws'), f = tr.querySelector('input[name="datumvonInput"]'), t = tr.querySelector('input[name="datumbisInput"]');
+            const a = dParse(f && f.value), z = dParse(t && t.value) || a;
+            if (!a || !sel) return;
+            absences.push({ i: i + 1, name: sel.options[sel.selectedIndex].text.trim(), a, z });
+        });
+        return { bookings, absences };
+    }
+    function mfePreview(dlg, host) {
+        const root = host.shadowRoot, box = root.getElementById('mp');
+        const { bookings, absences } = mfeRead(dlg);
+        const days = new Map();                // tag → {dt, nb:[], ab:[], msgs:[]}
+        const day = dt => { const k = dayKey(dt); if (!days.has(k)) days.set(k, { dt, nb: [], ab: [], msgs: [] }); return days.get(k); };
+        const loose = [];
+        bookings.forEach(b => {
+            if (!b.dt) { loose.push({ t: 'e', x: `Zeile ${b.i}: kein gültiges Datum` + (b.dRaw ? ` („${b.dRaw}“)` : '') }); return; }
+            const d = day(b.dt);
+            if (b.s == null || isNaN(b.s)) d.msgs.push({ t: 'e', x: `Zeile ${b.i}: „Von“ fehlt oder ist ungültig` + (b.sRaw ? ` („${b.sRaw}“)` : '') });
+            if (b.e != null && isNaN(b.e)) d.msgs.push({ t: 'e', x: `Zeile ${b.i}: „Bis“ ist ungültig („${b.eRaw}“)` });
+            if (b.e == null && !b.end && b.s != null && !isNaN(b.s)) d.msgs.push({ t: 'w', x: `Zeile ${b.i}: kein „Bis“ – es wird nur eine Kommen-Buchung angelegt` });
+            if (b.s != null && b.e != null && !isNaN(b.s) && !isNaN(b.e) && b.e <= b.s) d.msgs.push({ t: 'e', x: `Zeile ${b.i}: Ende ${mmTxt(b.e)} liegt vor Beginn ${mmTxt(b.s)}` });
+            d.nb.push(b);
+        });
+        absences.forEach(a => { for (let t = new Date(a.a); t <= a.z && days.size < 120; t.setDate(t.getDate() + 1)) { const dt = new Date(t); if (dt.getDay() === 0 || dt.getDay() === 6) continue; day(dt).ab.push(a); } });
+        const keys = [...days.keys()].sort((x, y) => days.get(x).dt - days.get(y).dt);
+        let loading = false, nE = loose.filter(m => m.t === 'e').length, nW = 0;
+        const t0 = new Date(); t0.setHours(23, 59, 59);
+        const LO = 6 * 60, HI = 20 * 60, X = v => Math.max(0, Math.min(100, (v - LO) / (HI - LO) * 100));
+        const rows = keys.map(k => {
+            const d = days.get(k), wd = d.dt.getDay();
+            const md = mfeMonthDays(d.dt, () => mfePreview(dlg, host));
+            let ex = { segs: [], info: '' }, known = false;
+            if (md === 'loading') loading = true; else if (md) { known = true; ex = mfeExisting(md.get(k)); }
+            const msgs = d.msgs.slice();
+            const isRem = t => /remote|home/i.test(t || '');
+            if (wd === 0 || wd === 6) msgs.push({ t: 'w', x: (wd === 0 ? 'Sonntag' : 'Samstag') + ' – wirklich an diesem Tag?' });
+            if (/feiertag/i.test(ex.info)) msgs.push({ t: 'w', x: 'Feiertag' });
+            if (d.nb.length && ex.info && !isRem(ex.info) && !/feiertag/i.test(ex.info) && !/bereitschaft/i.test(ex.info)) msgs.push({ t: 'w', x: `Tag hat schon „${ex.info}“ eingetragen` });
+            if (d.ab.length && ex.segs.length) d.ab.filter(a => !isRem(a.name)).forEach(a => msgs.push({ t: 'w', x: `${a.name} an einem Tag mit Buchungen (${ex.segs.map(g => mmTxt(g.s) + '–' + (g.e != null ? mmTxt(g.e) : '?')).join(', ')})` }));
+            if (d.ab.length && d.nb.length) d.ab.filter(a => !isRem(a.name)).forEach(a => msgs.push({ t: 'w', x: `${a.name} und neue Buchungen am selben Tag` }));
+            if (d.ab.length > 1) msgs.push({ t: 'w', x: 'Mehrere Abwesenheiten am selben Tag' });
+            if (ex.info && d.ab.some(a => !isRem(a.name)) && !isRem(ex.info)) msgs.push({ t: 'w', x: `Schon eingetragen: „${ex.info}“` });
+            if (d.dt > t0 && d.nb.some(b => b.normal)) msgs.push({ t: 'i', x: 'Datum liegt in der Zukunft' });
+            // Überschneidungen (neu ↔ vorhanden, neu ↔ neu)
+            const nv = d.nb.filter(b => b.s != null && !isNaN(b.s)).map(b => ({ s: b.s, e: b.e != null && !isNaN(b.e) && b.e > b.s ? b.e : b.s + 1, b }));
+            const isT = k === todayKey(), nowM = new Date().getHours() * 60 + new Date().getMinutes();
+            const old = ex.segs.map(g => ({ s: g.s, e: g.e != null ? g.e : isT ? Math.max(g.s + 1, nowM) : g.s + 1, open: g.e == null }));
+            old.filter(o => o.open).forEach(o => msgs.push(isT ? { t: 'i', x: `Du bist seit ${mmTxt(o.s)} eingestempelt (läuft bis jetzt)` } : { t: 'w', x: `Offene Kommen-Buchung um ${mmTxt(o.s)} ohne Gehen` }));
+            const bad = new Set();
+            nv.forEach((n, i) => {
+                old.forEach(o => { if (n.s < o.e && o.s < n.e) { bad.add(n); msgs.push({ t: 'e', x: `Zeile ${n.b.i}: überschneidet sich mit vorhandener Buchung ${mmTxt(o.s)}–${mmTxt(o.e)}` }); } });
+                nv.slice(i + 1).forEach(m => { if (n.s < m.e && m.s < n.e) { bad.add(n); bad.add(m); msgs.push({ t: 'e', x: `Zeile ${n.b.i} und ${m.b.i} überschneiden sich` }); } });
+            });
+            const total = old.filter(o => o.e > o.s + 1).reduce((a, o) => a + o.e - o.s, 0) + nv.filter(n => n.e > n.s + 1).reduce((a, n) => a + n.e - n.s, 0);
+            if (total > 10 * 60) msgs.push({ t: 'w', x: `Zusammen ${mmTxt(total)} h – über der 10-h-Grenze` });
+            nE += msgs.filter(m => m.t === 'e').length; nW += msgs.filter(m => m.t === 'w').length;
+            const bars = old.map(o => `<i class="old" style="left:${X(o.s)}%;width:${Math.max(.6, X(o.e) - X(o.s))}%" title="vorhanden ${mmTxt(o.s)}–${mmTxt(o.e)}"></i>`).join('') + nv.map(n => `<i class="new${bad.has(n) ? ' bad' : ''}" style="left:${X(n.s)}%;width:${Math.max(.6, X(n.e) - X(n.s))}%" title="neu ${mmTxt(n.s)}–${mmTxt(n.e)}"></i>`).join('');
+            const chips = ex.segs.map(g => `<span class="c" title="schon in der Zeitdatenliste">${mmTxt(g.s)}–${g.e != null ? mmTxt(g.e) : '?'}</span>`).join('')
+                + (ex.info ? `<span class="c ${isRem(ex.info) ? 'rem' : 'abs'}">${esc(ex.info)}</span>` : '')
+                + d.nb.map(b => `<span class="c new" title="neu: ${esc(b.art)}">+ ${b.s != null && !isNaN(b.s) ? mmTxt(b.s) : '?'}–${b.e != null && !isNaN(b.e) ? mmTxt(b.e) : (b.end ? 'Ende' : '…')}${b.normal ? '' : ' · ' + esc(b.art)}</span>`).join('')
+                + d.ab.map(a => `<span class="c ${isRem(a.name) ? 'rem' : 'abs'}">+ ${esc(a.name)}</span>`).join('');
+            const ic = { e: ico('alert', 13), w: ico('alert', 13), i: ico('help', 13) };
+            return `<div class="d"><div class="dt">${WD_SHORT[wd]} ${pad(d.dt.getDate())}.${pad(d.dt.getMonth() + 1)}.<small>${known ? 'aus Zeitdatenliste' : md === 'loading' ? 'wird geladen …' : 'Monat nicht geladen'}</small></div>
+                <div class="tl">${bars}</div><div class="tot">${total ? mmTxt(total) : '–'}</div>
+                <div class="ch">${chips || '<span class="c">noch nichts</span>'}</div>
+                ${msgs.map(m => `<div class="m ${m.t}">${ic[m.t]}<span>${esc(m.x)}</span></div>`).join('')}</div>`;
+        }).join('');
+        const sum = nE ? `<b class="e">${nE} Fehler</b>` : '' ;
+        const sumW = nW ? `<b class="w">${nW} Hinweis${nW > 1 ? 'e' : ''}</b>` : '';
+        const ok = !nE && !nW && keys.length ? '<b class="k">sieht gut aus</b>' : '';
+        box.innerHTML = `<h4>${ico('eye', 16)} Vorschau: so sieht's danach in der Zeitdatenliste aus<span class="sum">${sum}${sumW}${ok}</span></h4>
+            <div class="s">Grau = schon gebucht, blau = neu aus diesem Dialog, rot = Überschneidung. Pausenabzüge rechnet LHR erst nach dem Eintragen.${loading ? ' Lade Monatsdaten …' : ''}</div>
+            ${loose.map(m => `<div class="m e">${ico('alert', 13)}<span>${esc(m.x)}</span></div>`).join('')}
+            ${keys.length ? `<div class="ax"><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>20</span></div>${rows}` : '<div class="none">Sobald du oben Tag und Uhrzeiten einträgst, erscheint hier die Vorschau.</div>'}`;
+        const btn = dlg.querySelector('#mehrfacherfassung_submit');
+        if (btn) { btn.title = nE ? nE + ' Fehler in der Vorschau – bitte prüfen' : ''; btn.classList.toggle('zp-mfe-err', nE > 0); }
+    }
+    function mfeAttach() {
+        const dlg = document.getElementById('mehrfacherfassungBody');
+        if (!dlg || dlg.querySelector('#zp-mfe-prev')) return;
+        const panel = dlg.querySelector('#multi_buttonPanel');
+        const host = el('div'); host.id = 'zp-mfe-prev';
+        if (panel) panel.parentNode.insertBefore(host, panel); else dlg.appendChild(host);
+        const root = mkRoot(host); const st = document.createElement('style'); st.textContent = MFE_CSS; root.appendChild(st);
+        const box = el('div', 'mp zp-font'); box.id = 'mp'; root.appendChild(box);
+        let t = null; const go = () => { clearTimeout(t); t = setTimeout(() => safe('Mehrfacherfassung', () => mfePreview(dlg, host)), 150); };
+        ['input', 'change', 'click', 'keyup'].forEach(ev => dlg.addEventListener(ev, go, true));
+        new MutationObserver(go).observe(dlg, { childList: true, subtree: true, attributes: true, attributeFilter: ['value', 'style'] });
+        const tick = setInterval(() => { if (!document.body.contains(host)) { clearInterval(tick); return; } go(); }, 1500);   // Datumsauswahl (flatpickr) setzt value ohne Event
+        go();
+    }
+    /* ───── Team: wer ist verfügbar (Büro/Remote) und wer abwesend – Daten aus der Abwesenheitsübersicht ───── */
+    const TEAM_KEY = 'zplus_team';
+    const teamStore = () => { try { return JSON.parse(localStorage.getItem(TEAM_KEY) || 'null'); } catch (e) { return null; } };
+    function teamParse(doc, win) {
+        const fv = doc.getElementById('datumvon'), start = dParse(fv && fv.value) || new Date();
+        const tables = [...doc.querySelectorAll('#tabdiv table')].filter(t => t.querySelector('tbody td.kalTag, tbody td.kalTag_sa, tbody td.kalTag_so_fe'));
+        const tbl = tables[0]; if (!tbl) return null;
+        const head = [...doc.querySelectorAll('#tabdiv thead tr')].map(tr => [...tr.children]).find(ths => ths.some(th => /^\d{1,2}\.\d{1,2}\.?$/.test(th.textContent.trim()))) || [];
+        let y = start.getFullYear(), lastM = start.getMonth();
+        const colDate = head.map(th => { const m = th.textContent.trim().match(/^(\d{1,2})\.(\d{1,2})\.?$/); if (!m) return null; const mo = +m[2] - 1; if (mo < lastM - 6) y++; lastM = mo; return dayKey(new Date(y, mo, +m[1], 12)); });
+        let rows = [];
+        try { const jq = win && win.jQuery; if (jq && jq.fn && jq.fn.dataTable) rows = [...jq(tbl).DataTable().rows().nodes()]; } catch (e) { }
+        if (!rows.length) rows = [...tbl.querySelectorAll('tbody > tr')];
+        const favs = new Set(favList().map(f => f.k)), myKey = nameKey(userInfo().name);
+        const days = {}, names = {};
+        rows.forEach(tr => {
+            const tds = [...tr.children];
+            const nm = tds.slice(0, 3).map(t => cellName(t)).find(t => /[a-zäöü]{2}/i.test(t) && !/^\d+$/.test(t)) || '';
+            const k = nameKey(nm); if (!k || (!favs.has(k) && k !== myKey)) return;
+            names[k] = nm;
+            tds.forEach((td, i) => {
+                const dk = colDate[i]; if (!dk) return;
+                const cls = td.className || '';
+                let st = 'da', l = (td.textContent || '').replace(/\s+/g, '').trim();
+                if (/kalTag_sa|kalTag_so_fe/.test(cls) && !l) st = 'frei';
+                else {
+                    const dv = td.querySelector('div'), bg = rgbOf(td.style.backgroundColor) || rgbOf(dv && dv.style.backgroundColor);
+                    const colored = bg && bg.a > .1 && !(bg.r > 245 && bg.g > 245 && bg.b > 245);
+                    if (/^R$/i.test(l)) st = 'rem'; else if (colored || l) st = 'abs';
+                }
+                (days[dk] = days[dk] || {})[k] = { st, l };
+            });
+        });
+        return { ts: Date.now(), days, names };
+    }
+    function teamSave(data) { if (data && Object.keys(data.names).length) try { localStorage.setItem(TEAM_KEY, JSON.stringify(data)); } catch (e) { } }
+    let teamBusy = false;
+    function teamRefresh(done) {
+        if (teamBusy) return; teamBusy = true;
+        const a = document.getElementById('zm_abw_uebersicht');
+        const fr = document.createElement('iframe'); fr.name = 'zp-team'; fr.setAttribute('aria-hidden', 'true');
+        fr.style.cssText = 'position:fixed;left:-9999px;top:0;width:1400px;height:900px;border:0;visibility:hidden';
+        fr.src = a ? a.getAttribute('href') : '/Self/Abwesenheitsuebersicht?modulId=0';
+        let tries = 0;
+        const fin = ok => { teamBusy = false; setTimeout(() => fr.remove(), 500); if (done) done(ok); };
+        const poll = () => {
+            tries++;
+            let data = null;
+            try { const d = fr.contentDocument; if (d && d.querySelector('#tabdiv tbody td')) { data = teamParse(d, fr.contentWindow); } } catch (e) { }
+            if (data) { teamSave(data); fin(true); return; }
+            if (tries > 40) { fin(false); return; }
+            setTimeout(poll, 500);
+        };
+        fr.addEventListener('load', () => setTimeout(poll, 800));
+        document.body.appendChild(fr);
+    }
+    const TEAM_CSS = `
+.tm{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 16px;border-radius:16px;background:var(--zp-surf);border:1px solid var(--zp-line);font:13px/1.3 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
+.tm .t{display:flex;align-items:center;gap:7px;font-weight:700}
+.tm .seg{display:inline-flex;border:1px solid var(--zp-line);border-radius:9px;overflow:hidden}
+.tm .seg button{border:0;background:transparent;color:var(--zp-muted);font:600 12px/1 inherit;padding:6px 10px;cursor:pointer}
+.tm .seg button.on{background:var(--zp-accent);color:var(--zp-onacc,#fff)}
+.tm .g{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.tm .g > small{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--zp-muted);margin-right:2px}
+.tm .c{display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:99px;font-weight:600;font-size:12.5px;background:color-mix(in srgb,var(--zp-ok) 14%,transparent);color:var(--zp-text);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-ok) 35%,transparent)}
+.tm .c em{font-style:normal;font-size:11px;font-weight:700;color:var(--zp-ok)}
+.tm .c.rem{background:color-mix(in srgb,var(--zp-rem,#2dd4bf) 14%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-rem,#2dd4bf) 40%,transparent)}
+.tm .c.rem em{color:var(--zp-rem,#2dd4bf)}
+.tm .c.abs{background:color-mix(in srgb,var(--zp-bad) 12%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 35%,transparent);color:var(--zp-muted)}
+.tm .c.abs em{color:var(--zp-bad)}
+.tm .sp{flex:1}
+.tm .f{font-size:11.5px;color:var(--zp-muted);display:flex;align-items:center;gap:6px}
+.tm .f button{border:0;background:transparent;color:var(--zp-muted);cursor:pointer;padding:3px;display:grid;place-items:center;border-radius:6px}
+.tm .f button:hover{color:var(--zp-text);background:var(--zp-surf2)}
+.tm .h{color:var(--zp-muted);font-size:12.5px}`;
+    let teamDay = 0;
+    function renderTeam(box) {
+        const data = teamStore(), favs = favList(), myKey = nameKey(userInfo().name);
+        const d0 = new Date(); d0.setHours(12, 0, 0, 0);
+        const next = new Date(d0); do next.setDate(next.getDate() + 1); while (next.getDay() === 0 || next.getDay() === 6);
+        const dt = teamDay ? next : d0, dk = dayKey(dt);
+        const lab = (teamDay ? (next.getDate() - d0.getDate() === 1 ? 'Morgen' : WD_LONG[next.getDay()]) : 'Heute');
+        const seg = `<span class="seg"><button type="button" data-td="0" class="${teamDay ? '' : 'on'}">Heute</button><button type="button" data-td="1" class="${teamDay ? 'on' : ''}">${next.getDate() - d0.getDate() === 1 ? 'Morgen' : WD_SHORT[next.getDay()]}</button></span>`;
+        const head = `<span class="t">${ico('users', 15)} Team</span>${seg}`;
+        if (!favs.length) { box.innerHTML = `<div class="tm">${head}<span class="h">Markiere in der Abwesenheitsübersicht oder im Tableau Kollegen mit ☆ – dann siehst du hier, wer da ist.</span></div>`; return; }
+        const age = data ? Date.now() - data.ts : 0;
+        const foot = `<span class="sp"></span><span class="f">${data ? 'Stand ' + clock(data.ts) + (age > 864e5 ? ' (' + pad(new Date(data.ts).getDate()) + '.' + pad(new Date(data.ts).getMonth() + 1) + '.)' : '') : 'noch keine Daten'} · Abwesenheitsübersicht<button type="button" data-tr="1" title="Jetzt aktualisieren">${ico('refresh', 13)}</button></span>`;
+        const day = data && data.days[dk];
+        if (!day) { box.innerHTML = `<div class="tm">${head}<span class="h">${teamBusy ? 'Wird geladen …' : 'Für ' + lab.toLowerCase() + ' noch keine Daten.'}</span>${foot}</div>`; return; }
+        const av = [], ab = [];
+        favs.forEach(f => {
+            if (f.k === myKey) return;
+            const e = day[f.k], n = esc((data.names[f.k] || f.n).replace(/\s+/g, ' '));
+            if (!e) return;
+            if (e.st === 'abs') ab.push(`<span class="c abs" title="abwesend${e.l ? ' (' + esc(e.l) + ')' : ''}">${n}${e.l ? `<em>${esc(e.l)}</em>` : ''}</span>`);
+            else if (e.st === 'rem') av.push(`<span class="c rem" title="Remote / Homeoffice">${n}<em>HO</em></span>`);
+            else if (e.st === 'da') av.push(`<span class="c" title="kein Eintrag – im Büro">${n}<em>Büro</em></span>`);
+        });
+        const missing = favs.filter(f => f.k !== myKey && !day[f.k]).length;
+        box.innerHTML = `<div class="tm">${head}
+            <span class="g"><small>Verfügbar</small>${av.join('') || '<span class="h">niemand</span>'}</span>
+            <span class="g"><small>Abwesend</small>${ab.join('') || '<span class="h">niemand</span>'}</span>
+            ${missing ? `<span class="h" title="Nicht in der aktuellen Abwesenheitsübersicht (Filter/Firma)">+${missing} ohne Daten</span>` : ''}${foot}</div>`;
+    }
+    function buildTeam() {
+        const dash = document.getElementById('zp-host'); if (!dash || document.getElementById('zp-team-host')) return;
+        const host = el('div'); host.id = 'zp-team-host'; dash.after(host);
+        const root = mkRoot(host); const st = document.createElement('style'); st.textContent = TEAM_CSS; root.appendChild(st);
+        const box = el('div', 'zp-font'); root.appendChild(box);
+        box.addEventListener('click', e => {
+            const t = e.target.closest('[data-td]'); if (t) { teamDay = +t.dataset.td; renderTeam(box); return; }
+            if (e.target.closest('[data-tr]')) { teamRefresh(() => renderTeam(box)); renderTeam(box); }
+        });
+        renderTeam(box);
+        const data = teamStore();
+        if (favList().length && (!data || Date.now() - data.ts > 2 * 3600e3)) setTimeout(() => teamRefresh(() => renderTeam(box)), 5000);
+        setInterval(() => { if (!document.hidden) renderTeam(box); }, 5 * 60e3);
+    }
     function watchDialog() {
         let pending = false;
         new MutationObserver(() => {
-            if (pending || !document.querySelector('td.mb_td') || document.getElementById('zp-cp')) return;
+            if (pending || !document.querySelector('td.mb_td')) return;
+            if (document.getElementById('zp-cp') && (!document.getElementById('mehrfacherfassungBody') || document.getElementById('zp-mfe-prev'))) return;
             pending = true;
-            setTimeout(() => { pending = false; safe('Mehrfacherfassung', buildCopyBar); }, 300);
+            setTimeout(() => { pending = false; if (!document.getElementById('zp-cp')) safe('Mehrfacherfassung', buildCopyBar); safe('Mehrfacherfassung', mfeAttach); }, 300);
         }).observe(document.body, { childList: true, subtree: true });
     }
 
@@ -4162,6 +4439,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         document.documentElement.classList.toggle('zp-zdl', hasTable);
         if (hasToday && content) {
             safe('Dashboard', () => { buildDash(); render(); updClock(); });
+            safe('Team', buildTeam);
             setInterval(() => { if (!document.hidden) safe('Uhr', updClock); }, 1000);
             setInterval(() => { if (!document.hidden) safe('Render', render); }, 20000);
             document.addEventListener('visibilitychange', () => {
