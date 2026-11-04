@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.18.3
+// @version      5.19.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.18.3';
+    const VERSION = '5.19.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -536,6 +536,7 @@
             else if (d.kind === 'work') { cls += ' work'; tip += ' · ' + d.name; }
             if (d.pend) { cls += ' pend'; tip += ' (beantragt)'; }
             if (d.br) { cls += ' brd'; tip += ' · Bereitschaft'; }
+            if (d.kind === 'abs' && /remote|home/i.test(d.name || '')) cls += ' rem';
             if (bridgeDays.has(d.key)) { cls += ' bridge'; tip += ' · Brückentag-Tipp'; }
             if (d.href) { cls += ' add'; tip += '\nKlicken: Urlaub / Abwesenheit eintragen'; }
             const inner = strip ? (d.kind === 'abs' ? `<b>${esc(d.letter)}</b>` : '') : `<b>${d.d}</b>${d.kind === 'abs' ? `<i>${esc(d.letter)}</i>` : ''}`;
@@ -988,7 +989,7 @@
             const dow = dt.getDay();
             const day = {
                 k, dt, isT, past, future: !past && !isT, we: dow === 0 || dow === 6, segs, info: infos[0] || '', fehl: fehl && past, note, pause, editHref,
-                soll: sollOf(rows), edge: rows[0].style.getPropertyValue('--zp-edge') || '', first: rows[0], br: isBR(rows), pabs: partAbs(rows),
+                soll: sollOf(rows), edge: rows[0].style.getPropertyValue('--zp-edge') || '', first: rows[0], br: isBR(rows), pabs: partAbs(rows), rem: rows.some(r => /remote|homeoffice/i.test(((r.querySelector('td.td_zeitdaten') || {}).textContent || ''))),
                 ist: isT ? c.eff : lastVal(rows, 2), tg: isT ? c.tg : lastVal(rows, 73), sal: isT ? c.saldo : lastVal(rows, 3)
             };
             listDays.set(k, day);
@@ -1059,7 +1060,7 @@
             let ded = x.pause != null ? mins(x.pause) : null;
             const dedTip = lunch ? `Mittag ${clock(lunch.s)}–${clock(lunch.e)} = ${ll} min` : 'keine Mittagspause gestempelt';
             const dedFull = ded ? `${dedTip}. LHR hat ${ded} min Pause abgezogen (Pause-Spalte, keine Arbeitszeit).` : dedTip + '. Kein Pausenabzug in LHR.';
-            const cls = ['zl-row', x.br ? 'br' : '', x.isT ? 'today' : '', x.future ? 'future' : '', x.future && calc ? 'calc' : '', x.we && !x.segs.length ? 'we' : '', x.edge && !x.isT ? 'edge' : '', open ? 'open' : ''].join(' ');
+            const cls = ['zl-row', x.br ? 'br' : '', x.rem ? 'rem' : '', x.isT ? 'today' : '', x.future ? 'future' : '', x.future && calc ? 'calc' : '', x.we && !x.segs.length ? 'we' : '', x.edge && !x.isT ? 'edge' : '', open ? 'open' : ''].join(' ');
             let st;
             const live = x.isT && c.open;
             if (x.segs.length) {
@@ -1078,6 +1079,7 @@
             else if (x.future) st = '';
             else st = '';
             if (x.br) st = `<span class="zl-tag br" title="Bereitschaft (Arbeitsmodell ${esc(zmOf(d.days.get(x.k) || []))})${x.soll ? ' · Soll ' + dur(x.soll) + ' ab ' + S.brStart + ', ohne Pflichtpause' : ''}">${ico('zap', 12)} Bereitschaft${x.soll ? ' · ' + dur(x.soll) : ''}</span>` + st;
+            if (x.rem && x.segs.length) st = `<span class="zl-tag rem" title="Remotearbeit">${ico('home', 12)} Remote</span>` + st;
             if (x.segs.length && !lunch && ded) st += `<span class="zl-lunch" title="${esc(dedFull)}">${ico('utensils', 12)}<b>−${ded}′</b></span>`;
             if (x.segs.length && x.fehl) st += ` <span class="zl-tag warn">${ico('alert', 12)}</span>`;
             let bar = '';
@@ -1256,7 +1258,8 @@
     const parseClock = txt => { const m = String(txt || '').match(/(\d{1,2}):(\d{2})/); return m ? at(m[1] + ':' + m[2]) : null; };
     const dayKey = d => pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
     const todayKey = () => dayKey(new Date());
-    const tbody = () => document.getElementById('zdlBody');
+    let TB_OVERRIDE = null;                    // Buchen-Seite: Zeitdatenliste im Hintergrund geladen
+    const tbody = () => TB_OVERRIDE || document.getElementById('zdlBody');
     const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
     const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     const reducedMotion = () => !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -1364,6 +1367,7 @@
             r.style.setProperty('--zp-onbad', (1.05 / (Lb + .05)) >= ((Lb + .05) / .058) ? '#fff' : '#10141c');
         } catch (e) { }
         r.style.setProperty('--zp-scheme', t.dark ? 'dark' : 'light');
+        r.style.setProperty('--zp-rem', t.dark ? '#2dd4bf' : '#0d9488');
         r.style.setProperty('--zp-shadow', t.dark ? '0 1px 0 rgba(255,255,255,.03) inset,0 12px 32px rgba(0,0,0,.35)' : '0 1px 2px rgba(16,24,40,.04),0 8px 24px rgba(16,24,40,.07)');
         r.style.setProperty('--zp-zoom', { compact: .9, normal: 1, large: 1.1 }[S.density] || 1);
         r.style.setProperty('--zp-r', { square: '6px', soft: '11px', round: '16px' }[S.radius] || '16px');
@@ -1638,6 +1642,16 @@ html.zp-p-other #content td.zp-me{box-shadow:inset 0 0 0 2px var(--zp-accent,#4f
 td.zp-flash{animation:zpflash 1.2s ease-out}
 @keyframes zpflash{0%{box-shadow:inset 0 0 0 3px var(--zp-accent)}100%{box-shadow:inset 0 0 0 0 transparent}}
 #zp-fav-host{display:block;margin:0 0 12px}
+#zp-abw-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 12px;font:13px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
+#zp-abw-bar .t{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--zp-muted);margin-right:2px}
+html body #zp-abw-bar button{height:32px;padding:0 13px;border-radius:10px !important;border:1px solid var(--zp-line) !important;background:var(--zp-surf) !important;background-image:none !important;color:var(--zp-text) !important;font:600 13px/1 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;cursor:pointer;margin:0 !important}
+html body #zp-abw-bar button.on{background:var(--zp-accent) !important;border-color:var(--zp-accent) !important;color:var(--zp-onacc,#fff) !important}
+#zp-abw-bar button:disabled{opacity:.5;cursor:not-allowed}
+#zp-abw-bar .h{color:var(--zp-muted);font-size:12px;margin-left:6px}
+html.zp-abw-only #tabdiv tbody > tr:not(.zp-me):not(.zp-favrow){display:none !important}
+#tabdiv td.dtfc-fixed-left:has(> .zp-star){padding-right:24px !important}
+#tabdiv tr:hover td > .zp-star{opacity:.85}
+#tabdiv td.zp-fav > .zp-star{opacity:1;color:#f5c542 !important}
 
 /* Bereitschaft in der Original-Tabelle (nur Farben) */
 html.zp-zdl table.tabelle tbody tr.zp-br > td{background-color:color-mix(in srgb,var(--zp-bad,#dc2626) 16%,var(--zp-td,#fff)) !important}
@@ -1980,6 +1994,8 @@ input,select{font-size:13px;margin:0}
 .zk-d.brd{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 75%,transparent)}
 .zk-d.brd:not(.abs){background:color-mix(in srgb,var(--zp-bad) 7%,transparent);color:color-mix(in srgb,var(--zp-bad) 70%,var(--zp-text))}
 .zk-d.brd.past{opacity:1 !important;filter:none !important}
+.zk-d.rem{box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)}
+.zk-d.rem.brd,.zk-d.rem.brd.abs{box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf),inset 0 0 0 2.5px color-mix(in srgb,var(--zp-bad) 85%,transparent)}
 .zk-d.brd::before{content:'';position:absolute;top:3px;left:4px;width:5px;height:5px;border-radius:50%;background:var(--zp-bad)}
 .zk-d.brd.abs{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 85%,transparent)}
 .zk-sw.brs{box-shadow:inset 0 0 0 2px var(--zp-bad);background:color-mix(in srgb,var(--zp-bad) 12%,transparent)}
@@ -2099,6 +2115,10 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zl-pill.br{color:var(--zp-bad);border-color:color-mix(in srgb,var(--zp-bad) 45%,var(--zp-line));background:color-mix(in srgb,var(--zp-bad) 10%,var(--zp-surf))}
 .zl-pill.br b{color:var(--zp-bad)}
 .zl-tag.warn{background:color-mix(in srgb,var(--zp-warn) 15%,transparent);color:var(--zp-warn)}
+.zl-row.rem{box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)}
+.zl-row.rem.open{box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)}
+.zl-tag.rem{background:color-mix(in srgb,var(--zp-rem,#2dd4bf) 18%,transparent);color:var(--zp-rem,#2dd4bf);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-rem,#2dd4bf) 45%,transparent)}
+.zl-row.rem .zl-tag.info{background:color-mix(in srgb,var(--zp-rem,#2dd4bf) 18%,transparent);color:var(--zp-rem,#2dd4bf)}
 .zl-tag.info{background:color-mix(in srgb,var(--edge,var(--zp-accent2)) 18%,transparent);color:var(--edge,var(--zp-accent2))}
 .zl-tl{position:relative;height:10px;border-radius:5px;background:var(--zp-surf2)}
 .zl-tl i{position:absolute;top:0;bottom:0;border-radius:4px;background:var(--zp-accent)}
@@ -3576,7 +3596,35 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             });
         });
         document.querySelectorAll('#content tbody > tr').forEach(tr => { setCls(tr, 'zp-me', me.has(tr)); setCls(tr, 'zp-favrow', fv.has(tr)); });
+        safe('Team', () => abwFavs(favs, myKey));
         renderFavBar(tcells);
+    }
+    // Abwesenheitsübersicht: Stern am Namen + Filter „Nur Favoriten“
+    function abwFavs(favs, myKey) {
+        const tabdiv = document.getElementById('tabdiv');
+        if (!tabdiv || !tabdiv.querySelector('tbody tr')) return;
+        tabdiv.querySelectorAll('tbody > tr').forEach(tr => {
+            const td = [...tr.children].slice(0, 3).find(t => /[a-zäöü]{2}/i.test(cellName(t)) && !/^\d+$/.test(cellName(t)));
+            if (!td) return;
+            let st = td.querySelector(':scope > .zp-star');
+            if (!st) { st = document.createElement('span'); st.className = 'zp-star'; td.appendChild(st); }
+            const k = nameKey(cellName(td)), isF = favs.has(k), mine = k === myKey;
+            if (mine) { st.remove(); return; }
+            if (st.textContent !== (isF ? '★' : '☆')) st.textContent = isF ? '★' : '☆';
+            st.title = isF ? 'Favorit entfernen' : 'Als Favorit anpinnen';
+            setCls(td, 'zp-fav', isF);
+        });
+        let bar = document.getElementById('zp-abw-bar');
+        if (!bar) {
+            bar = document.createElement('div'); bar.id = 'zp-abw-bar';
+            tabdiv.parentNode.insertBefore(bar, tabdiv);
+            bar.addEventListener('click', e => { const b = e.target.closest('[data-af]'); if (!b) return; S.abwFilter = b.dataset.af; saveS(); bar.dataset.sig = ''; safe('Team', markTeam); });
+        }
+        const mode = S.abwFilter || 'all', nf = favs.size;
+        document.documentElement.classList.toggle('zp-abw-only', mode === 'fav' && nf > 0);
+        const sig = mode + '|' + nf;
+        if (bar.dataset.sig === sig) return; bar.dataset.sig = sig;
+        bar.innerHTML = `<span class="t">${ico('users', 14)} Anzeigen</span><button type="button" data-af="all" class="${mode !== 'fav' ? 'on' : ''}">Alle</button><button type="button" data-af="fav" class="${mode === 'fav' ? 'on' : ''}"${nf ? '' : ' disabled title="Erst mit ☆ beim Namen Favoriten markieren"'}>★ Ich + Favoriten${nf ? ' (' + nf + ')' : ''}</button><span class="h">☆ beim Namen anklicken, um jemanden als Favorit zu markieren.</span>`;
     }
     function renderFavBar(tcells) {
         const cont = document.getElementById('tableau_mitarbeiter_container');
@@ -3937,8 +3985,61 @@ html.zp-bu #zp-bu .zpb-msg > .zpb-mt b{display:block;font-size:15px;color:var(--
 html.zp-bu #zp-bu .zpb-msg .zpb-mo,html.zp-bu #zp-bu .zpb-msg .zpb-mo *{display:inline !important;background:none !important;border:0 !important;padding:0 !important;margin:0 !important;box-shadow:none !important;color:inherit !important;font:inherit !important;width:auto !important;height:auto !important}
 html.zp-bu #zp-bu .zpb-msg .zpb-mo img{display:none !important}
 html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;background:none !important;border:0 !important;color:var(--zp-muted) !important;cursor:pointer;padding:4px !important;display:grid;place-items:center}
+#zp-bu .zpb-sh.st{margin-top:22px;padding-top:18px;border-top:1px solid var(--zp-line)}
+#zp-bu .zpb-bks{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+#zp-bu .zpb-bk{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:9px;background:var(--zp-surf2);border:1px solid var(--zp-line);font:600 13px/1 inherit;font-variant-numeric:tabular-nums}
+#zp-bu .zpb-bk em{font-style:normal;color:var(--zp-muted)}
+#zp-bu .zpb-bk.live{border-color:color-mix(in srgb,var(--zp-ok) 50%,transparent);background:color-mix(in srgb,var(--zp-ok) 12%,var(--zp-surf2))}
+#zp-bu .zpb-bk.live b{color:var(--zp-ok)}
+#zp-bu .zpb-next{padding:12px 14px;border-radius:14px;background:color-mix(in srgb,var(--zp-accent) 9%,var(--zp-surf2));border:1px solid color-mix(in srgb,var(--zp-accent) 30%,transparent)}
+#zp-bu .zpb-nt{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--zp-muted);margin-bottom:6px}
+#zp-bu .zpb-nt b{color:var(--zp-text)}
+#zp-bu .zpb-kv{display:flex;justify-content:space-between;gap:10px;padding:4px 0;font-size:14px}
+#zp-bu .zpb-kv span{color:var(--zp-muted)}
+#zp-bu .zpb-kv b{font-weight:700}
+#zp-bu .zpb-kv b.pos{color:var(--zp-ok)}
+#zp-bu .zpb-kv b.neg{color:var(--zp-bad)}
 #zp-bu .zpb-empty{font-size:13px;color:var(--zp-muted)}
 `;
+    /* Buchen: heutige Buchungen + was die nächste Buchung bewirkt (Zeitdatenliste im Hintergrund lesen) */
+    async function buToday(box) {
+        if (!box) return;
+        let doc = null;
+        try {
+            const nav = document.getElementById('zm_zeitdatenliste');
+            const r = await fetch(nav ? nav.getAttribute('href') : '/Self/zeiterfassung/zdliste?modulId=0&periode=', { credentials: 'same-origin' });
+            if (r.ok) doc = new DOMParser().parseFromString(await r.text(), 'text/html');
+        } catch (e) { }
+        const tb = doc && doc.getElementById('zdlBody');
+        if (!tb) { box.innerHTML = '<div class="zpb-sh"><h3>Heute</h3><span>Zeitdatenliste nicht erreichbar</span></div>'; return; }
+        let d = null;
+        TB_OVERRIDE = tb; try { d = readDay(); } finally { TB_OVERRIDE = null; }
+        if (!d) { box.innerHTML = '<div class="zpb-sh"><h3>Heute</h3><span>kein Arbeitstag</span></div>'; return; }
+        const draw = () => {
+            let c; TB_OVERRIDE = tb; try { c = calc(d, Date.now()); } finally { TB_OVERRIDE = null; }
+            const now = Date.now(), kz = c.br ? null : kernEnd();
+            const chips = c.segs.map((g, i) => `<span class="zpb-bk${g.e == null && i === c.segs.length - 1 && c.open ? ' live' : ''}">${clock(g.s)}<em>–</em>${g.e != null ? clock(g.e) : (c.open && i === c.segs.length - 1 ? '<b>läuft</b>' : '?')}</span>`).join('');
+            const sc = v => v > M ? 'pos' : v < -M ? 'neg' : '';
+            const row = (k, v, cls) => `<div class="zpb-kv"><span>${k}</span><b class="num ${cls || ''}">${v}</b></div>`;
+            let what;
+            if (c.open) {
+                const kzTxt = !kz ? '' : now >= kz ? '✓ erfüllt' : 'erst ab ' + clock(kz);
+                what = `<div class="zpb-next"><div class="zpb-nt">${ico('logout', 14)} Wenn du jetzt <b>gehst</b></div>
+                    ${row('Heute netto', dur(c.eff))}${row('Saldo danach', dur(c.saldo, true), sc(c.saldo))}
+                    ${kz ? row('Kernzeit', kzTxt, now >= kz ? 'pos' : 'neg') : ''}
+                    ${!c.salF.done ? row('Für ±0 bleiben bis', clock(c.salF.at)) : ''}${!c.sollF.done ? row('Soll erfüllt um', clock(c.sollF.at)) : ''}
+                    ${c.maxF.done ? row('10 h-Grenze', 'überschritten', 'neg') : ''}</div>`;
+            } else {
+                what = `<div class="zpb-next"><div class="zpb-nt">${ico('pointer', 14)} Wenn du jetzt <b>kommst</b></div>
+                    ${c.sollF.done ? row('Soll', '✓ schon erfüllt', 'pos') : row('Soll erfüllt um', clock(c.sollF.at))}
+                    ${c.salF.done ? row('Saldo', dur(c.saldo, true), sc(c.saldo)) : row('Saldo ±0 um', clock(c.salF.at))}
+                    ${row('10 h-Grenze', clock(c.maxF.at))}${c.br ? `<div class="zpb-hint">Bereitschaft: gezählt ab ${esc(S.brStart)}, ohne Pflichtpause.</div>` : ''}</div>`;
+            }
+            box.innerHTML = `<div class="zpb-sh"><h3>Heute</h3><span>${c.open ? 'eingestempelt seit ' + clock(c.open.s) : c.segs.length ? 'ausgestempelt' : 'noch nicht gestempelt'}</span></div>
+                ${chips ? `<div class="zpb-bks">${chips}</div>` : ''}${what}`;
+        };
+        draw(); setInterval(() => { if (!document.hidden) safe('Buchen', draw); }, 30000);
+    }
     // LHR-Meldung nach dem Buchen (z.B. „Buchung wird verzögert verarbeitet“): Text ohne Eingabefelder
     const isBuMsg = k => {
         if (!k || k.nodeType !== 1 || /^(SCRIPT|STYLE|LINK|BR|FORM)$/.test(k.tagName) || k.id === 'uhrzeit' || k.id === 'live_time_clock' || (k.id || '').startsWith('zp-')) return false;
@@ -4038,8 +4139,8 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         let tiles = '';
         if (parts.length > 1) { const tot = parts.reduce((a, b) => a + b, 0); tiles += `<div class="zpb-t big" title="Saldo + Fahrzeit aktiv/passiv + ZA + Üst 50 % ×1,5 + Üst 100 % ×2"><span>Gesamt · Saldo + FZ + ZA + Üst</span><b class="num ${tot > 0 ? 'pos' : tot < 0 ? 'neg' : ''}">${dur(tot, true)}</b></div>`; }
         tiles += vals.map(r => { const v = parseDur(r.v); return `<div class="zpb-t" title="${esc(r.t)}"><span>${esc(r.t || r.k)}</span><b class="num ${v != null ? sc(r.k, v) : ''}">${esc(r.v.replace(/^-/, '−'))}</b></div>`; }).join('');
-        side.innerHTML = `<div class="zpb-sh"><h3>Stand</h3>${stich ? `<span>${esc(stich)}</span>` : ''}</div>` + (tiles ? `<div class="zpb-tiles">${tiles}</div>` : '<div class="zpb-empty">Keine Stundenwerte vorhanden.</div>');
-        if (!tab) side.remove();
+        side.innerHTML = `<div id="zpb-today"><div class="zpb-sh"><h3>Heute</h3><span>wird geladen …</span></div></div>` + (tab ? `<div class="zpb-sh st"><h3>Stand</h3>${stich ? `<span>${esc(stich)}</span>` : ''}</div>` + (tiles ? `<div class="zpb-tiles">${tiles}</div>` : '<div class="zpb-empty">Keine Stundenwerte vorhanden.</div>') : '');
+        safe('Buchen', () => buToday(side.querySelector('#zpb-today')));
         return true;
     }
 
