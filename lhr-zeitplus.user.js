@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.22.0
+// @version      5.22.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.22.0';
+    const VERSION = '5.22.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1703,6 +1703,24 @@ html body #zp-abw-bar button.on{background:var(--zp-accent) !important;border-co
 #zp-abw-bar button:disabled{opacity:.5;cursor:not-allowed}
 #zp-abw-bar .h{color:var(--zp-muted);font-size:12px;margin-left:6px}
 html.zp-abw-only #tabdiv{display:none !important}
+/* Abwesenheitsübersicht: Raster wie „Ich + Favoriten“ */
+html.zp-pretty #tabdiv table.dataTable{border-collapse:separate !important;border-spacing:3px !important;background:transparent !important}
+html.zp-pretty #tabdiv table.dataTable thead th{background:var(--zp-surf) !important;border:0 !important;color:var(--zp-muted) !important;font:600 11px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;text-align:center;padding:6px 2px !important}
+html.zp-pretty #tabdiv table.dataTable tbody td{border:0 !important;border-radius:6px !important;height:28px;padding:0 !important;font:700 11px/28px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;text-align:center}
+html.zp-pretty #tabdiv table.dataTable tbody td > div{border-radius:6px;background-color:transparent !important;height:100%;line-height:28px}
+html.zp-pretty #tabdiv table.dataTable tbody td[style*="rgba(0, 0, 0, 0)"],html.zp-pretty #tabdiv table.dataTable tbody td:not([style*="background-color"]):not(.dtfc-fixed-left){background-color:var(--zp-surf2,#eceef3) !important;background-image:none !important}
+html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.kalTag_sa,html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.kalTag_so_fe{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--zp-muted) 18%,transparent) 0 2px,transparent 2px 6px) !important}
+html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-rem{background:transparent !important;box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf) !important;color:var(--zp-rem,#2dd4bf) !important}
+html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-rem *{color:var(--zp-rem,#2dd4bf) !important;background:transparent !important}
+html.zp-pretty #tabdiv table.dataTable tbody td.dtfc-fixed-left{background-color:var(--zp-surf,#f6f7fa) !important;text-align:left !important;font:600 13px/28px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;padding:0 10px !important;white-space:nowrap}
+html.zp-pretty #tabdiv table.dataTable tbody td.dtfc-fixed-left:first-child{color:var(--zp-muted) !important;font-weight:500 !important}
+html.zp-pretty #tabdiv table.dataTable tbody tr.zp-me td.dtfc-fixed-left{color:var(--zp-accent) !important}
+html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-me > td:not(.dtfc-fixed-left):not(.zp-rem),html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-favrow > td:not(.dtfc-fixed-left):not(.zp-rem){box-shadow:none !important}
+html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-me > td.dtfc-fixed-left{box-shadow:inset 0 0 0 1.5px var(--zp-accent) !important;background-color:color-mix(in srgb,var(--zp-accent) 12%,var(--zp-surf,#f6f7fa)) !important}
+html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-favrow > td.dtfc-fixed-left{box-shadow:inset 0 0 0 1px color-mix(in srgb,#f5c542 60%,transparent) !important}
+html.zp-pretty #tabdiv table.dataTable tbody tr:hover > td.dtfc-fixed-left{background-color:color-mix(in srgb,var(--zp-accent) 14%,var(--zp-surf,#f6f7fa)) !important}
+html.zp-pretty #tabdiv .dataTables_wrapper{background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:16px;padding:10px}
+html.zp-pretty #tabdiv .dataTables_scrollHead,html.zp-pretty #tabdiv .dataTables_scrollBody{border:0 !important;background:transparent !important}
 #zp-abw-fav{display:block;margin:0 0 14px}
 #tabdiv td.dtfc-fixed-left:has(> .zp-star){padding-right:24px !important}
 #tabdiv tr:hover td > .zp-star{opacity:.85}
@@ -2053,9 +2071,9 @@ input,select{font-size:13px;margin:0}
 .zk-d.rem.abs i{color:var(--zp-rem,#2dd4bf);opacity:1}
 .zk-d.rem.past{opacity:.75}
 /* Bereitschaft + Remote: Neon-Rahmen, der rot/türkis durchläuft */
-.zk-d.rem.brd,.zk-d.rem.brd.abs{box-shadow:none !important;border:2px solid transparent;background:linear-gradient(var(--zp-surf),var(--zp-surf)) padding-box,linear-gradient(90deg,var(--zp-bad),var(--zp-rem,#2dd4bf),var(--zp-bad),var(--zp-rem,#2dd4bf),var(--zp-bad)) border-box !important;background-size:100% 100%,300% 100% !important;animation:zkneon 3s linear infinite;filter:drop-shadow(0 0 3px color-mix(in srgb,var(--zp-rem,#2dd4bf) 45%,transparent))}
+.zk-d.rem.brd,.zk-d.rem.brd.abs{box-shadow:none !important;border:2px solid transparent;background:linear-gradient(var(--zp-surf),var(--zp-surf)) padding-box,linear-gradient(90deg,var(--zp-bad) 0%,var(--zp-bad) 18%,var(--zp-rem,#2dd4bf) 32%,var(--zp-rem,#2dd4bf) 68%,var(--zp-bad) 82%,var(--zp-bad) 100%) border-box !important;background-size:100% 100%,200% 100% !important;animation:zkneon 2.6s linear infinite;filter:drop-shadow(0 0 2px color-mix(in srgb,var(--zp-rem,#2dd4bf) 40%,transparent)) drop-shadow(0 0 2px color-mix(in srgb,var(--zp-bad) 40%,transparent))}
 .zk-d.rem.brd::before{display:none}
-@keyframes zkneon{to{background-position:0 0,150% 0}}
+@keyframes zkneon{to{background-position:0 0,200% 0}}
 @media (prefers-reduced-motion:reduce){.zk-d.rem.brd{animation:none}}
 .zk-d.brd::before{content:'';position:absolute;top:3px;left:4px;width:5px;height:5px;border-radius:50%;background:var(--zp-bad)}
 .zk-d.brd.abs{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 85%,transparent)}
@@ -3742,6 +3760,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             st.title = isF ? 'Favorit entfernen' : 'Als Favorit anpinnen';
             setCls(td, 'zp-fav', isF);
         });
+        tabdiv.querySelectorAll('tbody td').forEach(td => { const r = /^R$/i.test((td.textContent || '').trim()); if (td.classList.contains('zp-rem') !== r) td.classList.toggle('zp-rem', r); });
         let bar = document.getElementById('zp-abw-bar');
         if (!bar) {
             bar = document.createElement('div'); bar.id = 'zp-abw-bar';
