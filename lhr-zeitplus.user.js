@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.23.7
+// @version      5.23.8
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.23.7';
+    const VERSION = '5.23.8';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1766,12 +1766,43 @@ html.zp-planer #tabdiv .dataTables_scrollBody,html.zp-planer #tabdiv .dataTables
 html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar{height:12px}
 html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar-thumb,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--zp-muted,#888) 55%,transparent);border-radius:99px;border:3px solid transparent;background-clip:padding-box}
 html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar-thumb:hover,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar-thumb:hover{background-color:var(--zp-accent,#4f7cff)}
-#zp-ptip{position:fixed;z-index:2147483000;pointer-events:none;max-width:280px;padding:9px 12px;border-radius:12px;background:var(--zp-bg,#fff);color:var(--zp-text,#222);border:1px solid var(--zp-line,#d0d4dc);box-shadow:0 10px 30px rgba(0,0,0,.35);font:500 12.5px/1.4 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;opacity:0;transform:translateY(4px);transition:opacity .12s,transform .12s}
+#zp-ptip{position:fixed;z-index:2147483000;pointer-events:none;max-width:230px;padding:7px 10px 6px;border-radius:10px;background:color-mix(in srgb,var(--zp-bg,#fff) 92%,transparent);backdrop-filter:blur(10px);color:var(--zp-text,#222);border:1px solid var(--zp-line,#d0d4dc);box-shadow:0 8px 24px rgba(0,0,0,.28);font:500 11.5px/1.35 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;opacity:0;transform:translateY(3px);transition:opacity .1s,transform .1s}
 #zp-ptip.on{opacity:1;transform:none}
-#zp-ptip .h{font-weight:700;margin-bottom:3px;display:flex;align-items:center;gap:7px}
-#zp-ptip .h i{width:10px;height:10px;border-radius:3px;flex:none}
-#zp-ptip .d{color:var(--zp-muted,#667);font-size:11.5px}
-#zp-ptip .x{margin-top:4px;font-size:12px}
+#zp-ptip .t{display:flex;flex-wrap:wrap;gap:4px 10px;font-weight:700;font-size:12px}
+#zp-ptip .t span,#zp-ptip .r{display:flex;align-items:center;gap:6px}
+#zp-ptip i{width:8px;height:8px;border-radius:2px;flex:none;display:inline-block}
+#zp-ptip .h{font-weight:700;font-size:12px;margin-bottom:3px}
+#zp-ptip .r b{margin-left:auto;padding-left:14px;font-weight:700}
+#zp-ptip .x{margin-top:3px;color:var(--zp-text,#222);opacity:.85}
+#zp-ptip .d{margin-top:3px;color:var(--zp-muted,#667);font-size:10.5px}
+html.zp-planer .tippy-box{background:var(--zp-bg,#fff) !important;color:var(--zp-text,#222) !important;border:1px solid var(--zp-line,#d0d4dc) !important;border-radius:10px !important;box-shadow:0 8px 24px rgba(0,0,0,.28) !important;font:500 11.5px/1.35 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;max-width:230px !important}
+html.zp-planer .tippy-box *{background:transparent !important;color:inherit !important;font-size:inherit !important;border-color:var(--zp-line,#d0d4dc) !important}
+html.zp-planer .tippy-content{padding:6px 10px !important}
+html.zp-planer .tippy-arrow{color:var(--zp-bg,#fff) !important}
+html.zp-planer #tabdiv thead th .zp-cnt{display:block;margin:4px auto 0;width:max-content;min-width:18px;padding:1px 5px;border-radius:6px;font-size:9.5px;font-weight:700;line-height:14px;color:var(--zp-muted);background:transparent;opacity:.55}
+html.zp-planer #tabdiv thead th .zp-cnt[data-l="1"]{opacity:1;color:var(--zp-text);background:color-mix(in srgb,var(--zp-text) 10%,transparent)}
+html.zp-planer #tabdiv thead th .zp-cnt[data-l="2"]{opacity:1;color:#1a1306;background:#f5b942}
+html.zp-planer #tabdiv thead th .zp-cnt[data-l="3"]{opacity:1;color:#fff;background:var(--zp-bad,#e5484d)}
+html.zp-planer #tabdiv thead th[data-zp-stat]{cursor:default}
+html.zp-planer #tabdiv .dataTables_scrollFoot,html.zp-planer #tabdiv table.dataTable > tfoot{display:none !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container{display:flex !important;flex-wrap:wrap;align-items:center;gap:10px 12px;padding:10px 12px;margin:6px 0 4px;background:var(--zp-surf,#f6f7fa) !important;border:1px solid var(--zp-line,#d0d4dc);border-radius:16px}
+html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container > div{display:flex;align-items:center;gap:8px;margin:0 !important;padding:0 !important;float:none !important;min-height:0}
+html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container > div.hidden{display:none !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container > .grid-item-right:not(.hidden){margin-left:auto !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container > .grid-item-right:not(.hidden) ~ .grid-item-right{margin-left:0 !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container > div:has(> p.hidden:only-child),html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container > div:has(> p#buttons > input[style*="display:none"]:only-child),html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container > div:has(> #error_urlaubmaxdate_div + p.hidden + p.hidden){display:none !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container b{font:600 12px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;color:var(--zp-muted) !important;text-transform:uppercase;letter-spacing:.04em}
+html.zp-planer body:not(#zp-a):not(#zp-b) #tabdivup .grid-container select{height:38px !important;border-radius:10px !important;padding:0 30px 0 12px !important;margin:0 !important;font:600 13px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #vBis-container p{margin:0 !important;padding:5px 10px !important;border-radius:99px;background:var(--zp-surf2,#eceef3) !important;color:var(--zp-muted) !important;font:600 11px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;white-space:nowrap;text-align:center}
+html.zp-planer body:not(#zp-a):not(#zp-b) #periode .periode_span:has(#le_periode_text){position:relative;height:38px;min-width:92px;justify-content:center}
+html.zp-planer body:not(#zp-a):not(#zp-b) #periode #le_periode_text{top:0 !important;left:0 !important;right:0 !important;bottom:0 !important;margin:0 !important;height:38px;line-height:38px !important;pointer-events:none}
+html.zp-planer body:not(#zp-a):not(#zp-b) #periode #select_datum{height:38px !important;min-width:92px;width:92px !important;cursor:pointer;margin:0 !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #colHide{width:38px !important;height:38px !important;border-radius:12px !important;border:1px solid var(--zp-line,#d0d4dc) !important;background:var(--zp-surf2,#eceef3) !important;display:grid !important;place-items:center;cursor:pointer;position:relative;box-sizing:border-box}
+html.zp-planer body:not(#zp-a):not(#zp-b) #colHide:hover{border-color:var(--zp-accent,#4f7cff) !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #colHide > img{width:22px !important;height:22px !important;border-radius:50%;opacity:.85;background:transparent !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #behebenBtn{height:38px !important;padding:0 16px !important;border-radius:12px !important;border:0 !important;background:var(--zp-accent,#4f7cff) !important;color:#fff !important;font:700 13px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;cursor:pointer;margin:0 !important;box-shadow:none !important}
+html.zp-planer body:not(#zp-a):not(#zp-b) #behebenBtn:hover{filter:brightness(1.08)}
+html.zp-planer #tabdivup .grid-container p#buttons{margin:0 !important}
 #zp-team-host{display:block;max-width:1240px;margin:0 auto 16px}
 #zp-host.wide ~ #zp-team-host{max-width:none}
 #zp-abw-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 12px;font:13px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
@@ -3846,7 +3877,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                 const tips = [td, ...td.querySelectorAll('*')].map(tipOf).join(' ');
                 const m = tips.replace(/<[^>]*>/g, ' ').match(/\bB\s?([0-9])\b|Bereitschaft\s*([0-9])|BR\s?([0-9])\b/i);
                 if (m) { const leaf = [td, ...td.querySelectorAll('*')].reverse().find(x => !x.children.length && /\bB\b/.test(x.textContent)); if (leaf) { leaf.textContent = leaf.textContent.replace(/\bB\b/, 'B' + (m[1] || m[2] || m[3])); t = (td.textContent || '').toUpperCase(); } }
-                if (tips.trim() && !td.title) td.title = tips.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+                if (tips.trim()) td.dataset.zpTipTxt = tips.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
             }
             const chroma = c => c ? Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) : 0;
             // LHR färbt oft ein inneres Element, die Zelle selbst ist grau → die kräftigste Farbe gewinnt
@@ -3892,6 +3923,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         });
         if (rewrote) { clearTimeout(planerMarks.adj); planerMarks.adj = setTimeout(() => { try { const jq = window.jQuery; if (jq && jq.fn && jq.fn.dataTable) jq('#tabdiv table.dataTable').filter((i, t) => !t.closest('.dataTables_scrollHead')).each((i, t) => { if (jq.fn.dataTable.isDataTable(t)) jq(t).DataTable().columns.adjust(); }); } catch (e) { } }, 120); }
         planerTipInit();
+        planerStats(tab);
     }
     // Planer-Hover: was ist an dem Tag? (LHR zeigt nur bei manchen Zellen einen Tooltip)
     const LEG_KEY = 'zplus_leg';
@@ -3913,6 +3945,36 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             if (l.length) localStorage.setItem(LEG_KEY, JSON.stringify({ ts: Date.now(), l }));
         } catch (e) { } finally { legFetch.busy = false; }
     }
+    // Zelle → was ist an dem Tag? (R, B1/B2, F, Farbe → Abwesenheitsart)
+    function planerCellInfo(td) {
+        const txt = (td.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
+        const rem = /(^|\s)R(\s|$)|^R[B ]/.test(txt) || td.classList.contains('zp-rem') || td.classList.contains('zp-rb');
+        const bm = txt.match(/B\s?(\d)/), br = !!bm || /(^|\s)B(\s|$)/.test(txt);
+        const fei = /(^|\s)F(\s|$)/.test(txt);
+        let abs = '', sw = '';
+        if (td.classList.contains('zp-col')) {
+            sw = td.style.getPropertyValue('--zc'); const c = rgbOf(sw);
+            const leg = (legStore() || {}).l || [];
+            let best = null, bd = 1e9; if (c) leg.forEach(x => { const lc = rgbOf(x.c); if (!lc) return; const d = colDist(c, lc); if (d < bd) { bd = d; best = x; } });
+            if (best && bd < 90 && !/feiertag|bereitschaft|remote|home/i.test(best.n)) abs = best.n;
+            else if (!rem && !br && !fei) abs = 'Abwesenheit';
+        }
+        const other = txt.split(/\s+/).filter(t => t && !/^(R|B\d?|F|RB\d?)$/.test(t));
+        if (other.length && !abs) abs = 'Abwesenheit (' + other.join(' ') + ')';
+        const n = (rem ? 1 : 0) + (br ? 1 : 0) + (fei ? 1 : 0) + (abs ? 1 : 0);
+        return { txt, rem, br, bnum: bm ? bm[1] : '', fei, abs, sw, n };
+    }
+    // LHR-Tooltip (tippy) auslesen und abschalten – wir zeigen den Inhalt in unserem kleinen Kästchen
+    function tippyText(x) {
+        const tp = x._tippy; if (!tp || !tp.props) return '';
+        let c = tp.props.content;
+        try { if (typeof c === 'function') c = c(x); } catch (e) { c = ''; }
+        let t = '';
+        if (c && c.nodeType) t = c.innerText || c.textContent || '';
+        else t = String(c || '').replace(/<br\s*\/?>/gi, '\n').replace(/<\/(p|div|tr|li|h\d)>/gi, '\n').replace(/<\/t[dh]>/gi, ' ').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
+        try { tp.disable(); } catch (e) { }
+        return t;
+    }
     function planerTipInit() {
         const tab = document.getElementById('tabdiv'); if (!tab || tab.dataset.zpTip) return; tab.dataset.zpTip = '1';
         legFetch();
@@ -3920,51 +3982,75 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const hide = () => { cur = null; if (tip) tip.classList.remove('on'); };
         const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
         const clean = t => String(t || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
-        tab.addEventListener('mouseover', e => {
-            const td = e.target.closest && e.target.closest('tbody td'); if (!td || !tab.contains(td)) return;
-            if (td === cur) return;
-            if (td.classList.contains('dtfc-fixed-left') || td.hasAttribute('colspan') || td.closest('.dataTables_scrollHead')) { hide(); return; }
-            if ([td, ...td.querySelectorAll('*')].some(x => x._tippy)) { hide(); return; }      // LHR hat eigenen Tooltip
-            const txt = (td.textContent || '').replace(/\s+/g, ' ').trim().toUpperCase();
-            const colored = td.classList.contains('zp-col') || td.classList.contains('zp-rem') || td.classList.contains('zp-rb');
-            if (!txt && !colored) { hide(); return; }
-            const lines = [];
-            if (/(^|\s)R(\s|$)|^R[B ]/.test(txt) || td.classList.contains('zp-rem') || td.classList.contains('zp-rb')) lines.push('Remote / Homeoffice');
-            const bm = txt.match(/B\s?(\d)/); if (bm || /(^|\s)B(\s|$)/.test(txt)) lines.push('Bereitschaft' + (bm ? ' ' + bm[1] : ''));
-            if (/(^|\s)F(\s|$)/.test(txt)) lines.push('Feiertag');
-            let sw = '';
-            if (td.classList.contains('zp-col')) {
-                const c = rgbOf(td.style.getPropertyValue('--zc')); sw = td.style.getPropertyValue('--zc');
-                const leg = (legStore() || {}).l || [];
-                let best = null, bd = 1e9; if (c) leg.forEach(x => { const lc = rgbOf(x.c); if (!lc) return; const d = colDist(c, lc); if (d < bd) { bd = d; best = x; } });
-                const known = lines.length > 0;
-                if (best && bd < 90) { if (!lines.some(l => l.toLowerCase() === best.n.toLowerCase())) lines.push(best.n); }
-                else if (!known) lines.push('Abwesenheit');
-            }
-            const own = [td, ...td.querySelectorAll('*')].map(x => [...x.attributes].filter(a => /^(title|data-original-title|aria-label|data-tip|data-tooltip|data-title)$/i.test(a.name)).map(a => clean(a.value)).join(' ')).join(' ').trim();
-            let raw = '';
-            try { const jq = window.jQuery, t = td.closest('table'); if (jq && jq.fn.dataTable && jq.fn.dataTable.isDataTable(t)) { const d = jq(t).DataTable().cell(td).data(); raw = clean(typeof d === 'string' ? d : d && typeof d === 'object' ? Object.values(d).filter(v => typeof v === 'string').join(' · ') : ''); } } catch (e2) { }
-            const extra = [own, raw].map(x => x.replace(/\s*[·|]\s*$/, '')).filter(x => x && x.toUpperCase() !== txt && x.length > 2 && !lines.some(l => x.toLowerCase() === l.toLowerCase()));
-            // Name & Datum der Zelle
-            const tr = td.parentElement, nmTd = [...tr.children].filter(x => x.classList.contains('dtfc-fixed-left')).map(x => x.textContent.trim()).find(x => /[a-zäöü]{2}/i.test(x)) || '';
-            let dl = '';
-            try { const idx = [...tr.children].indexOf(td), heads = [...tab.querySelectorAll('.dataTables_scrollHead thead tr:last-child th, table:not(.dataTables_scrollBody table) > thead tr:last-child th')]; const th = heads[idx]; if (th) dl = ((th.querySelector('.zp-wd') || {}).textContent || '') + ' ' + ((th.querySelector('b') || {}).textContent || clean(th.textContent)); } catch (e3) { }
+        const show = (el, html) => {
             if (!tip) { tip = document.createElement('div'); tip.id = 'zp-ptip'; document.body.appendChild(tip); }
-            tip.innerHTML = `<div class="h">${sw ? `<i style="background:${esc(sw)}"></i>` : ''}${esc(lines.join(' + ') || txt)}</div><div class="d">${esc([dl.trim(), nmTd].filter(Boolean).join(' · '))}</div>${extra.length ? `<div class="x">${esc(extra.join(' · ').slice(0, 220))}</div>` : ''}`;
-            const r = td.getBoundingClientRect(); tip.classList.add('on'); cur = td;
-            const w = tip.offsetWidth, h = tip.offsetHeight;
-            let x = r.left + r.width / 2 - w / 2, y = r.top - h - 8; if (y < 8) y = r.bottom + 8; x = Math.max(8, Math.min(innerWidth - w - 8, x));
-            tip.style.left = x + 'px'; tip.style.top = y + 'px';
+            tip.innerHTML = html; tip.classList.add('on'); cur = el;
+            const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
+            let x = r.left + r.width / 2 - w / 2, y = r.top - h - 6; if (y < 8) y = r.bottom + 6; x = Math.max(8, Math.min(innerWidth - w - 8, x));
+            tip.style.left = Math.round(x) + 'px'; tip.style.top = Math.round(y) + 'px';
+        };
+        const dateOf = th => th ? (((th.querySelector('.zp-wd') || {}).textContent || '') + ' ' + ((th.querySelector('b') || {}).textContent || clean(th.textContent))).trim() : '';
+        const heads = () => { const sh = tab.querySelector('.dataTables_scrollHead thead tr:last-child'); return sh ? [...sh.children] : [...(tab.querySelector('thead tr:last-child') || { children: [] }).children]; };
+        tab.addEventListener('mouseover', e => {
+            // Kopf: Tagesübersicht
+            const th = e.target.closest && e.target.closest('thead th');
+            if (th && th.dataset.zpStat) {
+                if (th === cur) return;
+                const s = JSON.parse(th.dataset.zpStat);
+                const row = (lab, v, c) => v ? `<div class="r"><i style="background:${c}"></i>${lab}<b>${v}</b></div>` : '';
+                show(th, `<div class="h">${esc(dateOf(th))}</div>` + row('Abwesend', s.a, 'var(--zp-bad,#e5484d)') + row('Remote', s.r, 'var(--zp-rem,#2dd4bf)') + row('Bereitschaft', s.b, '#e6c229') + row('Feiertag', s.f, '#f59e0b') +
+                    `<div class="d">${s.k} von ${s.p} Personen verplant · ${s.t} Einträge</div>`);
+                return;
+            }
+            const td = e.target.closest && e.target.closest('tbody td'); if (!td || !tab.contains(td)) { if (!th) hide(); return; }
+            if (td === cur) return;
+            if (td.classList.contains('dtfc-fixed-left') || td.hasAttribute('colspan')) { hide(); return; }
+            const lhr = [td, ...td.querySelectorAll('*')].map(tippyText).join('\n') + '\n' + (td.dataset.zpTipTxt || '');
+            const inf = planerCellInfo(td);
+            if (!inf.n && !lhr.trim()) { hide(); return; }
+            const tags = [];
+            if (inf.abs) tags.push(['', inf.abs, inf.sw || 'var(--zp-bad,#e5484d)']);
+            if (inf.br) tags.push(['', 'Bereitschaft' + (inf.bnum ? ' ' + inf.bnum : ''), '#e6c229']);
+            if (inf.rem) tags.push(['', 'Remote', 'var(--zp-rem,#2dd4bf)']);
+            if (inf.fei) tags.push(['', 'Feiertag', '#f59e0b']);
+            const norm = l => l.toLowerCase().replace(/\bb\s?(\d)\b/g, '$1').replace(/[^a-zäöüß0-9]+/g, ' ').trim(); const known = tags.map(t => norm(t[1]));
+            const extra = [...new Set(lhr.split(/\n+/).map(l => l.replace(/\s+/g, ' ').trim()).filter(l => l.length > 1 && l.toUpperCase() !== inf.txt && !known.includes(norm(l))))].slice(0, 5);
+            const tr = td.parentElement, nm = [...tr.children].filter(x => x.classList.contains('dtfc-fixed-left')).map(x => x.textContent.trim()).find(x => /[a-zäöü]{2}/i.test(x)) || '';
+            const th2 = heads()[[...tr.children].indexOf(td)];
+            show(td, `<div class="t">${tags.map(t => `<span><i style="background:${esc(t[2])}"></i>${esc(t[1])}</span>`).join('') || `<span>${esc(inf.txt)}</span>`}</div>` +
+                (extra.length ? `<div class="x">${extra.map(esc).join('<br>')}</div>` : '') +
+                `<div class="d">${esc([dateOf(th2), nm].filter(Boolean).join(' · '))}</div>`);
         });
         tab.addEventListener('mouseleave', hide);
-        // Scrollleisten: Kopf, Tabelle und Summenzeile laufen immer gemeinsam, egal welche Leiste man zieht
+        // Scrollleisten: alles, was in der Tabelle seitlich scrollt, läuft gemeinsam (anteilig) – egal welche Leiste man zieht
         let syncing = false;
         tab.addEventListener('scroll', e => {
-            const el = e.target; if (syncing || !el.classList || !/dataTables_scroll(Head|Body|Foot)/.test(el.className)) return;
+            const el = e.target; if (syncing || !el || el.nodeType !== 1 || el.scrollWidth - el.clientWidth < 2) return;
+            const max = el.scrollWidth - el.clientWidth, f = el.scrollLeft / max;
             syncing = true;
-            try { const sl = el.scrollLeft; tab.querySelectorAll('.dataTables_scrollHead,.dataTables_scrollBody,.dataTables_scrollFoot').forEach(o => { if (o !== el && Math.abs(o.scrollLeft - sl) > 1) o.scrollLeft = sl; }); } finally { requestAnimationFrame(() => { syncing = false; }); }
+            try { tab.querySelectorAll('.dataTables_scrollHead,.dataTables_scrollBody,.dataTables_scrollFoot,.dataTables_wrapper,.dtfc-scrolling').forEach(o => { if (o === el) return; const m = o.scrollWidth - o.clientWidth; if (m < 2) return; const sl = Math.round(f * m); if (Math.abs(o.scrollLeft - sl) > 1) o.scrollLeft = sl; }); } finally { requestAnimationFrame(() => { syncing = false; }); }
         }, true);
         window.addEventListener('scroll', hide, true);
+    }
+    // Planer-Kopf: pro Tag zählen, wer weg / remote / in Bereitschaft ist (ersetzt die schwer lesbare LHR-Summenzeile)
+    function planerStats(tab) {
+        const hs = (() => { const sh = tab.querySelector('.dataTables_scrollHead thead tr:last-child'); return sh ? [...sh.children] : [...(tab.querySelector('thead tr:last-child') || { children: [] }).children]; })();
+        if (!hs.length) return;
+        const rows = [...tab.querySelectorAll('.dataTables_scrollBody tbody tr, :scope > table tbody tr, .dataTables_wrapper > table tbody tr')].filter(tr => !tr.classList.contains('dtrg-group') && tr.children.length > 5);
+        const st = hs.map(() => ({ a: 0, r: 0, b: 0, f: 0, k: 0, t: 0, p: rows.length }));
+        rows.forEach(tr => [...tr.children].forEach((td, i) => {
+            if (!st[i] || td.classList.contains('dtfc-fixed-left')) return;
+            const inf = planerCellInfo(td); if (!inf.n) return;
+            const s = st[i]; s.k++; s.t += inf.n; if (inf.abs) s.a++; if (inf.rem) s.r++; if (inf.br) s.b++; if (inf.fei) s.f++;
+        }));
+        hs.forEach((th, i) => {
+            if (!th.dataset.zpWd || th.classList.contains('dtfc-fixed-left')) return;
+            const s = st[i], j = JSON.stringify(s); if (th.dataset.zpStat === j) return;
+            th.dataset.zpStat = j;
+            let c = th.querySelector('.zp-cnt'); if (!c) { c = document.createElement('span'); c.className = 'zp-cnt'; th.appendChild(c); }
+            const lvl = !s.a ? 0 : s.a / Math.max(1, s.p) >= .3 ? 3 : s.a / Math.max(1, s.p) >= .15 ? 2 : 1;
+            c.dataset.l = lvl; c.textContent = s.a ? String(s.a) : '·';
+        });
     }
     // Abwesenheitsübersicht: Stern am Namen + Filter „Nur Favoriten“
     function abwFavs(favs, myKey) {
