@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.24.2
+// @version      5.24.3
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.24.2';
+    const VERSION = '5.24.3';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1723,7 +1723,8 @@ html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem{back
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem *{color:var(--zp-rem,#2dd4bf) !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb{background:var(--pg) !important;color:var(--zp-text) !important;box-shadow:inset 0 0 0 3px var(--pg) !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb *{color:var(--zp-text) !important}
-html.zp-pretty.zp-planer #tabdiv tbody td.zp-rb::after{content:'';position:absolute;inset:3px;padding:1.5px;background:linear-gradient(90deg,var(--zp-bad) 50%,var(--zp-rem,#2dd4bf) 50%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+html.zp-pretty.zp-planer #tabdiv tbody td.zp-rb{isolation:isolate}
+html.zp-pretty.zp-planer #tabdiv tbody td.zp-rb::after{content:'';position:absolute;inset:3px;z-index:-1;border:1.5px solid transparent;border-radius:2px;background:linear-gradient(var(--pg),var(--pg)) padding-box,linear-gradient(90deg,var(--zp-bad) 50%,var(--zp-rem,#2dd4bf) 50%) border-box;pointer-events:none}
 html.zp-pretty.zp-planer #tabdiv tbody td:not(.dtfc-fixed-left):hover{filter:brightness(1.12)}
 /* Farben gedämpft: Fläche leicht getönt, kräftiger Strich oben, Schrift in der Farbe → ruhig, aber eindeutig */
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-col{background:color-mix(in srgb,var(--zc) 38%,var(--zp-surf2,#eceef3)) !important;box-shadow:inset 0 0 0 2px var(--pg),inset 0 5px 0 0 var(--zc) !important;color:color-mix(in srgb,var(--zc) 35%,#fff) !important}
@@ -1768,6 +1769,7 @@ html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar,html.zp-planer 
 html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar-thumb,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--zp-muted,#888) 55%,transparent);border-radius:99px;border:3px solid transparent;background-clip:padding-box}
 html.zp-planer #tabdiv .dataTables_scrollBody::-webkit-scrollbar-thumb:hover,html.zp-planer #tabdiv .dataTables_scrollFoot::-webkit-scrollbar-thumb:hover{background-color:var(--zp-accent,#4f7cff)}
 html.zp-planer #tabdiv .zp-hidesum{display:none !important}
+html.zp-planer #tabdiv .dataTables_scrollBody{overscroll-behavior-x:contain;scroll-behavior:auto !important;-webkit-overflow-scrolling:touch}
 html.zp-planer #tabdiv tbody td:not(.dtfc-fixed-left){left:auto !important}
 html.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.sum_cell.dtfc-fixed-left:not(.gesamt_div){position:relative !important;left:auto !important;z-index:auto !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td{background:var(--pg) !important;box-shadow:inset 0 2px 0 var(--zp-line,#d0d4dc) !important;height:auto !important;padding:7px 2px 6px !important;vertical-align:middle;color:var(--zp-text) !important;text-align:center;font:600 11px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important}
@@ -2464,6 +2466,13 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 #zp-fxp{position:fixed;inset:0;width:100vw;height:100vh;pointer-events:none;z-index:2147482990;opacity:.55}
 `;
 
+    let fxHoldUntil = 0, fxDown = false;
+    const fxBusy = () => fxDown || Date.now() < fxHoldUntil;
+    try {
+        window.addEventListener('scroll', () => { fxHoldUntil = Date.now() + 350; }, { capture: true, passive: true });
+        window.addEventListener('pointerdown', () => { fxDown = true; }, { capture: true, passive: true });
+        ['pointerup', 'pointercancel', 'blur'].forEach(t => window.addEventListener(t, () => { fxDown = false; fxHoldUntil = Date.now() + 250; }, { capture: true, passive: true }));
+    } catch (e) { }
     function injectPageCss() {
         if (document.getElementById('zp-page-style')) return;
         const st = document.createElement('style');
@@ -3651,6 +3660,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const loop = () => {
             if (document.hidden) { fxRaf = null; return; }
             fxRaf = requestAnimationFrame(loop);
+            if (fxBusy()) return;                 // beim Scrollen/Ziehen nicht zeichnen → Tabelle bleibt flüssig
             const w = W(), h = Hh();
             ctx.clearRect(0, 0, w, h);
             tick++;
@@ -4283,6 +4293,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             ms.forEach(m => {
                 if (m.type === 'childList') { if (m.addedNodes.length) hit = true; return; }
                 if ((m.target.id || '').startsWith('zp-') || (m.attributeName === 'style' && cfOwn.get(m.target) === m.target.getAttribute('style'))) return;
+                if (m.attributeName === 'style') { const strip = v => String(v || '').replace(/(^|;)\s*(left|right|top|transform)\s*:[^;]*/gi, '$1').replace(/[;\s]+/g, ';').replace(/^;|;$/g, ''); if (strip(m.oldValue) === strip(m.target.getAttribute('style'))) return; }      // Planer: LHR verschiebt beim Scrollen nur Positionen → nicht neu färben
                 cfDirty.add(m.target); hit = true;
             });
             if (hit) fixColorsSoon();
@@ -4928,6 +4939,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         const draw = () => {
             let c; TB_OVERRIDE = tb; try { c = calc(d, Date.now()); } finally { TB_OVERRIDE = null; }
             const now = Date.now(), kz = c.br ? null : kernEnd();
+            let lv = null; if (BU_LIVE) { try { lv = BU_LIVE(c); } catch (e) { } }
             const chips = c.segs.map((g, i) => `<span class="zpb-bk${g.e == null && i === c.segs.length - 1 && c.open ? ' live' : ''}">${clock(g.s)}<em>–</em>${g.e != null ? clock(g.e) : (c.open && i === c.segs.length - 1 ? '<b>läuft</b>' : '?')}</span>`).join('');
             const sc = v => v > M ? 'pos' : v < -M ? 'neg' : '';
             const row = (k, v, cls) => `<div class="zpb-kv"><span>${k}</span><b class="num ${cls || ''}">${v}</b></div>`;
@@ -4935,7 +4947,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
             if (c.open) {
                 const kzTxt = !kz ? '' : now >= kz ? '✓ erfüllt' : 'erst ab ' + clock(kz);
                 what = `<div class="zpb-next"><div class="zpb-nt">${ico('logout', 14)} Wenn du jetzt <b>gehst</b></div>
-                    ${row('Heute netto', dur(c.eff))}${row('Saldo danach', dur(c.saldo, true), sc(c.saldo))}
+                    ${row('Heute netto', dur(c.eff))}${row('Heute +/−', dur(c.tg, true), sc(c.tg))}${row('Saldo danach', dur(c.saldo, true), sc(c.saldo))}${lv && lv.week != null ? row('Wochenstunden', dur(lv.week)) : ''}
                     ${kz ? row('Kernzeit', kzTxt, now >= kz ? 'pos' : 'neg') : ''}
                     ${!c.salF.done ? row('Für ±0 bleiben bis', clock(c.salF.at)) : ''}${!c.sollF.done ? row('Soll erfüllt um', clock(c.sollF.at)) : ''}
                     ${c.maxF.done ? row('10 h-Grenze', 'überschritten', 'neg') : ''}</div>`;
@@ -4945,7 +4957,6 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
                     ${c.salF.done ? row('Saldo', dur(c.saldo, true), sc(c.saldo)) : row('Saldo ±0 um', clock(c.salF.at))}
                     ${row('10 h-Grenze', clock(c.maxF.at))}${c.br ? `<div class="zpb-hint">Bereitschaft: gezählt ab ${esc(S.brStart)}, ohne Pflichtpause.</div>` : ''}</div>`;
             }
-            if (BU_LIVE) safe('Buchen', () => BU_LIVE(c));
             box.innerHTML = `<div class="zpb-sh"><h3>Heute</h3><span>${c.open ? 'eingestempelt seit ' + clock(c.open.s) : c.segs.length ? 'ausgestempelt' : 'noch nicht gestempelt'}</span></div>
                 ${chips ? `<div class="zpb-bks">${chips}</div>` : ''}${what}`;
         };
@@ -5051,7 +5062,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         const kind = r => { const l = (r.t + ' ' + r.k).toLowerCase(); return /tages/.test(l) && /ist/.test(l) && !/soll/.test(l) ? 'day' : /ist.?-?.?soll|\+\/-\s*(tg|ist)/.test(l) ? 'tg' : /saldo/.test(l) && !/gesamt/.test(l) ? 'saldo' : /woche/.test(l) && /ist/.test(l) ? 'week' : /monat/.test(l) && /ist/.test(l) ? 'month' : ''; };
         if (parts.length > 1) { const tot = parts.reduce((a, b) => a + b, 0); tiles += `<div class="zpb-t big" data-live="tot" data-base="${tot}" title="Saldo + Fahrzeit aktiv/passiv + ZA + Üst 50 % ×1,5 + Üst 100 % ×2"><span>Gesamt · Saldo + FZ + ZA + Üst</span><b class="num ${tot > 0 ? 'pos' : tot < 0 ? 'neg' : ''}">${dur(tot, true)}</b></div>`; }
         tiles += vals.map(r => { const v = parseDur(r.v), kd = v != null ? kind(r) : ''; return `<div class="zpb-t" title="${esc(r.t)}"${kd ? ` data-live="${kd}" data-base="${v}"` : ''}><span>${esc(r.t || r.k)}</span><b class="num ${v != null ? sc(r.k, v) : ''}">${esc(r.v.replace(/^-/, '−'))}</b></div>`; }).join('');
-        side.innerHTML = `<div id="zpb-today"><div class="zpb-sh"><h3>Heute</h3><span>wird geladen …</span></div></div>` + (tab ? `<div id="zpb-live"></div><div class="zpb-sh st"><h3>Stand</h3>${stich ? `<span>${esc(stich)}</span>` : ''}</div>` + (tiles ? `<div class="zpb-tiles">${tiles}</div>` : '<div class="zpb-empty">Keine Stundenwerte vorhanden.</div>') : '');
+        side.innerHTML = `<div id="zpb-today"><div class="zpb-sh"><h3>Heute</h3><span>wird geladen …</span></div></div>` + (tab ? `<div class="zpb-sh st"><h3>Stand</h3>${stich ? `<span>${esc(stich)}</span>` : ''}</div>` + (tiles ? `<div class="zpb-tiles">${tiles}</div>` : '<div class="zpb-empty">Keine Stundenwerte vorhanden.</div>') : '');
         // Live: so stünde es, wenn du JETZT ausstempelst (LHR-Werte gelten nur bis zum Stichtag)
         const sd = dParse(stich), today = new Date(); today.setHours(12, 0, 0, 0);
         const baseSaldo = g('Saldo');
@@ -5059,20 +5070,9 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
             if (!c) return;
             const before = !sd || sd < today - 36e5;                       // Stichtag liegt vor heute → heute noch nicht drin
             const sameWeek = sd && isoWeek(sd) === isoWeek(today) && Math.abs(sd - today) < 7 * 864e5, sameMonth = sd && sd.getMonth() === today.getMonth() && sd.getFullYear() === today.getFullYear();
-            const liveSaldo = c.saldo, base = k => { const t = side.querySelector(`.zpb-t[data-live="${k}"]`); return t ? +t.dataset.base : null; };
-            const wB = base('week'), mB = base('month'), tB = base('tot');
-            const tiles = [
-                ['Heute gearbeitet', c.eff, false],
-                ['Heute +/−', c.tg, true],
-                ['Saldo danach', liveSaldo, true],
-                wB != null ? ['Woche', before ? (sameWeek ? wB : 0) + c.eff : wB, false] : null,
-                mB != null ? ['Monat', before ? (sameMonth ? mB : 0) + c.eff : mB, false] : null,
-                tB != null ? ['Gesamt · Saldo + FZ + ZA + Üst', tB - (baseSaldo || 0) + liveSaldo, true, 'big'] : null
-            ].filter(Boolean);
-            const box = side.querySelector('#zpb-live'); if (!box) return;
-            const html = `<div class="zpb-sh st"><h3>Live</h3><span class="zpb-stand"><i class="zpb-ld"></i>${c.open ? 'wenn du jetzt ausstempelst' : 'Stand jetzt'}</span></div><div class="zpb-tiles">` +
-                tiles.map(([l, v, sg, cls]) => `<div class="zpb-t live${cls ? ' ' + cls : ''}"><span>${esc(l)}</span><b class="num${sg ? (v > M ? ' pos' : v < -M ? ' neg' : '') : ''}">${sg ? dur(v, true) : dur(v)}</b></div>`).join('') + '</div>';
-            if (box.dataset.h !== html) { box.innerHTML = html; box.dataset.h = html; }
+            const base = k => { const t = side.querySelector(`.zpb-t[data-live="${k}"]`); return t ? +t.dataset.base : null; };
+            const wB = base('week');
+            return { week: wB != null ? (before ? (sameWeek ? wB : 0) + c.eff : wB) : null };
         };
         safe('Buchen', () => buToday(side.querySelector('#zpb-today')));
         return true;
