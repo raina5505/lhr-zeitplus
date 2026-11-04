@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.23.8
+// @version      5.23.9
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.23.8';
+    const VERSION = '5.23.9';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -2494,7 +2494,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
     }
     function checkUpdate(manual, force) {
         const u = updState();
-        if (!manual && !force && u.checked && Date.now() - u.checked < 3 * 3600e3) { if (updAvail() && SH) renderShell(); return; }
+        if (!manual && !force && u.checked && Date.now() - u.checked < 15 * 60e3) { if (updAvail() && SH) renderShell(); return; }
         let ctl = null; try { ctl = new AbortController(); setTimeout(() => ctl.abort(), 8000); } catch (e) { }
         fetch(RAW_URL + '?t=' + Date.now(), { cache: 'no-store', signal: ctl ? ctl.signal : undefined }).then(r => r.ok ? r.text() : Promise.reject(r.status)).then(txt => {
             const m = txt.match(/@version\s+([\d.]+)/); if (!m) throw 'keine Version';
