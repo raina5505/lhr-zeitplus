@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.23.3
+// @version      5.23.4
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.23.3';
+    const VERSION = '5.23.4';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1717,14 +1717,17 @@ html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-favrow >
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-me > td:not(.dtfc-fixed-left),html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-favrow > td:not(.dtfc-fixed-left){outline:0 !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.dtrg-group td,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.dtrg-start td{background:var(--pg) !important;box-shadow:none !important;color:var(--zp-accent) !important;font:700 12px/1 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;letter-spacing:.04em;text-transform:uppercase;text-align:left !important;padding:16px 10px 6px !important;height:auto}
 /* Remote nur türkiser Rahmen, Remote + Bereitschaft halb rot / halb türkis */
-html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem{background:var(--pg) !important;color:var(--zp-rem,#2dd4bf) !important;box-shadow:inset 0 0 0 3px var(--pg),inset 0 0 0 4.5px var(--zp-rem,#2dd4bf) !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem{background:color-mix(in srgb,var(--zp-rem,#2dd4bf) 8%,var(--pg)) !important;color:var(--zp-rem,#2dd4bf) !important;box-shadow:inset 0 0 0 3px var(--pg),inset 0 0 0 4.5px var(--zp-rem,#2dd4bf) !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem *{color:var(--zp-rem,#2dd4bf) !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb{background:var(--pg) !important;color:var(--zp-text) !important;box-shadow:inset 0 0 0 3px var(--pg) !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb *{color:var(--zp-text) !important}
 html.zp-pretty.zp-planer #tabdiv tbody td.zp-rb::after{content:'';position:absolute;inset:3px;padding:1.5px;background:linear-gradient(90deg,var(--zp-bad) 50%,var(--zp-rem,#2dd4bf) 50%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 html.zp-pretty.zp-planer #tabdiv tbody td:not(.dtfc-fixed-left):hover{filter:brightness(1.12)}
-html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-ink,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-ink *{color:#15120d !important;font-weight:800 !important;text-shadow:none !important}
-html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.zp-ink):not(.zp-rem):not(.zp-rb):not(.dtfc-fixed-left),html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.zp-ink):not(.zp-rem):not(.zp-rb):not(.dtfc-fixed-left) *{color:#fff !important}
+/* Farben gedämpft: Fläche leicht getönt, kräftiger Strich oben, Schrift in der Farbe → ruhig, aber eindeutig */
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-col{background:color-mix(in srgb,var(--zc) 38%,var(--zp-surf2,#eceef3)) !important;box-shadow:inset 0 0 0 2px var(--pg),inset 0 5px 0 0 var(--zc) !important;color:color-mix(in srgb,var(--zc) 35%,#fff) !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-col *{color:inherit !important;background:transparent !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.zp-col):not(.zp-rem):not(.zp-rb):not(.dtfc-fixed-left):not([colspan]),html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.zp-col):not(.zp-rem):not(.zp-rb):not(.dtfc-fixed-left):not([colspan]) *{color:var(--zp-muted) !important}
+html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td:not(.zp-col):not(.zp-rem):not(.zp-rb):not(.dtfc-fixed-left)[style*="background-color"]:not([style*="rgba(0, 0, 0, 0)"]){background:color-mix(in srgb,var(--zp-surf2) 55%,var(--pg)) !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem *{font-size:12px !important;font-weight:800 !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem > *,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb > *{background:transparent !important}
 /* Kopf kompakt */
@@ -3817,20 +3820,20 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             const rb = hasR && hasB, r = hasR && !hasB;
             if (td.classList.contains('zp-rem') !== r) td.classList.toggle('zp-rem', r);
             if (td.classList.contains('zp-rb') !== rb) td.classList.toggle('zp-rb', rb);
-            const light = bg && bg.a > .3 && lumOf(bg) > .45;
-            td.classList.toggle('zp-ink', !!light && !r && !rb);
+            const colored = bg && bg.a > .3 && !r && !rb && !(Math.max(bg.r, bg.g, bg.b) - Math.min(bg.r, bg.g, bg.b) < 40 && lumOf(bg) < .35);
+            td.classList.toggle('zp-col', !!colored);
+            if (colored) { const c = cssRgb(bg); if (td.style.getPropertyValue('--zc') !== c) td.style.setProperty('--zc', c); }
+            td.classList.remove('zp-ink');
             if (!/\bB\b/.test((td.textContent || '').toUpperCase()) || /B\d/.test((td.textContent || '').toUpperCase())) td.dataset.zpPm = (td.getAttribute('style') || '') + '|' + td.textContent;
         });
         // Kopf: Wochentag zum Datum, KW als kleines Schild am Montag, Zeilen „KW“/„Arbeitstage“ ausblenden
         const y = +(((document.getElementById('le_periode_text') || {}).textContent || '').match(/(\d{4})/) || [])[1] || +((document.getElementById('tSpanDate') || document.getElementById('jahr') || {}).value || new Date().getFullYear());
-        tab.querySelectorAll('thead tr').forEach((tr, ri) => {
-            const lab = (tr.textContent || '').replace(/\s+/g, ' ');
-            if (ri > 0 && /KW|Arbeitstage|Kalenderwoche/i.test(lab)) tr.classList.add('zp-hidehead');
-        });
+        tab.querySelectorAll('thead').forEach(th => [...th.rows].forEach((tr, ri) => { if (ri > 0 && !tr.classList.contains('zp-hidehead')) tr.classList.add('zp-hidehead'); }));
+        tab.querySelectorAll('thead th[rowspan], thead td[rowspan]').forEach(c => { if (c.getAttribute('rowspan') !== '1') { c.dataset.zpRs = c.getAttribute('rowspan'); c.setAttribute('rowspan', '1'); } });
         let lastM = null, yy = y;
-        tab.querySelectorAll('thead tr:first-child th, thead tr:first-child td').forEach(th => {
+        tab.querySelectorAll('thead th, thead td').forEach(th => {
             if (th.dataset.zpWd) return;
-            const m = (th.textContent || '').trim().match(/^(\d{1,2})\.(\d{1,2})\.?$/); if (!m) return;
+            const m = (th.textContent || '').replace(/\s+/g, '').match(/^(\d{1,2})\.(\d{1,2})\.?(?:\d{0,4})$/); if (!m) return;
             const mo = +m[2] - 1; if (lastM != null && mo < lastM) yy++; lastM = mo;
             const dt = new Date(yy, mo, +m[1], 12), wd = dt.getDay();
             th.dataset.zpWd = '1';
