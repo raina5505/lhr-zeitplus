@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.18.1
+// @version      5.18.2
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.18.1';
+    const VERSION = '5.18.2';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -202,7 +202,6 @@
                   <button type="button" data-act="next" title="Folgejahr"${P.fwd && P.fwd.getAttribute('href') ? '' : ' disabled'}>${ico('right', 16)}</button>
                   ${P.y !== new Date().getFullYear() ? '<button type="button" class="t" data-act="thisyear">Aktuelles Jahr</button>' : ''}
                 </div>
-                ${urTxt ? `<span class="zs-chip">${ico('sun', 13)}Resturlaub <b class="num">${esc(urTxt)}</b></span>` : ''}
                 ${cdHtml}<span class="sp"></span>
                 ${shell.menu.length ? `<button type="button" class="zp-btn pri" data-act="new">${ico('plus', 15)} Neu ${ico('chevron', 13)}</button>` : ''}
               </div>`;
@@ -513,10 +512,14 @@
         const nextHol = all.find(d => !d.past && d.hol && !d.today && d.wd !== 0 && d.wd !== 6);
         const fmtD = d => WD_SHORT[d.wd] + ' ' + pad(d.d) + '.' + pad(d.dt.getMonth() + 1) + '.';
         const inTxt = n => n === 0 ? 'heute' : n === 1 ? 'morgen' : 'in ' + n + ' Tagen';
+        // Urlaubstage im Jahr: schon genommen / noch verplant (Wochenenden und Feiertage zählen nicht)
+        const urlDays = all.filter(d => d.kind === 'abs' && /urlaub/i.test(d.name || '') && !/sonder/i.test(d.name || '') && !d.we && !d.hol);
+        const urTaken = urlDays.filter(d => d.dt < t0 && !d.pend).length, urPlan = urlDays.filter(d => d.dt >= t0 && !d.pend).length, urPend = urlDays.filter(d => d.pend).length;
+        const urSub = urlDays.length ? [urTaken + ' gebucht', urPlan + ' verplant', urPend ? urPend + ' beantragt' : ''].filter(Boolean).join(' · ') : (ruNum[1] ? 'noch kein Urlaub eingetragen' : 'wird von LHR ermittelt');
         const stat = (icon, label, val, sub, cls) => `<div class="zk-st ${cls || ''}"><small>${ico(icon, 13)}${label}</small><b class="num">${val}</b><span>${sub}</span></div>`;
         const stats = `<div class="zk-stats">
-            ${stat('sun', 'Resturlaub', ruNum[1] ? esc(ruNum[1]) + ' <em>' + esc(ruNum[2] || 'Tage') + '</em>' : (/ermittelt/i.test(k.ru) || !k.ru ? '…' : esc(k.ru)), ruPer ? 'per Ende ' + esc(ruPer) : 'wird von LHR ermittelt', 'acc')}
-            ${stat('calendar', 'Urlaub ' + k.y, urlLeg ? esc(urlLeg.tage || '0') + ' <em>Tage</em>' : '0 <em>Tage</em>', urlLeg && urlLeg.std ? esc(urlLeg.std) + ' Stunden verbucht' : 'noch nichts verbucht')}
+            ${stat('sun', 'Resturlaub ' + k.y, ruNum[1] ? esc(ruNum[1]) + ' <em>' + esc(ruNum[2] || 'Tage') + '</em>' : (/ermittelt/i.test(k.ru) || !k.ru ? '…' : esc(k.ru)), urSub, 'acc')}
+            ${stat('calendar', 'Urlaub ' + k.y, urlLeg ? esc(urlLeg.tage || '0') + ' <em>Tage</em>' : '0 <em>Tage</em>', urlLeg ? 'im Kalender eingetragen' : 'noch nichts eingetragen')}
             ${stat('send', 'Beantragt', pend.length + ' <em>' + (pend.length === 1 ? 'Tag' : 'Tage') + '</em>', pend.length ? 'offen: ' + pend.slice(0, 3).map(fmtD).join(', ') + (pend.length > 3 ? ' …' : '') : 'keine offenen Anträge', pend.length ? 'warn' : '')}
             ${stat('target', 'Nächste Abwesenheit', next ? esc(fmtD(next.f)) + (next.last !== next.f ? ' – ' + esc(fmtD(next.last)) : '') : '—', next ? esc(next.f.name) + (next.f.pend ? ' (beantragt)' : '') + ' · ' + inTxt(next.n) : 'nichts geplant' + (nextHol ? ' · nächster Feiertag ' + esc(fmtD(nextHol)) : ''))}
           </div>`;
