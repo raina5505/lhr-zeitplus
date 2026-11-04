@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.22.1
+// @version      5.22.2
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.22.1';
+    const VERSION = '5.22.2';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -192,6 +192,7 @@
         return { name, n, d };
     }
     function renderShell() {
+        if (shell.per && shell.per.el && !shell.per.el.classList.contains('zp-hide-orig')) shell.per.el.classList.add('zp-hide-orig');
         const box = $('zs');
         if (!box) return;
         const u = userInfo(), P = shell.per;
@@ -1694,6 +1695,11 @@ td.zp-flash{animation:zpflash 1.2s ease-out}
 html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #content thead th,html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #content thead td,html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv th,html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv th *{background-color:var(--zp-th,var(--zp-surf)) !important;background-image:none !important;color:var(--zp-text) !important;border-color:var(--zp-grid) !important;font-weight:600 !important}
 html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #content thead th *,html.zp-dark.zp-planer body:not(#zp-a):not(#zp-b) #content thead td *{color:inherit !important;background:transparent !important}
 html.zp-planer #content thead th,html.zp-planer #content thead td{font-size:12px !important}
+/* Planer: kein eigener Scrollbalken zwischen Kopf und Zeilen – Kopf läuft mit den Zeilen mit */
+html.zp-planer #tabdiv .dataTables_scrollHead{overflow:hidden !important;scrollbar-width:none;margin-bottom:0 !important;border-bottom:0 !important}
+html.zp-planer #tabdiv .dataTables_scrollHead::-webkit-scrollbar{display:none}
+html.zp-planer #tabdiv .dataTables_scrollHead table{margin-bottom:0 !important}
+html.zp-planer #tabdiv .dataTables_scrollBody{border-top:0 !important;margin-top:0 !important}
 #zp-team-host{display:block;max-width:1240px;margin:0 auto 16px}
 #zp-host.wide ~ #zp-team-host{max-width:none}
 #zp-abw-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 12px;font:13px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
@@ -1702,25 +1708,25 @@ html body #zp-abw-bar button{height:32px;padding:0 13px;border-radius:10px !impo
 html body #zp-abw-bar button.on{background:var(--zp-accent) !important;border-color:var(--zp-accent) !important;color:var(--zp-onacc,#fff) !important}
 #zp-abw-bar button:disabled{opacity:.5;cursor:not-allowed}
 #zp-abw-bar .h{color:var(--zp-muted);font-size:12px;margin-left:6px}
-html.zp-abw-only #tabdiv{display:none !important}
+html.zp-abwp.zp-abw-only #tabdiv{display:none !important}
 /* Abwesenheitsübersicht: Raster wie „Ich + Favoriten“ */
-html.zp-pretty #tabdiv table.dataTable{border-collapse:separate !important;border-spacing:3px !important;background:transparent !important}
-html.zp-pretty #tabdiv table.dataTable thead th{background:var(--zp-surf) !important;border:0 !important;color:var(--zp-muted) !important;font:600 11px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;text-align:center;padding:6px 2px !important}
-html.zp-pretty #tabdiv table.dataTable tbody td{border:0 !important;border-radius:6px !important;height:28px;padding:0 !important;font:700 11px/28px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;text-align:center}
-html.zp-pretty #tabdiv table.dataTable tbody td > div{border-radius:6px;background-color:transparent !important;height:100%;line-height:28px}
-html.zp-pretty #tabdiv table.dataTable tbody td[style*="rgba(0, 0, 0, 0)"],html.zp-pretty #tabdiv table.dataTable tbody td:not([style*="background-color"]):not(.dtfc-fixed-left){background-color:var(--zp-surf2,#eceef3) !important;background-image:none !important}
-html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.kalTag_sa,html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.kalTag_so_fe{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--zp-muted) 18%,transparent) 0 2px,transparent 2px 6px) !important}
-html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-rem{background:transparent !important;box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf) !important;color:var(--zp-rem,#2dd4bf) !important}
-html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-rem *{color:var(--zp-rem,#2dd4bf) !important;background:transparent !important}
-html.zp-pretty #tabdiv table.dataTable tbody td.dtfc-fixed-left{background-color:var(--zp-surf,#f6f7fa) !important;text-align:left !important;font:600 13px/28px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;padding:0 10px !important;white-space:nowrap}
-html.zp-pretty #tabdiv table.dataTable tbody td.dtfc-fixed-left:first-child{color:var(--zp-muted) !important;font-weight:500 !important}
-html.zp-pretty #tabdiv table.dataTable tbody tr.zp-me td.dtfc-fixed-left{color:var(--zp-accent) !important}
-html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-me > td:not(.dtfc-fixed-left):not(.zp-rem),html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-favrow > td:not(.dtfc-fixed-left):not(.zp-rem){box-shadow:none !important}
-html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-me > td.dtfc-fixed-left{box-shadow:inset 0 0 0 1.5px var(--zp-accent) !important;background-color:color-mix(in srgb,var(--zp-accent) 12%,var(--zp-surf,#f6f7fa)) !important}
-html.zp-pretty body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-favrow > td.dtfc-fixed-left{box-shadow:inset 0 0 0 1px color-mix(in srgb,#f5c542 60%,transparent) !important}
-html.zp-pretty #tabdiv table.dataTable tbody tr:hover > td.dtfc-fixed-left{background-color:color-mix(in srgb,var(--zp-accent) 14%,var(--zp-surf,#f6f7fa)) !important}
-html.zp-pretty #tabdiv .dataTables_wrapper{background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:16px;padding:10px}
-html.zp-pretty #tabdiv .dataTables_scrollHead,html.zp-pretty #tabdiv .dataTables_scrollBody{border:0 !important;background:transparent !important}
+html.zp-pretty.zp-abwp #tabdiv table.dataTable{border-collapse:separate !important;border-spacing:3px !important;background:transparent !important}
+html.zp-pretty.zp-abwp #tabdiv table.dataTable thead th{background:var(--zp-surf) !important;border:0 !important;color:var(--zp-muted) !important;font:600 11px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;text-align:center;padding:6px 2px !important}
+html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody td{border:0 !important;border-radius:6px !important;height:28px;padding:0 !important;font:700 11px/28px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;text-align:center}
+html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody td > div{border-radius:6px;background-color:transparent !important;height:100%;line-height:28px}
+html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody td[style*="rgba(0, 0, 0, 0)"],html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody td:not([style*="background-color"]):not(.dtfc-fixed-left){background-color:var(--zp-surf2,#eceef3) !important;background-image:none !important}
+html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.kalTag_sa,html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.kalTag_so_fe{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--zp-muted) 18%,transparent) 0 2px,transparent 2px 6px) !important}
+html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-rem{background:transparent !important;box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf) !important;color:var(--zp-rem,#2dd4bf) !important}
+html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-rem *{color:var(--zp-rem,#2dd4bf) !important;background:transparent !important}
+html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody td.dtfc-fixed-left{background-color:var(--zp-surf,#f6f7fa) !important;text-align:left !important;font:600 13px/28px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;padding:0 10px !important;white-space:nowrap}
+html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody td.dtfc-fixed-left:first-child{color:var(--zp-muted) !important;font-weight:500 !important}
+html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody tr.zp-me td.dtfc-fixed-left{color:var(--zp-accent) !important}
+html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-me > td:not(.dtfc-fixed-left):not(.zp-rem),html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-favrow > td:not(.dtfc-fixed-left):not(.zp-rem){box-shadow:none !important}
+html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-me > td.dtfc-fixed-left{box-shadow:inset 0 0 0 1.5px var(--zp-accent) !important;background-color:color-mix(in srgb,var(--zp-accent) 12%,var(--zp-surf,#f6f7fa)) !important}
+html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.zp-favrow > td.dtfc-fixed-left{box-shadow:inset 0 0 0 1px color-mix(in srgb,#f5c542 60%,transparent) !important}
+html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody tr:hover > td.dtfc-fixed-left{background-color:color-mix(in srgb,var(--zp-accent) 14%,var(--zp-surf,#f6f7fa)) !important}
+html.zp-pretty.zp-abwp #tabdiv .dataTables_wrapper{background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:16px;padding:10px}
+html.zp-pretty.zp-abwp #tabdiv .dataTables_scrollHead,html.zp-pretty.zp-abwp #tabdiv .dataTables_scrollBody{border:0 !important;background:transparent !important}
 #zp-abw-fav{display:block;margin:0 0 14px}
 #tabdiv td.dtfc-fixed-left:has(> .zp-star){padding-right:24px !important}
 #tabdiv tr:hover td > .zp-star{opacity:.85}
@@ -3684,8 +3690,8 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             });
         });
         document.querySelectorAll('#content tbody > tr').forEach(tr => { setCls(tr, 'zp-me', me.has(tr)); setCls(tr, 'zp-favrow', fv.has(tr)); });
-        safe('Team', () => abwFavs(favs, myKey));
-        safe('Team', () => { if (document.querySelector('#tabdiv tbody td.kalTag, #tabdiv tbody td.kalTag_sa')) { const dt = teamParse(document, window); teamSave(dt); } });
+        if (IS_ABW) safe('Team', () => abwFavs(favs, myKey));
+        if (IS_ABW) safe('Team', () => { if (document.querySelector('#tabdiv tbody td.kalTag, #tabdiv tbody td.kalTag_sa')) { const dt = teamParse(document, window); teamSave(dt); } });
         renderFavBar(tcells);
         { const sp = ['tabl_det_erreichbarkeit_span', 'tabl_det_abwesenheit_span', 'detaildn_name'].map(i => document.getElementById(i)).filter(Boolean);
           if (sp.length) document.documentElement.classList.toggle('zp-tdet', sp.some(x => x.textContent.replace(/\u00a0/g, ' ').trim().length > 0)); }
@@ -3745,6 +3751,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         box.innerHTML = head + `<table><thead><tr><th></th>${th}</tr></thead><tbody>${rows}</tbody></table>
             <div class="lg"><span><i style="background:var(--zp-surf2)"></i>da</span><span><i style="box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)"></i>Remote</span><span><i style="background:#ff3300"></i>abwesend (Farbe wie in LHR)</span><span><i style="background:repeating-linear-gradient(135deg,#8886 0 2px,transparent 2px 6px)"></i>Wochenende / Feiertag</span></div>`;
     }
+    const IS_ABW = /abwesenheitsuebersicht/i.test(location.pathname);
     // Abwesenheitsübersicht: Stern am Namen + Filter „Nur Favoriten“
     function abwFavs(favs, myKey) {
         const tabdiv = document.getElementById('tabdiv');
@@ -4673,6 +4680,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         document.documentElement.classList.toggle('zp-zdl', PAGE === 'zdl');
         document.documentElement.classList.add('zp-p-' + PAGE);
         if (/urlaubsplaner/i.test(location.pathname)) document.documentElement.classList.add('zp-planer');
+        if (IS_ABW) document.documentElement.classList.add('zp-abwp');
         { const lpt = document.getElementById('le_periode_text'); if (lpt) { let t = null; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => safe('App-Leiste', () => { readShellSource(); renderShell(); }), 250); }).observe(lpt.closest('#tabdivup') || lpt, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] }); } }
         try { document.title = APP_TITLE; } catch (e) { }
         killOldScript();
