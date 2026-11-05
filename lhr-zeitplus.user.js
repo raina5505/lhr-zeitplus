@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.25.0
+// @version      5.25.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.25.0';
+    const VERSION = '5.25.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -490,9 +490,9 @@
         // Brückentage: kurze Arbeitstag-Lücken (1–3 Tage) zwischen freien Tagen, an mindestens einem Feiertag
         const bridges = [];
         {
-            // frei = Wochenende, Feiertag oder eine Abwesenheit, an der man nicht arbeitet (Remote/Homeoffice/Dienstreise zählen als Arbeit)
+            // frei = nur Wochenende oder Feiertag – eigener Urlaub zählt NICHT mit, sonst wären es keine echten Brückentage
             const offAbs = d => d.kind === 'abs' && !/remote|home|dienst|berufsschul|seminar|schulung|kurs|arzt|bereitschaft|reise/i.test(d.name || '');
-            const free = d => d.we || d.hol || offAbs(d);
+            const free = d => d.we || d.hol;
             let i = 0;
             while (i < all.length) {
                 if (free(all[i])) { i++; continue; }
@@ -503,9 +503,9 @@
                     let b = j; while (b < all.length - 1 && free(all[b + 1])) b++;
                     const span = all.slice(a, b + 1), work = all.slice(i, j);
                     const hasHol = span.some(d => d.hol && d.wd !== 0 && d.wd !== 6);
-                    if (hasHol && work.every(d => d.dt > t0)) {
-                        const planned = span.filter(d => offAbs(d) && !d.we && !d.hol);      // schon eingetragene Urlaubs-/ZA-Tage im Zeitraum
-                        const tot = L + planned.length;
+                    if (hasHol && work.every(d => d.dt > t0) && !work.every(offAbs)) {      // schon komplett genommen → kein Vorschlag mehr
+                        const planned = [];
+                        const tot = L;
                         bridges.push({ work, planned, from: span[0], to: span[span.length - 1], len: span.length, cost: L, tot, ratio: span.length / tot, holName: (span.find(d => d.hol && d.wd !== 0 && d.wd !== 6) || {}).key });
                     }
                 }
