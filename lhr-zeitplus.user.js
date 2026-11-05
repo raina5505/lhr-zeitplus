@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.25.6
+// @version      5.25.7
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.25.6';
+    const VERSION = '5.25.7';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -3899,6 +3899,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         document.querySelectorAll('#content tbody > tr').forEach(tr => { setCls(tr, 'zp-me', me.has(tr)); setCls(tr, 'zp-favrow', fv.has(tr)); });
         if (IS_ABW) safe('Team', () => abwFavs(favs, myKey));
         if (IS_ABW) safe('Team', abwToday);
+        if (IS_ABW && !window.__zpAlignObs) { const tb = document.getElementById('tabdiv'); if (tb) { window.__zpAlignObs = true; let t = null; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => safe('Team', () => { dtAlign(tb); abwToday(); }), 300); }).observe(tb, { childList: true, subtree: true }); window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => safe('Team', () => dtAlign(tb)), 300); }); } }
         if (IS_ABW) safe('Team', () => {            // Abwesenheitsübersicht: beim Öffnen immer die eigene Abteilung
             const sel = document.getElementById('abw_dropdown_abt');
             if (!sel || window.__zpAbwAbt || sel.options.length < 2) return;
@@ -4154,8 +4155,21 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         planerToday(tab);
     }
     // Abwesenheitsübersicht: heutige Spalte (Kopf „05.11.“) markieren
+    function dtAlign(tab) {            // Kopf und Tabelle wieder bündig machen, wenn sie auseinanderlaufen (z.B. nach Abteilungswechsel)
+        try {
+            const hr = tab.querySelector('.dataTables_scrollHead thead tr:last-child'), br = [...tab.querySelectorAll('.dataTables_scrollBody tbody tr')].find(tr => tr.children.length > 4 && tr.offsetParent !== null);
+            if (!hr || !br) return;
+            const hs = [...hr.children], bs = [...br.children], n = Math.min(hs.length, bs.length);
+            let off = 0; for (let i = 0; i < n; i++) { const a = hs[i].getBoundingClientRect(), b = bs[i].getBoundingClientRect(); off = Math.max(off, Math.abs(a.left - b.left), Math.abs(a.width - b.width)); }
+            if (off < 2 || Date.now() - (dtAlign.t || 0) < 1500) return;
+            dtAlign.t = Date.now();
+            const jq = window.jQuery; if (!jq || !jq.fn || !jq.fn.dataTable) return;
+            jq('#tabdiv table.dataTable').each((i, t) => { if (!t.closest('.dataTables_scrollHead') && jq.fn.dataTable.isDataTable(t)) jq(t).DataTable().columns.adjust(); });
+        } catch (e) { }
+    }
     function abwToday() {
         const tab = document.getElementById('tabdiv'); if (!tab) return;
+        dtAlign(tab);
         const hr = tab.querySelector('.dataTables_scrollHead thead tr:last-child') || tab.querySelector('thead tr:last-child'); if (!hr) return;
         const n = new Date(), key = pad(n.getDate()) + '.' + pad(n.getMonth() + 1) + '.';
         const hs = [...hr.children], idx = hs.findIndex(th => { const t = th.textContent.replace(/\s+/g, ''); return t === key || t.endsWith(key) || t === n.getDate() + '.' + (n.getMonth() + 1) + '.'; });
