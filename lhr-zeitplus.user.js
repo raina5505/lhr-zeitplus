@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.24.9
+// @version      5.25.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.24.9';
+    const VERSION = '5.25.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -23,7 +23,7 @@
         clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
         scale: '<path d="M12 3v18M7 21h10M5 7h14M5 7l-3 6a3 3 0 0 0 6 0zM19 7l-3 6a3 3 0 0 0 6 0z"/>',
         calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
-        utensils: '<path d="M5 3v7a2 2 0 0 0 4 0V3M7 12v9M17 3c-2 0-3 2.2-3 5s1 5 3 5v8"/>',
+        utensils: '<path d="M5.5 3v5a2.5 2.5 0 0 0 5 0V3"/><path d="M8 3v18"/><path d="M17.5 3.2C15.6 4.4 14.6 7 14.6 10c0 1.5.4 2.6 1.2 3.2h1.7z" fill="currentColor"/><path d="M17.2 13.5V21"/>',
         wind: '<path d="M3 8h10a3 3 0 1 0-3-3M3 12h15a3 3 0 1 1-3 3M3 16h7"/>',
         target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
         trend: '<path d="M3 17l6-6 4 4 8-8M14 7h7v7"/>',
