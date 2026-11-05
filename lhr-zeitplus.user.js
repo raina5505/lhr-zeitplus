@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.25.1
+// @version      5.25.2
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.25.1';
+    const VERSION = '5.25.2';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -4394,6 +4394,8 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             const st = img ? (img.getAttribute('title') || img.getAttribute('alt') || '') : '';
             return { f, src: img ? img.src : '', st, here: !!td };
         });
+        { const upd = {}; favs.forEach(f => { const td = byKey.get(f.k), img = td && td.querySelector('img'); if (img) upd[f.k] = { src: img.src, st: img.getAttribute('title') || img.getAttribute('alt') || '', ts: Date.now() }; });
+          if (Object.keys(upd).length) try { localStorage.setItem(TST_KEY, JSON.stringify(Object.assign(tst, upd))); } catch (e) { } }
         const stale = favs.some(f => !byKey.get(f.k) && !(tst[f.k] && Date.now() - tst[f.k].ts < 3 * 60e3));
         if (stale && tcells.length && !tstBusy) tableauRefresh(() => { teamSig = ''; safe('Team', markTeam); });
         const sig = JSON.stringify(items.map(i => [i.f.k, i.src, i.st, i.here]));
@@ -4897,6 +4899,8 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             const oAbt = (d().getElementById('tableau_dropdown_abt') || {}).value, oPp = (d().getElementById('per_page_count') || {}).value;
             restoreT = async () => { try { if (oPp) setSel(w(), d().getElementById('per_page_count'), oPp, 'onChangePerPage'); await zsleep(1000); if (oAbt) setSel(w(), d().getElementById('tableau_dropdown_abt'), oAbt, 'changeAbteilung'); await zsleep(2500); } catch (e) { } };
             const sig = () => cells().length + '|' + cells().map(cellName).join('').length;
+            const grab = () => { const st = {}, favs = new Set(favList().map(f => f.k)); cells().forEach(td => { const k = nameKey(cellName(td)); if (!favs.has(k)) return; const img = td.querySelector('img'); st[k] = { src: img ? img.src : '', st: img ? (img.getAttribute('title') || img.getAttribute('alt') || '') : '', ts: Date.now() }; }); return st; };
+            { const st0 = grab(), me = nameKey(userInfo().name); if (favList().every(f => f.k === me || st0[f.k])) { let old = {}; try { old = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { } try { localStorage.setItem(TST_KEY, JSON.stringify(Object.assign(old, st0))); } catch (e) { } restoreT = null; throw 'fertig'; } }
             setSel(w(), d().getElementById('per_page_count'), '1000', 'onChangePerPage');
             await zsleep(1200);
             setSel(w(), d().getElementById('tableau_dropdown_abt'), '0', 'changeAbteilung');
@@ -4927,6 +4931,9 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
 .tm .f{font-size:11.5px;color:var(--zp-muted);display:flex;align-items:center;gap:6px}
 .tm .f button{border:0;background:transparent;color:var(--zp-muted);cursor:pointer;padding:3px;display:grid;place-items:center;border-radius:6px}
 .tm .f button:hover{color:var(--zp-text);background:var(--zp-surf2)}
+.tm .dot{width:7px;height:7px;border-radius:50%;flex:none;margin-right:1px}
+.tm .dot.in{background:var(--zp-ok);box-shadow:0 0 0 2px color-mix(in srgb,var(--zp-ok) 25%,transparent)}
+.tm .dot.out{background:var(--zp-bad);box-shadow:0 0 0 2px color-mix(in srgb,var(--zp-bad) 22%,transparent)}
 .tm .h{color:var(--zp-muted);font-size:12.5px}`;
     let teamDay = 0;
     function renderTeam(box) {
@@ -4943,9 +4950,15 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const day = data && data.days[dk];
         if (!day) { box.innerHTML = `<div class="tm">${head}<span class="h">${teamBusy ? 'Wird geladen …' : 'Für ' + lab.toLowerCase() + ' noch keine Daten.'}</span>${foot}</div>`; return; }
         const av = [], ab = [];
+        let tst = {}; try { tst = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
+        const dot = k => {            // grün = eingestempelt, rot = nicht eingestempelt (aus dem Tableau, nur heute)
+            if (teamDay) return ''; const t = tst[k]; if (!t || Date.now() - t.ts > 30 * 60e3) return '';
+            const x = (t.st + ' ' + t.src).toLowerCase(), p = /abwesend/.test(x) ? 0 : /anwesend/.test(x) ? 1 : -1;
+            return p < 0 ? '' : `<i class="dot ${p ? 'in' : 'out'}" title="${p ? 'eingestempelt' : 'nicht eingestempelt'} · Stand ${clock(t.ts)}${t.st && !/^(an|ab)wesend$/i.test(t.st) ? ' · ' + esc(t.st) : ''}"></i>`;
+        };
         favs.forEach(f => {
             if (f.k === myKey) return;
-            const e = day[f.k], n = esc((data.names[f.k] || f.n).replace(/\s+/g, ' '));
+            const e = day[f.k], n = dot(f.k) + esc((data.names[f.k] || f.n).replace(/\s+/g, ' '));
             if (!e) return;
             if (e.st === 'abs') ab.push(`<span class="c abs" title="abwesend${e.l ? ' (' + esc(e.l) + ')' : ''}">${n}${e.l ? `<em>${esc(e.l)}</em>` : ''}</span>`);
             else if (e.st === 'rem') av.push(`<span class="c rem" title="Remote / Homeoffice">${n}<em>HO</em></span>`);
@@ -4970,6 +4983,15 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const data = teamStore();
         if (favList().length && (!data || Date.now() - data.ts > 2 * 3600e3)) setTimeout(() => teamRefresh(() => renderTeam(box)), 5000);
         setInterval(() => { if (!document.hidden) renderTeam(box); }, 5 * 60e3);
+        // Ein-/Ausgestempelt-Punkte: Tableau im Hintergrund alle 5 Minuten abfragen
+        const tstTick = () => {
+            if (document.hidden || tstBusy || teamBusy || !favList().length) return;
+            let tst = {}; try { tst = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
+            const me = nameKey(userInfo().name);
+            if (favList().every(f => f.k === me || (tst[f.k] && Date.now() - tst[f.k].ts < 4.5 * 60e3))) return;
+            tableauRefresh(() => renderTeam(box));
+        };
+        setTimeout(tstTick, 9000); setInterval(tstTick, 60e3);
     }
     function watchDialog() {
         let pending = false;
