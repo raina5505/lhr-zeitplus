@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.24.6
+// @version      5.24.7
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.24.6';
+    const VERSION = '5.24.7';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1807,6 +1807,8 @@ html.zp-abwp #tabdiv tbody td.zp-tcol{position:relative}
 html.zp-abwp #tabdiv tbody td.zp-tcol::before{content:'';position:absolute;inset:-2px -2px;border-left:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);border-right:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);background:color-mix(in srgb,var(--zp-accent,#4f7cff) 8%,transparent);pointer-events:none;z-index:1}
 html.zp-abwp #tabdiv tbody td.zp-tcol.zp-tlast::before{border-bottom:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);border-radius:0 0 8px 8px}
 html.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-tcol{color:var(--zp-accent,#4f7cff) !important;background:color-mix(in srgb,var(--zp-accent,#4f7cff) 12%,var(--zp-surf,#f6f7fa)) !important;border-radius:8px 8px 0 0 !important;box-shadow:inset 1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset -1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset 0 1.5px 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent) !important}
+html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-acol{background:var(--zc) !important;background-image:none !important;color:#fff !important;box-shadow:none !important}
+html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-acol *{background:transparent !important;color:#fff !important}
 #zp-ptip{position:fixed;z-index:2147483000;pointer-events:none;max-width:230px;padding:7px 10px 6px;border-radius:10px;background:color-mix(in srgb,var(--zp-bg,#fff) 92%,transparent);backdrop-filter:blur(10px);color:var(--zp-text,#222);border:1px solid var(--zp-line,#d0d4dc);box-shadow:0 8px 24px rgba(0,0,0,.28);font:500 11.5px/1.35 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;opacity:0;transform:translateY(3px);transition:opacity .1s,transform .1s}
 #zp-ptip.on{opacity:1;transform:none}
 #zp-ptip .t{display:flex;flex-wrap:wrap;gap:4px 10px;font-weight:700;font-size:12px}
@@ -1857,7 +1859,7 @@ html.zp-pretty.zp-abwp #tabdiv table.dataTable{border-collapse:separate !importa
 html.zp-pretty.zp-abwp #tabdiv table.dataTable thead th{background:var(--zp-surf) !important;border:0 !important;color:var(--zp-muted) !important;font:600 11px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;text-align:center;padding:6px 2px !important}
 html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody td{border:0 !important;border-radius:6px !important;height:28px;padding:0 !important;font:700 11px/28px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;text-align:center}
 html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody td > div{border-radius:6px;background-color:transparent !important;height:100%;line-height:28px}
-html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody td[style*="rgba(0, 0, 0, 0)"],html.zp-pretty.zp-abwp #tabdiv table.dataTable tbody td:not([style*="background-color"]):not(.dtfc-fixed-left){background-color:var(--zp-surf2,#eceef3) !important;background-image:none !important}
+html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-aempty{background-color:var(--zp-surf2,#eceef3) !important;background-image:none !important}
 html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.kalTag_sa,html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.kalTag_so_fe{background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--zp-muted) 18%,transparent) 0 2px,transparent 2px 6px) !important}
 html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-rem{background:transparent !important;box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf) !important;color:var(--zp-rem,#2dd4bf) !important}
 html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-rem *{color:var(--zp-rem,#2dd4bf) !important;background:transparent !important}
@@ -4305,7 +4307,29 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             st.title = isF ? 'Favorit entfernen' : 'Als Favorit anpinnen';
             setCls(td, 'zp-fav', isF);
         });
-        tabdiv.querySelectorAll('tbody td').forEach(td => { const r = /^R$/i.test((td.textContent || '').trim()); if (td.classList.contains('zp-rem') !== r) td.classList.toggle('zp-rem', r); });
+        // Farben: LHR färbt mal die Zelle, mal das innere Kästchen → kräftigste Farbe nehmen und selbst setzen
+        const chroma = c => c ? Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) : 0;
+        const sigOf = td => (td.getAttribute('style') || '').replace(/;?\s*--zc:[^;]*/g, '') + '|' + td.className.replace(/\s*zp-(acol|aempty|rem|tcol|tlast)\b/g, '') + '|' + td.innerHTML.length + '|' + td.textContent;
+        const todo = [...tabdiv.querySelectorAll('tbody td:not(.dtfc-fixed-left)')].filter(td => td.dataset.zpAm !== sigOf(td));
+        if (todo.length) {
+            todo.forEach(td => { td.classList.remove('zp-acol', 'zp-aempty', 'zp-rem'); td.style.removeProperty('--zc'); });
+            const res = todo.map(td => {                      // erst alles lesen (LHR-Farbe: Inline-Stil ODER Klasse, an der Zelle oder am Kästchen innen) …
+                const els = [td, ...td.querySelectorAll('div,span')];
+                const cands = els.map(x => rgbOf(x.style.backgroundColor)).concat(els.slice(0, 2).map(x => rgbOf(getComputedStyle(x).backgroundColor))).filter(c => c && c.a > .3);
+                return cands.sort((a, b2) => chroma(b2) - chroma(a))[0] || null;
+            });
+            todo.forEach((td, i) => {                         // … dann schreiben
+                const bg = res[i], we = /kalTag_sa|kalTag_so_fe/.test(td.className);
+                const pink = bg && bg.r > 230 && bg.g > 90 && bg.g < 170 && bg.b > 150;
+                const isR = /^R$/i.test((td.textContent || '').trim());
+                const rem = isR && (!bg || pink || chroma(bg) < 45);
+                const col = !rem && bg && chroma(bg) >= 45 && !(we && !td.textContent.trim() && chroma(bg) < 120);
+                if (rem) td.classList.add('zp-rem');
+                else if (col) { td.classList.add('zp-acol'); td.style.setProperty('--zc', cssRgb(bg)); }
+                else if (!we) td.classList.add('zp-aempty');
+                td.dataset.zpAm = sigOf(td);
+            });
+        }
         let bar = document.getElementById('zp-abw-bar');
         if (!bar) {
             bar = document.createElement('div'); bar.id = 'zp-abw-bar';
@@ -4757,7 +4781,9 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                 let st = 'da', l = (td.textContent || '').replace(/\s+/g, '').trim();
                 if (/kalTag_sa|kalTag_so_fe/.test(cls) && !l) st = 'frei';
                 else {
-                    const dv = td.querySelector('div'), b1 = rgbOf(td.style.backgroundColor), b2 = rgbOf(dv && dv.style.backgroundColor), bg = b1 && b1.a > .1 ? b1 : b2 && b2.a > .1 ? b2 : b1 || b2;
+                    const dv = td.querySelector('div'), b1 = rgbOf(td.style.backgroundColor), b2 = rgbOf(dv && dv.style.backgroundColor), ch = c => c ? Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) : 0;
+                    let bg = b1 && b1.a > .1 ? b1 : b2 && b2.a > .1 ? b2 : b1 || b2;
+                    if (!(bg && bg.a > .1) && !tr.dataset.raw && td.isConnected) { try { const gw = doc.defaultView || window; const c3 = [td, dv].filter(Boolean).map(x => rgbOf(gw.getComputedStyle(x).backgroundColor)).filter(c => c && c.a > .3 && ch(c) >= 45).sort((a, b) => ch(b) - ch(a))[0]; if (c3) bg = c3; } catch (e) { } }      // Farbe über CSS-Klasse
                     const colored = bg && bg.a > .1 && !(bg.r > 245 && bg.g > 245 && bg.b > 245);
                     if (/^R$/i.test(l)) st = 'rem'; else if (colored || l) st = 'abs';
                     if (colored) { (days[dk] = days[dk] || {})[k] = { st, l, c: cssRgb(bg) }; return; }
