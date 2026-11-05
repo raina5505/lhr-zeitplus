@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.24.5
+// @version      5.24.6
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.24.5';
+    const VERSION = '5.24.6';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1803,6 +1803,10 @@ html.zp-planer #tabdiv tbody td.zp-tcol::before{content:'';position:absolute;ins
 html.zp-planer #tabdiv tbody td.zp-tcol.zp-tlast::before{border-bottom:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);border-radius:0 0 8px 8px}
 html.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-tcol{position:relative;background:color-mix(in srgb,var(--zp-accent,#4f7cff) 12%,var(--pg,var(--zp-surf))) !important;border-radius:10px 10px 0 0;box-shadow:inset 1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset -1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset 0 1.5px 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent) !important}
 html.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.zp-tcol,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-tcol{position:relative}
+html.zp-abwp #tabdiv tbody td.zp-tcol{position:relative}
+html.zp-abwp #tabdiv tbody td.zp-tcol::before{content:'';position:absolute;inset:-2px -2px;border-left:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);border-right:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);background:color-mix(in srgb,var(--zp-accent,#4f7cff) 8%,transparent);pointer-events:none;z-index:1}
+html.zp-abwp #tabdiv tbody td.zp-tcol.zp-tlast::before{border-bottom:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);border-radius:0 0 8px 8px}
+html.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-tcol{color:var(--zp-accent,#4f7cff) !important;background:color-mix(in srgb,var(--zp-accent,#4f7cff) 12%,var(--zp-surf,#f6f7fa)) !important;border-radius:8px 8px 0 0 !important;box-shadow:inset 1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset -1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset 0 1.5px 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent) !important}
 #zp-ptip{position:fixed;z-index:2147483000;pointer-events:none;max-width:230px;padding:7px 10px 6px;border-radius:10px;background:color-mix(in srgb,var(--zp-bg,#fff) 92%,transparent);backdrop-filter:blur(10px);color:var(--zp-text,#222);border:1px solid var(--zp-line,#d0d4dc);box-shadow:0 8px 24px rgba(0,0,0,.28);font:500 11.5px/1.35 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;opacity:0;transform:translateY(3px);transition:opacity .1s,transform .1s}
 #zp-ptip.on{opacity:1;transform:none}
 #zp-ptip .t{display:flex;flex-wrap:wrap;gap:4px 10px;font-weight:700;font-size:12px}
@@ -3870,6 +3874,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         });
         document.querySelectorAll('#content tbody > tr').forEach(tr => { setCls(tr, 'zp-me', me.has(tr)); setCls(tr, 'zp-favrow', fv.has(tr)); });
         if (IS_ABW) safe('Team', () => abwFavs(favs, myKey));
+        if (IS_ABW) safe('Team', abwToday);
         if (document.documentElement.classList.contains('zp-planer')) { safe('Planer', planerNav); safe('Planer', planerMarks); }
         if (IS_ABW) safe('Team', () => { if (document.querySelector('#tabdiv tbody td.kalTag, #tabdiv tbody td.kalTag_sa')) { const dt = teamParse(document, window); teamSave(dt); } });
         safe('Team', () => {
@@ -4113,6 +4118,18 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         planerTipInit();
         planerStats(tab);
         planerToday(tab);
+    }
+    // Abwesenheitsübersicht: heutige Spalte (Kopf „05.11.“) markieren
+    function abwToday() {
+        const tab = document.getElementById('tabdiv'); if (!tab) return;
+        const hr = tab.querySelector('.dataTables_scrollHead thead tr:last-child') || tab.querySelector('thead tr:last-child'); if (!hr) return;
+        const n = new Date(), key = pad(n.getDate()) + '.' + pad(n.getMonth() + 1) + '.';
+        const hs = [...hr.children], idx = hs.findIndex(th => { const t = th.textContent.replace(/\s+/g, ''); return t === key || t.endsWith(key) || t === n.getDate() + '.' + (n.getMonth() + 1) + '.'; });
+        hs.forEach((th, i) => th.classList.toggle('zp-tcol', i === idx));
+        tab.querySelectorAll('tbody td.zp-tcol').forEach(x => { if ([...x.parentElement.children].indexOf(x) !== idx) x.classList.remove('zp-tcol', 'zp-tlast'); });
+        if (idx < 0) return;
+        const rows = [...tab.querySelectorAll('.dataTables_scrollBody tbody tr, .dataTables_wrapper > table tbody tr, #tabdiv > table tbody tr')].filter(tr => tr.children.length > idx && tr.offsetParent !== null);
+        rows.forEach((tr, i) => { const td = tr.children[idx]; if (!td.classList.contains('zp-tcol')) td.classList.add('zp-tcol'); td.classList.toggle('zp-tlast', i === rows.length - 1); });
     }
     // heutige Spalte durchgehend leicht einrahmen
     function planerToday(tab) {
@@ -4704,7 +4721,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     /* ───── Team: wer ist verfügbar (Büro/Remote) und wer abwesend – Daten aus der Abwesenheitsübersicht ───── */
     const TEAM_KEY = 'zplus_team';
     const teamStore = () => { try { return JSON.parse(localStorage.getItem(TEAM_KEY) || 'null'); } catch (e) { return null; } };
-    function teamParse(doc, win) {
+    function teamParse(doc, win, all) {
         const fv = doc.getElementById('datumvon'), start = dParse(fv && fv.value) || new Date();
         const tables = [...doc.querySelectorAll('#tabdiv table')].filter(t => t.querySelector('tbody td.kalTag, tbody td.kalTag_sa, tbody td.kalTag_so_fe'));
         const tbl = tables[0]; if (!tbl) return null;
@@ -4715,10 +4732,12 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         try {
             const jq = win && win.jQuery;
             if (jq && jq.fn && jq.fn.dataTable && jq.fn.dataTable.isDataTable(tbl)) {
-                const api = jq(tbl).DataTable(), nodes = api.rows().nodes().toArray(), data = api.rows().data().toArray();
+                const api = jq(tbl).DataTable();
+                if (all && api.rows().nodes().toArray().some(n => !n)) { try { api.page.len(-1).draw(false); } catch (e) { } }      // Hintergrund-Rahmen: alle Zeilen zeichnen, damit LHR jede Zelle einfärbt
+                const nodes = api.rows().nodes().toArray(), data = api.rows().data().toArray();
                 rows = data.map((r, i) => {
                     if (nodes[i]) return nodes[i];
-                    const tr = doc.createElement('tr');           // Zeile auf einer anderen Seite (noch nicht gezeichnet): aus den Rohdaten bauen
+                    const tr = doc.createElement('tr'); tr.dataset.raw = '1';           // Zeile auf einer anderen Seite (noch nicht gezeichnet): aus den Rohdaten bauen
                     (Array.isArray(r) ? r : Object.values(r)).forEach(c => { const td = doc.createElement('td'); td.innerHTML = String(c == null ? '' : c); const dv = td.firstElementChild; if (dv && dv.className) td.className = dv.className; tr.appendChild(td); });
                     return tr;
                 });
@@ -4738,11 +4757,12 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                 let st = 'da', l = (td.textContent || '').replace(/\s+/g, '').trim();
                 if (/kalTag_sa|kalTag_so_fe/.test(cls) && !l) st = 'frei';
                 else {
-                    const dv = td.querySelector('div'), bg = rgbOf(td.style.backgroundColor) || rgbOf(dv && dv.style.backgroundColor);
+                    const dv = td.querySelector('div'), b1 = rgbOf(td.style.backgroundColor), b2 = rgbOf(dv && dv.style.backgroundColor), bg = b1 && b1.a > .1 ? b1 : b2 && b2.a > .1 ? b2 : b1 || b2;
                     const colored = bg && bg.a > .1 && !(bg.r > 245 && bg.g > 245 && bg.b > 245);
                     if (/^R$/i.test(l)) st = 'rem'; else if (colored || l) st = 'abs';
                     if (colored) { (days[dk] = days[dk] || {})[k] = { st, l, c: cssRgb(bg) }; return; }
                 }
+                if (tr.dataset.raw && st === 'da') return;            // Rohdaten ohne Farbe: nichts behaupten
                 (days[dk] = days[dk] || {})[k] = { st, l };
             });
         });
@@ -4762,7 +4782,8 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     async function zwait(fn, ms, step) { const t0 = Date.now(); while (Date.now() - t0 < ms) { try { const v = fn(); if (v) return v; } catch (e) { } await zsleep(step || 400); } return null; }
     function teamMerge(a, b) {
         if (!a) return b; if (!b) return a;
-        Object.entries(b.days).forEach(([dk, ppl]) => { a.days[dk] = Object.assign(a.days[dk] || {}, ppl); });
+        const rk = v => v ? ({ abs: 3, rem: 2, frei: 1, da: 0 }[v.st] || 0) + (v.c ? .5 : 0) : -1;
+        Object.entries(b.days).forEach(([dk, ppl]) => { const t = a.days[dk] = a.days[dk] || {}; Object.entries(ppl).forEach(([k, v]) => { if (rk(v) >= rk(t[k])) t[k] = v; }); });
         Object.assign(a.names, b.names); a.ts = Math.max(a.ts, b.ts); return a;
     }
     function hiddenFrame(name, src) {
@@ -4786,7 +4807,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             const settle = async s0 => { await zwait(() => sig() !== s0 && ready(), 20000); await zsleep(700); };
             const me = nameKey(userInfo().name);
             const missing = acc => favList().filter(f => f.k !== me && !(acc && acc.names[f.k]));
-            let acc = teamParse(d(), w());
+            let acc = teamParse(d(), w(), true);
             const orig = { fa: (d().getElementById('abw_dropdown_fa') || {}).value, abt: (d().getElementById('abw_dropdown_abt') || {}).value };
             restore = async () => {
                 try {
@@ -4804,19 +4825,19 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                     const s0 = sig(), A = api();
                     if (A) A.search(term).draw();
                     else { const inp = d().getElementById('csuche'); if (!inp) break; inp.value = term; ['input', 'keyup', 'search'].forEach(ev => inp.dispatchEvent(new Event(ev, { bubbles: true }))); }
-                    await settle(s0); acc = teamMerge(acc, teamParse(d(), w()));
+                    await settle(s0); acc = teamMerge(acc, teamParse(d(), w(), true));
                 }
                 const A = api(); if (A) { const s0 = sig(); A.search('').draw(); await settle(s0); }
             };
             if (missing(acc).length) {
-                const s0 = sig(); if (setSel(w(), d().getElementById('abw_dropdown_abt'), '0', 'changeAbteilung')) { await settle(s0); acc = teamMerge(acc, teamParse(d(), w())); }
+                const s0 = sig(); if (setSel(w(), d().getElementById('abw_dropdown_abt'), '0', 'changeAbteilung')) { await settle(s0); acc = teamMerge(acc, teamParse(d(), w(), true)); }
             }
             if (missing(acc).length) await searchMissing();
             if (missing(acc).length) {
                 const s0 = sig();
                 if (setSel(w(), d().getElementById('abw_dropdown_fa'), '0', 'changeAbt')) {
                     await zsleep(2500); setSel(w(), d().getElementById('abw_dropdown_abt'), '0', 'changeAbteilung');
-                    await settle(s0); acc = teamMerge(acc, teamParse(d(), w()));
+                    await settle(s0); acc = teamMerge(acc, teamParse(d(), w(), true));
                     if (missing(acc).length) await searchMissing();
                 }
             }
