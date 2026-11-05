@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.24.7
+// @version      5.24.8
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.24.7';
+    const VERSION = '5.24.8';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -553,7 +553,7 @@
         const cell = (d, strip) => {
             if (!d) return '<span class="zk-d blank"></span>';
             let cls = 'zk-d', style = '', tip = WD_LONG[d.wd] + ', ' + d.key;
-            if (d.we) cls += ' we';
+            if (d.we && !d.br) cls += ' we';                 // Bereitschaft am Wochenende = Arbeitstag, nicht matt
             if (d.hol) { cls += ' hol'; if (d.letter !== 'F') tip += ' · Feiertag'; }
             if (d.past) cls += ' past';
             if (d.today) { cls += ' today'; tip += ' · heute'; }
@@ -1085,7 +1085,7 @@
             let ded = x.pause != null ? mins(x.pause) : null;
             const dedTip = lunch ? `Mittag ${clock(lunch.s)}–${clock(lunch.e)} = ${ll} min` : 'keine Mittagspause gestempelt';
             const dedFull = ded ? `${dedTip}. LHR hat ${ded} min Pause abgezogen (Pause-Spalte, keine Arbeitszeit).` : dedTip + '. Kein Pausenabzug in LHR.';
-            const cls = ['zl-row', x.br ? 'br' : '', x.rem ? 'rem' : '', x.isT ? 'today' : '', x.future ? 'future' : '', x.future && calc ? 'calc' : '', x.we && !x.segs.length ? 'we' : '', x.edge && !x.isT ? 'edge' : '', open ? 'open' : ''].join(' ');
+            const cls = ['zl-row', x.br ? 'br' : '', x.rem ? 'rem' : '', x.isT ? 'today' : '', x.future ? 'future' : '', x.future && calc ? 'calc' : '', x.we && !x.segs.length && !x.br ? 'we' : '', x.edge && !x.isT ? 'edge' : '', open ? 'open' : ''].join(' ');
             let st;
             const live = x.isT && c.open;
             if (x.segs.length) {
@@ -2205,7 +2205,7 @@ input,select{font-size:13px;margin:0}
 .zk-d{position:relative;height:31px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:600;color:var(--zp-text);background:transparent;transition:background .12s,box-shadow .12s,opacity .12s;cursor:default;min-width:0;padding:0}
 .zk-d.blank,.zk-d.none{visibility:hidden}
 .zk-d.we{color:var(--zp-muted);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--zp-muted) 13%,transparent) 0 2px,transparent 2px 6px)}
-.zk-d.hol:not(.abs){color:var(--zp-warn);background:color-mix(in srgb,var(--zp-warn) 13%,transparent)}
+.zk-d.hol:not(.abs):not(.brd){color:var(--zp-warn);background:color-mix(in srgb,var(--zp-warn) 13%,transparent)}
 .zk-d.work::after{content:'';position:absolute;bottom:3px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:color-mix(in srgb,var(--zp-ok) 75%,transparent)}
 .zk-d.abs{background:color-mix(in srgb,var(--c) 84%,var(--zp-surf));color:var(--ink);font-weight:700}
 .zk-d.abs i{position:absolute;top:1px;right:4px;font-style:normal;font-size:8.5px;font-weight:800;opacity:.7}
@@ -2348,6 +2348,8 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zl-row.rem{box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)}
 .zl-row.rem.open{box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)}
 .zl-tag.rem{background:color-mix(in srgb,var(--zp-rem,#2dd4bf) 18%,transparent);color:var(--zp-rem,#2dd4bf);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-rem,#2dd4bf) 45%,transparent)}
+.zl-row.br.rem,.zl-row.br.rem.open{box-shadow:none}
+.zl-row.br.rem::before{content:'';position:absolute;inset:0;width:auto;height:auto;border-radius:inherit;padding:1.5px;background:linear-gradient(90deg,var(--zp-bad) 50%,var(--zp-rem,#2dd4bf) 50%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
 .zl-row.rem .zl-tag.info{background:color-mix(in srgb,var(--zp-rem,#2dd4bf) 18%,transparent);color:var(--zp-rem,#2dd4bf)}
 .zl-tag.info{background:color-mix(in srgb,var(--edge,var(--zp-accent2)) 18%,transparent);color:var(--edge,var(--zp-accent2))}
 .zl-tl{position:relative;height:10px;border-radius:5px;background:var(--zp-surf2)}
