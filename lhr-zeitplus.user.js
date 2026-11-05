@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.25.4
+// @version      5.25.6
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.25.4';
+    const VERSION = '5.25.6';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1804,9 +1804,11 @@ html.zp-planer #tabdiv tbody td.zp-tcol.zp-tlast::before{border-bottom:1.5px sol
 html.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-tcol{position:relative;background:color-mix(in srgb,var(--zp-accent,#4f7cff) 12%,var(--pg,var(--zp-surf))) !important;border-radius:10px 10px 0 0;box-shadow:inset 1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset -1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset 0 1.5px 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent) !important}
 html.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody tr.sum_row > td.zp-tcol,html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-tcol{position:relative}
 html.zp-abwp #tabdiv tbody td.zp-tcol{position:relative}
-html.zp-abwp #tabdiv tbody td.zp-tcol::before{content:'';position:absolute;inset:-2px -2px;border-left:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);border-right:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);background:color-mix(in srgb,var(--zp-accent,#4f7cff) 8%,transparent);pointer-events:none;z-index:1}
+html.zp-abwp #tabdiv tbody td.zp-tcol::before{content:'';position:absolute;inset:-1.5px -2px;border-left:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);border-right:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);background:color-mix(in srgb,var(--zp-accent,#4f7cff) 8%,transparent);pointer-events:none;z-index:1}
 html.zp-abwp #tabdiv tbody td.zp-tcol.zp-tlast::before{border-bottom:1.5px solid color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent);border-radius:0 0 8px 8px}
-html.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv thead th.zp-tcol{color:var(--zp-accent,#4f7cff) !important;background:color-mix(in srgb,var(--zp-accent,#4f7cff) 12%,var(--zp-surf,#f6f7fa)) !important;border-radius:8px 8px 0 0 !important;box-shadow:inset 1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset -1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset 0 1.5px 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent) !important}
+html.zp-abwp #tabdiv tbody tr:first-child td.zp-tcol::before{top:0}
+html.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv .dataTables_scrollBody thead th,html.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv .dataTables_scrollBody thead td{box-shadow:none !important;background:transparent !important;border:0 !important;padding-top:0 !important;padding-bottom:0 !important;height:0 !important;line-height:0 !important}
+html.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv .dataTables_scrollHead thead th.zp-tcol, html.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv > table thead th.zp-tcol{color:var(--zp-accent,#4f7cff) !important;background:color-mix(in srgb,var(--zp-accent,#4f7cff) 12%,var(--zp-surf,#f6f7fa)) !important;border-radius:8px 8px 0 0 !important;box-shadow:inset 1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset -1.5px 0 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent),inset 0 1.5px 0 color-mix(in srgb,var(--zp-accent,#4f7cff) 70%,transparent) !important}
 html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-acol{background:var(--zc) !important;background-image:none !important;color:#fff !important;box-shadow:none !important}
 html.zp-pretty.zp-abwp body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody td.zp-acol *{background:transparent !important;color:#fff !important}
 #zp-ptip{position:fixed;z-index:2147483000;pointer-events:none;max-width:230px;padding:7px 10px 6px;border-radius:10px;background:color-mix(in srgb,var(--zp-bg,#fff) 92%,transparent);backdrop-filter:blur(10px);color:var(--zp-text,#222);border:1px solid var(--zp-line,#d0d4dc);box-shadow:0 8px 24px rgba(0,0,0,.28);font:500 11.5px/1.35 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;opacity:0;transform:translateY(3px);transition:opacity .1s,transform .1s}
@@ -1909,6 +1911,26 @@ input,select{font-size:13px;margin:0}
   padding:14px;position:relative;overflow:hidden;isolation:isolate;user-select:none}
 #zp > :not(#zp-fx){position:relative;z-index:1}
 #zp-fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;opacity:.7}
+#zp-fx,#zp-fxp{overflow:hidden;contain:strict}
+#zp-fx .p,#zp-fxp .p{position:absolute;top:0;display:block;will-change:transform;animation:zpfall var(--d) linear var(--dl) infinite}
+#zp-fx .p.fix,#zp-fxp .p.fix{animation:none;will-change:auto}
+#zp-fx .p > b,#zp-fxp .p > b{display:block;animation:zpsway var(--sd) ease-in-out var(--sdl) infinite alternate}
+#zp-fx u,#zp-fxp u{display:block;text-decoration:none}
+#zp-fx u.lf,#zp-fxp u.lf{border-radius:50%;opacity:.7;animation:zprot var(--rd) linear var(--rdl) infinite}
+#zp-fx u.dt,#zp-fxp u.dt{border-radius:50%}
+#zp-fx u.bb,#zp-fxp u.bb{border-radius:50%;border:1px solid;box-sizing:border-box}
+#zp-fx u.sn,#zp-fxp u.sn{border-radius:50%;animation:zppulse var(--pd) ease-in-out var(--pdl) infinite alternate}
+#zp-fx u.st,#zp-fxp u.st{border-radius:50%;animation:zptw var(--td) ease-in-out var(--tdl) infinite alternate}
+#zp-fx u.mc,#zp-fxp u.mc{background:center/contain no-repeat;opacity:.92;animation:zpwob var(--wd) ease-in-out var(--wdl) infinite alternate}
+#zp-fx .shoot,#zp-fxp .shoot{position:absolute;left:70%;top:12%;width:60px;height:1.5px;border-radius:2px;background:linear-gradient(90deg,rgba(255,255,255,0),rgba(255,255,255,.85));transform-origin:right center;opacity:0;animation:zpshoot 8s linear 3s infinite}
+@keyframes zpfall{from{transform:translate3d(0,-14px,0)}to{transform:translate3d(0,var(--fh,100vh),0)}}
+@keyframes zpsway{from{transform:translate3d(calc(var(--a) * -1),0,0)}to{transform:translate3d(var(--a),0,0)}}
+@keyframes zprot{to{transform:rotate(360deg)}}
+@keyframes zppulse{from{opacity:.35}to{opacity:.8}}
+@keyframes zptw{from{opacity:.3}to{opacity:.9}}
+@keyframes zpwob{from{transform:rotate(-16deg)}to{transform:rotate(16deg)}}
+@keyframes zpshoot{0%{opacity:0;transform:translate3d(0,0,0) rotate(-22deg)}1%{opacity:1}8%{opacity:1;transform:translate3d(-300px,120px,0) rotate(-22deg)}9%,100%{opacity:0;transform:translate3d(-300px,120px,0) rotate(-22deg)}}
+
 .zp-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:0 2px}
 .zp-brand{display:flex;align-items:center;gap:10px;min-width:0}
 .zp-logo{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;color:var(--zp-onacc,#fff);flex:none;
@@ -2833,7 +2855,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         dash.id = 'zp';
         if (S.collapsed) dash.classList.add('collapsed');
         dash.innerHTML = `
-<canvas id="zp-fx"></canvas>
+<div id="zp-fx"></div>
 <div class="zp-head">
   <div class="zp-brand">${LOGO}<span class="zp-name">LHR Zeit +</span><span class="zp-status"><span class="zp-dot" id="zp-dot"></span><span id="zp-status"></span></span></div>
   <div class="zp-mini num" id="zp-mini"></div>
@@ -3665,77 +3687,68 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             c.closePath(); c.fill();
         }
     }
+    let fxSig = '', fxSprites = null;
     function stopFx() {
         if (fxRaf) cancelAnimationFrame(fxRaf);
         fxRaf = null;
     }
+    // Effekte als CSS-Animationen (läuft auf der Grafikkarte, entlastet den Prozessor – gleiche Optik, volle Bildrate)
     function startFx() {
         stopFx();
-        if (!document.body || document.hidden) return;
+        if (!document.body) return;
         const local = $('zp-fx');
-        let pagecv = O && O.getElementById('zp-fxp');
+        let page = O && O.getElementById('zp-fxp');
         fxType = (S.fx && !reducedMotion()) ? theme().fx : null;
         const usePage = S.fxScope === 'page';
-        if (local) { local.style.display = fxType && !usePage ? 'block' : 'none'; const lc = local.getContext('2d'); if (lc) lc.clearRect(0, 0, local.width, local.height); }
-        if (pagecv) { pagecv.style.display = fxType && usePage ? 'block' : 'none'; const pc = pagecv.getContext('2d'); if (pc) pc.clearRect(0, 0, pagecv.width, pagecv.height); }
-        if (!fxType) return;
-        if (!usePage && !local) return;
-        if (usePage && !pagecv) { pagecv = el('canvas'); pagecv.id = 'zp-fxp'; overlay().insertBefore(pagecv, overlay().firstChild.nextSibling); if (fxRO) { fxRO.disconnect(); fxRO = null; } }
-        const cv = usePage ? pagecv : local;
-        cv.style.display = 'block';
-        const ctx = cv.getContext('2d');
-        if (!ctx) return;
-        if (fxRO) { fxRO.disconnect(); fxRO = null; }
-        const dpr = () => window.devicePixelRatio || 1;
-        const size = () => { const r = cv.getBoundingClientRect(); cv.width = Math.max(1, r.width * dpr()); cv.height = Math.max(1, r.height * dpr()); ctx.setTransform(dpr(), 0, 0, dpr(), 0, 0); };
-        size();
-        if (window.ResizeObserver) { fxRO = new ResizeObserver(size); fxRO.observe(cv); }
-        const W = () => cv.width / dpr(), Hh = () => cv.height / dpr();
+        if (local) local.style.display = fxType && !usePage ? 'block' : 'none';
+        if (page) page.style.display = fxType && usePage ? 'block' : 'none';
+        if (!fxType || (!usePage && !local)) { fxSig = ''; if (local) local.textContent = ''; if (page) page.textContent = ''; return; }
+        if (usePage && !page) { page = el('div'); page.id = 'zp-fxp'; overlay().insertBefore(page, overlay().firstChild.nextSibling); }
+        const box = usePage ? page : local;
+        const other = usePage ? local : page; if (other) other.textContent = '';
+        box.style.display = 'block';
         const mul = ({ low: .45, normal: 1, high: 1.9 }[S.fxAmount] || 1) * (usePage ? 1.8 : 1);
         const n = Math.round(({ maci: 75, snow: 70, leaves: 14, petals: 20, sun: 28, bubbles: 22, stars: 80 }[fxType] || 30) * mul);
-        const parts = Array.from({ length: n }, () => spawn(fxType, W(), Hh(), true));
-        let shoot = null, tick = 0;
-        const loop = () => {
-            if (document.hidden) { fxRaf = null; return; }
-            fxRaf = requestAnimationFrame(loop);
-            if (fxBusy()) return;                 // beim Scrollen/Ziehen nicht zeichnen → Tabelle bleibt flüssig
-            const w = W(), h = Hh();
-            ctx.clearRect(0, 0, w, h);
-            tick++;
-            parts.forEach((p, i) => {
-                p.ph += .02; p.y += p.vy; p.x += Math.sin(p.ph) * p.sw * .5;
-                if (p.vr) p.rot += p.vr;
-                if (p.y > h + 12 || p.y < -14 || p.x < -14 || p.x > w + 14) { if (fxType !== 'stars') parts[i] = spawn(fxType, w, h, false); return; }
-                ctx.save();
-                if (fxType === 'stars') ctx.globalAlpha = .3 + .6 * Math.abs(Math.sin(p.ph * p.tw * 40));
-                if (fxType === 'sun') ctx.globalAlpha = .35 + .45 * Math.abs(Math.sin(p.ph));
-                ctx.translate(p.x, p.y);
-                if (fxType === 'leaves' || fxType === 'petals') {
-                    ctx.fillStyle = p.c; ctx.rotate(p.rot); ctx.globalAlpha = .7;
-                    ctx.beginPath(); ctx.ellipse(0, 0, p.r, p.r * (fxType === 'leaves' ? .55 : .7), 0, 0, 6.283); ctx.fill();
-                } else if (fxType === 'maci' && p.kind !== 'snow') {
-                    ctx.rotate(Math.sin(p.ph * 1.3) * .28); const k = p.r / 10; ctx.scale(k, k); ctx.globalAlpha = .92;
-                    drawSprite(ctx, p.kind);
-                } else if (fxType === 'bubbles') {
-                    ctx.strokeStyle = p.c; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 6.283); ctx.stroke();
-                } else {
-                    ctx.fillStyle = p.c; ctx.beginPath(); ctx.arc(0, 0, p.r, 0, 6.283); ctx.fill();
-                }
-                ctx.restore();
-            });
+        const sig = fxType + '|' + n + '|' + usePage;
+        if (fxSig === sig && box.childElementCount) return;           // läuft schon so → nichts neu aufbauen
+        fxSig = sig;
+        const W = Math.max(1, box.clientWidth || innerWidth), H = Math.max(1, box.clientHeight || innerHeight);
+        box.style.setProperty('--fh', (H + 28) + 'px');
+        if (fxType === 'maci' && !fxSprites) {       // Lebkuchen & Co. einmal als Bild vorzeichnen
+            fxSprites = {};
+            ['ginger', 'snowman', 'tree'].forEach(k => { try { const c = document.createElement('canvas'); c.width = c.height = 64; const x = c.getContext('2d'); x.translate(32, 32); x.scale(2.6, 2.6); drawSprite(x, k); fxSprites[k] = c.toDataURL(); } catch (e) { } });
+        }
+        const r2 = v => Math.round(v * 100) / 100;
+        let html = '';
+        for (let i = 0; i < n; i++) {
+            const p = spawn(fxType, W, H, true);
+            const left = r2(p.x / W * 100), sway = r2(p.sw * 25), swD = 2.62, swDl = r2(-Math.random() * swD * 2);
+            let shape = '', fall = '', extra = '';
             if (fxType === 'stars') {
-                if (!shoot && tick % 480 === 0) shoot = { x: rnd(w * .2, w), y: rnd(0, h * .4), l: 0 };
-                if (shoot) {
-                    shoot.l += 1; const len = 60, k = shoot.l * 6;
-                    const g = ctx.createLinearGradient(shoot.x - k, shoot.y + k * .4, shoot.x - k + len, shoot.y + k * .4 - len * .4);
-                    g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,.85)');
-                    ctx.strokeStyle = g; ctx.lineWidth = 1.5; ctx.beginPath();
-                    ctx.moveTo(shoot.x - k, shoot.y + k * .4); ctx.lineTo(shoot.x - k + len, shoot.y + k * .4 - len * .4); ctx.stroke();
-                    if (shoot.l > 40) shoot = null;
-                }
+                const half = r2(Math.PI / (.8 * p.tw * 60));
+                { shape = `<u class="st" style="width:${r2(p.r * 2)}px;height:${r2(p.r * 2)}px;background:${p.c};--td:${half}s;--tdl:${r2(-Math.random() * half * 2)}s"></u>`; }
+                html += `<i class="p fix" style="left:${left}%;top:${r2(p.y / H * 100)}%">${shape}</i>`; continue;
             }
-        };
-        loop();
+            const speed = Math.abs(p.vy) * 60, dur = r2((H + 28) / speed), dl = r2(-Math.random() * dur);
+            fall = `--d:${dur}s;--dl:${dl}s${p.vy < 0 ? ';animation-direction:reverse' : ''}`;
+            if (fxType === 'leaves' || fxType === 'petals') {
+                const rd = r2(2 * Math.PI / (Math.max(.004, Math.abs(p.vr)) * 60));
+                shape = `<u class="lf" style="width:${r2(p.r * 2)}px;height:${r2(p.r * 2 * (fxType === 'leaves' ? .55 : .7))}px;background:${p.c};--rd:${rd}s;--rdl:${r2(-Math.random() * rd)}s;animation-direction:${p.vr < 0 ? 'reverse' : 'normal'}"></u>`;
+            } else if (fxType === 'maci' && p.kind !== 'snow') {
+                const s = r2(p.r / 10 * 64 / 2.6);
+                shape = `<u class="mc" style="width:${s}px;height:${s}px;background-image:url(${fxSprites && fxSprites[p.kind] || ''});--wd:${r2(Math.PI / (.02 * 1.3 * 60))}s;--wdl:${r2(-Math.random() * 3)}s"></u>`;
+            } else if (fxType === 'bubbles') {
+                shape = `<u class="bb" style="width:${r2(p.r * 2)}px;height:${r2(p.r * 2)}px;border-color:${p.c}"></u>`;
+            } else if (fxType === 'sun') {
+                shape = `<u class="sn" style="width:${r2(p.r * 2)}px;height:${r2(p.r * 2)}px;background:${p.c};--pd:1.31s;--pdl:${r2(-Math.random() * 2.6)}s"></u>`;
+            } else {
+                shape = `<u class="dt" style="width:${r2(p.r * 2)}px;height:${r2(p.r * 2)}px;background:${p.c}"></u>`;
+            }
+            html += `<i class="p" style="left:${left}%;${fall}"><b style="--a:${sway}px;--sd:${swD}s;--sdl:${swDl}s">${shape}</b>${extra}</i>`;
+        }
+        if (fxType === 'stars') html += '<i class="shoot"></i>';
+        box.innerHTML = html;
+        if (!box._fxRO && window.ResizeObserver) { box._fxRO = new ResizeObserver(() => { const h = box.clientHeight; if (h) box.style.setProperty('--fh', (h + 28) + 'px'); }); box._fxRO.observe(box); }
     }
 
     /* ════════════════════ TABELLE ════════════════════ */
@@ -3886,13 +3899,23 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         document.querySelectorAll('#content tbody > tr').forEach(tr => { setCls(tr, 'zp-me', me.has(tr)); setCls(tr, 'zp-favrow', fv.has(tr)); });
         if (IS_ABW) safe('Team', () => abwFavs(favs, myKey));
         if (IS_ABW) safe('Team', abwToday);
+        if (IS_ABW) safe('Team', () => {            // Abwesenheitsübersicht: beim Öffnen immer die eigene Abteilung
+            const sel = document.getElementById('abw_dropdown_abt');
+            if (!sel || window.__zpAbwAbt || sel.options.length < 2) return;
+            window.__zpAbwAbt = true;
+            const txt = o => (o.text || '').replace(/\s+/g, ' ').trim().toLowerCase();
+            if (!S.myAbtName) { if (sel.value && sel.value !== '0') { S.myAbtName = (sel.options[sel.selectedIndex] || {}).text.replace(/\s+/g, ' ').trim(); saveS(); } return; }
+            const t = [...sel.options].find(o => txt(o) === S.myAbtName.toLowerCase());
+            if (t && sel.value !== t.value) { sel.value = t.value; try { if (typeof window.changeAbteilung === 'function') window.changeAbteilung(sel); else sel.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) { } }
+        });
         if (document.documentElement.classList.contains('zp-planer')) { safe('Planer', planerNav); safe('Planer', planerMarks); }
         if (IS_ABW) safe('Team', () => { if (document.querySelector('#tabdiv tbody td.kalTag, #tabdiv tbody td.kalTag_sa')) { const dt = teamParse(document, window); teamSave(dt); } });
         safe('Team', () => {
             const sel = document.getElementById('tableau_dropdown_abt');
             if (!sel || window.__zpAbtDone || sel.options.length < 2) return;
             window.__zpAbtDone = true;
-            if (sel.value && sel.value !== '0') { if (S.myAbtTab !== sel.value) { S.myAbtTab = sel.value; saveS(); } }
+            const nm = () => ((sel.options[sel.selectedIndex] || {}).text || '').replace(/\s+/g, ' ').trim();
+            if (sel.value && sel.value !== '0') { if (S.myAbtTab !== sel.value || !S.myAbtName) { S.myAbtTab = sel.value; S.myAbtName = nm(); saveS(); } }
             else if (S.myAbtTab && [...sel.options].some(o => o.value === S.myAbtTab)) { sel.value = S.myAbtTab; try { if (typeof window.changeAbteilung === 'function') window.changeAbteilung(sel); else sel.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) { } }
             sel.addEventListener('change', () => { if (sel.value && sel.value !== '0') { S.myAbtTab = sel.value; saveS(); } });
         });
