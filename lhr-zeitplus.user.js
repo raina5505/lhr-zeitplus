@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.25.3
+// @version      5.25.4
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.25.3';
+    const VERSION = '5.25.4';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -4892,7 +4892,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     };
     let tstBusy = false;
     async function tableauRefresh(done) {
-        if (tstBusy) return; tstBusy = true;
+        if (tstBusy || Date.now() - (tableauRefresh.last || 0) < 80e3) { if (done) done(); return; } tstBusy = true; tableauRefresh.last = Date.now();
         const a = document.getElementById('zm_tableau');
         const fr = hiddenFrame('zp-tst', a ? a.getAttribute('href') : '/Self/Tableau?modulId=0');
         let restoreT = null;
@@ -4904,8 +4904,13 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             const oAbt = (d().getElementById('tableau_dropdown_abt') || {}).value, oPp = (d().getElementById('per_page_count') || {}).value;
             restoreT = async () => { try { if (oPp) setSel(w(), d().getElementById('per_page_count'), oPp, 'onChangePerPage'); await zsleep(1000); if (oAbt) setSel(w(), d().getElementById('tableau_dropdown_abt'), oAbt, 'changeAbteilung'); await zsleep(2500); } catch (e) { } };
             const sig = () => cells().length + '|' + cells().map(cellName).join('').length;
+            // Status-Filter („nur anwesend“) kurz auf „alle“, sonst fehlen die Ausgestempelten
+            let restSt = async () => { };
+            { const sSel = () => d().getElementById('tableau_dropdown_status'), oSt = (sSel() || {}).value;
+              if (oSt && oSt !== 'alle') { const s1 = sig(); setSel(w(), sSel(), 'alle', 'changeStatus'); await zwait(() => sig() !== s1 && cells().length, 8000); await zsleep(800); restSt = async () => { try { setSel(w(), sSel(), oSt, 'changeStatus'); await zsleep(1500); } catch (e) { } }; } }
+            { const r0 = restoreT; restoreT = async () => { await r0(); await restSt(); }; }
             const grab = () => { const st = {}, favs = new Set(favList().map(f => f.k)); cells().forEach(td => { const k = nameKey(cellName(td)); if (favs.has(k)) st[k] = tstOf(td); }); return st; };
-            { const st0 = grab(), me = nameKey(userInfo().name); if (favList().every(f => f.k === me || st0[f.k])) { let old = {}; try { old = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { } try { localStorage.setItem(TST_KEY, JSON.stringify(Object.assign(old, st0))); } catch (e) { } restoreT = null; throw 'fertig'; } }
+            { const st0 = grab(), me = nameKey(userInfo().name); if (favList().every(f => f.k === me || st0[f.k])) { let old = {}; try { old = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { } try { localStorage.setItem(TST_KEY, JSON.stringify(Object.assign(old, st0))); } catch (e) { } restoreT = restSt; throw 'fertig'; } }
             setSel(w(), d().getElementById('per_page_count'), '1000', 'onChangePerPage');
             await zsleep(1200);
             setSel(w(), d().getElementById('tableau_dropdown_abt'), '0', 'changeAbteilung');
@@ -4961,8 +4966,8 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         let tst = {}; try { tst = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
         const dot = k => {            // grün = eingestempelt, rot = nicht eingestempelt (aus dem Tableau, nur heute)
             if (teamDay) return ''; const t = tst[k]; if (!t || Date.now() - t.ts > 60 * 60e3) return '';
-            const x = (t.st + ' ' + t.src).toLowerCase(), p = /abwesend/.test(x) ? 0 : /anwesend/.test(x) ? 1 : -1;
-            return p < 0 ? '' : `<i class="dot ${p ? 'in' : 'out'}" title="${p ? 'eingestempelt' : 'nicht eingestempelt'} · Stand ${clock(t.ts)}${t.st && !/^(an|ab)wesend$/i.test(t.st) ? ' · ' + esc(t.st) : ''}"></i>`;
+            const x = (t.st + ' ' + t.src).toLowerCase(), p = /nicht\s*anwesend|abwesend|ausgestempelt|gegangen|offline/.test(x) ? 0 : /anwesend|eingestempelt|online/.test(x) ? 1 : 0;
+            return `<i class="dot ${p ? 'in' : 'out'}" title="${p ? 'eingestempelt' : 'nicht eingestempelt'} · Stand ${clock(t.ts)}${t.st && !/^(an|ab)wesend$/i.test(t.st) ? ' · ' + esc(t.st) : ''}"></i>`;
         };
         favs.forEach(f => {
             if (f.k === myKey) return;
@@ -4996,10 +5001,10 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             if (document.hidden || tstBusy || !favList().length) return;
             let tst = {}; try { tst = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
             const me = nameKey(userInfo().name);
-            if (favList().every(f => f.k === me || (tst[f.k] && Date.now() - tst[f.k].ts < 4.5 * 60e3))) return;
+            if (favList().every(f => f.k === me || (tst[f.k] && Date.now() - tst[f.k].ts < 90e3))) return;
             tableauRefresh(() => renderTeam(box)); setTimeout(() => renderTeam(box), 300);
         };
-        setTimeout(tstTick, 2500); setInterval(tstTick, 60e3);
+        setTimeout(tstTick, 2500); setInterval(tstTick, 45e3); setInterval(() => { if (!document.hidden) renderTeam(box); }, 30e3);
     }
     function watchDialog() {
         let pending = false;
