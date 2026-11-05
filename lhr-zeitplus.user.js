@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.24.8
+// @version      5.24.9
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.24.8';
+    const VERSION = '5.24.9';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1724,7 +1724,7 @@ html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rem *{co
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb{background:var(--pg) !important;color:var(--zp-text) !important;box-shadow:inset 0 0 0 3px var(--pg) !important}
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-rb *{color:var(--zp-text) !important}
 html.zp-pretty.zp-planer #tabdiv tbody td.zp-rb{isolation:isolate}
-html.zp-pretty.zp-planer #tabdiv tbody td.zp-rb::after{content:'';position:absolute;inset:3px;z-index:-1;border:1.5px solid transparent;border-radius:2px;background:linear-gradient(var(--pg),var(--pg)) padding-box,linear-gradient(90deg,var(--zp-bad) 50%,var(--zp-rem,#2dd4bf) 50%) border-box;pointer-events:none}
+html.zp-pretty.zp-planer #tabdiv tbody td.zp-rb::after{content:'';position:absolute;inset:3px;z-index:-1;border:1.5px solid transparent;border-radius:2px;background:linear-gradient(var(--pg),var(--pg)) padding-box,linear-gradient(90deg,var(--zp-bad) 0%,var(--zp-bad) 12%,var(--zp-rem,#2dd4bf) 88%,var(--zp-rem,#2dd4bf) 100%) border-box;pointer-events:none}
 html.zp-pretty.zp-planer #tabdiv tbody td:not(.dtfc-fixed-left):hover{filter:brightness(1.12)}
 /* Farben gedämpft: Fläche leicht getönt, kräftiger Strich oben, Schrift in der Farbe → ruhig, aber eindeutig */
 html.zp-pretty.zp-planer body:not(#zp-a):not(#zp-b) #tabdiv tbody td.zp-col{background:color-mix(in srgb,var(--zc) 38%,var(--zp-surf2,#eceef3)) !important;box-shadow:inset 0 0 0 2px var(--pg),inset 0 5px 0 0 var(--zc) !important;color:color-mix(in srgb,var(--zc) 35%,#fff) !important}
@@ -2349,7 +2349,13 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zl-row.rem.open{box-shadow:inset 0 0 0 1.5px var(--zp-rem,#2dd4bf)}
 .zl-tag.rem{background:color-mix(in srgb,var(--zp-rem,#2dd4bf) 18%,transparent);color:var(--zp-rem,#2dd4bf);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-rem,#2dd4bf) 45%,transparent)}
 .zl-row.br.rem,.zl-row.br.rem.open{box-shadow:none}
-.zl-row.br.rem::before{content:'';position:absolute;inset:0;width:auto;height:auto;border-radius:inherit;padding:1.5px;background:linear-gradient(90deg,var(--zp-bad) 50%,var(--zp-rem,#2dd4bf) 50%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+.zl-row.br.rem::before{content:'';position:absolute;inset:0;width:auto;height:auto;border-radius:inherit;padding:1.5px;background:linear-gradient(90deg,var(--zp-bad) 0%,var(--zp-bad) 6%,var(--zp-rem,#2dd4bf) 19%,var(--zp-rem,#2dd4bf) 31%,var(--zp-bad) 44%,var(--zp-bad) 56%,var(--zp-rem,#2dd4bf) 69%,var(--zp-rem,#2dd4bf) 81%,var(--zp-bad) 94%,var(--zp-bad) 100%) 100% 0/200% 50% repeat-x,linear-gradient(90deg,var(--zp-bad) 0%,var(--zp-bad) 6%,var(--zp-rem,#2dd4bf) 19%,var(--zp-rem,#2dd4bf) 31%,var(--zp-bad) 44%,var(--zp-bad) 56%,var(--zp-rem,#2dd4bf) 69%,var(--zp-rem,#2dd4bf) 81%,var(--zp-bad) 94%,var(--zp-bad) 100%) 0% 100%/200% 50% repeat-x;-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;filter:drop-shadow(0 0 3px color-mix(in srgb,var(--zp-rem,#2dd4bf) 22%,transparent));animation:zlflow 10s linear infinite}
+.zl-row.br.rem,.zl-row.br.rem.today{background:color-mix(in srgb,color-mix(in srgb,var(--zp-bad) 50%,var(--zp-rem,#2dd4bf)) 8%,transparent)}
+.zl-row.br.rem::after{display:none}
+@keyframes zlflow{from{background-position:100% 0,0% 100%}to{background-position:0% 0,100% 100%}}
+@media (prefers-reduced-motion:reduce){.zl-row.br.rem::before{animation:none}}
+.zl-row.br.rem,.zl-row.br.rem.today{background:linear-gradient(90deg,color-mix(in srgb,var(--zp-bad) 10%,transparent),color-mix(in srgb,var(--zp-rem,#2dd4bf) 8%,transparent))}
+.zl-row.br.rem::after{background:linear-gradient(180deg,var(--zp-bad),color-mix(in srgb,var(--zp-bad) 40%,var(--zp-rem,#2dd4bf)))}
 .zl-row.rem .zl-tag.info{background:color-mix(in srgb,var(--zp-rem,#2dd4bf) 18%,transparent);color:var(--zp-rem,#2dd4bf)}
 .zl-tag.info{background:color-mix(in srgb,var(--edge,var(--zp-accent2)) 18%,transparent);color:var(--edge,var(--zp-accent2))}
 .zl-tl{position:relative;height:10px;border-radius:5px;background:var(--zp-surf2)}
@@ -2504,6 +2510,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         window.addEventListener('pointerdown', () => { fxDown = true; }, { capture: true, passive: true });
         ['pointerup', 'pointercancel', 'blur'].forEach(t => window.addEventListener(t, () => { fxDown = false; fxHoldUntil = Date.now() + 250; }, { capture: true, passive: true }));
     } catch (e) { }
+    try { if (window.CSS && CSS.registerProperty) CSS.registerProperty({ name: '--zpa', syntax: '<angle>', inherits: false, initialValue: '0deg' }); } catch (e) { }
     function injectPageCss() {
         if (document.getElementById('zp-page-style')) return;
         const st = document.createElement('style');
