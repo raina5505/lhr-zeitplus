@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.26.4
+// @version      5.26.5
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.26.4';
+    const VERSION = '5.26.5';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -80,7 +80,7 @@
         rauch:  { name: 'Raucherpausen',   icon: 'wind',     tip: 'Alle anderen Ausstempel-Lücken – zählen nicht als Arbeit' },
         wunsch: { name: 'Gehen um …',      icon: 'target',   tip: 'Was passiert mit dem Saldo, wenn du zu dieser Uhrzeit gehst?' },
         monat:  { name: 'Monat',           icon: 'trend',    tip: 'Saldo-Verlauf im Monat und Ist/Soll' },
-        urlaub: { name: 'Resturlaub',      icon: 'sun',      tip: 'Wert aus der LHR-Resturlaub-Anzeige' },
+        urlaub: { name: 'Resturlaub',      icon: 'sun',      tip: 'Resturlaub – umschaltbar: per Monatsende (LHR) oder Jahresende (noch nicht eingetragen, aus dem Kalender)' },
         kommen: { name: 'Stempelblöcke',   icon: 'door',     tip: 'Alle Kommen/Gehen-Blöcke von heute' },
         brwe:   { name: 'Wochenend-Dienste', icon: 'zap',      tip: 'Wochenenden mit tatsächlich gestempelter Arbeit (Sa ab 13:00 / So) in den letzten 365 Tagen – laut KV IT max. 10' }
     };
@@ -546,6 +546,7 @@
         const urlDays = all.filter(d => d.kind === 'abs' && /urlaub/i.test(d.name || '') && !/sonder/i.test(d.name || '') && !d.we && !d.hol);
         const urTaken = urlDays.filter(d => d.dt < t0 && !d.pend).length, urPlan = urlDays.filter(d => d.dt >= t0 && !d.pend).length, urPend = urlDays.filter(d => d.pend).length;
         const urSub = urlDays.length ? [urTaken + ' gebucht', urPlan + ' verplant', urPend ? urPend + ' beantragt' : ''].filter(Boolean).join(' · ') : (ruNum[1] ? 'noch kein Urlaub eingetragen' : 'wird von LHR ermittelt');
+        if (ruNum[1] && k.y === new Date().getFullYear()) { try { localStorage.setItem('zplus_ruy', JSON.stringify({ y: k.y, val: ruNum[1], unit: ruNum[2] || 'Tage', per: ruPer, plan: urPlan, pend: urPend, taken: urTaken, ts: Date.now() })); } catch (e) { } }
         const stat = (icon, label, val, sub, cls) => `<div class="zk-st ${cls || ''}"><small>${ico(icon, 13)}${label}</small><b class="num">${val}</b><span>${sub}</span></div>`;
         const stats = `<div class="zk-stats">
             ${stat('sun', 'Resturlaub ' + k.y, ruNum[1] ? esc(ruNum[1]) + ' <em>' + esc(ruNum[2] || 'Tage') + '</em>' : (/ermittelt/i.test(k.ru) || !k.ru ? '…' : esc(k.ru)), urSub, 'acc')}
@@ -2031,6 +2032,10 @@ input,select{font-size:13px;margin:0}
 .zp-card:hover{border-color:color-mix(in srgb,var(--zp-accent) 40%,var(--zp-line))}
 .zp-card.is-wide{grid-column:span 2}
 .zp-card.off{display:none}
+.zp-urm{position:absolute;top:12px;right:12px;display:inline-flex;border:1px solid var(--zp-line);border-radius:8px;overflow:hidden;z-index:2}
+.zp-urm button{border:0;background:transparent;color:var(--zp-muted);font:600 11px/1 inherit;padding:5px 8px;cursor:pointer}
+.zp-urm button.on{background:var(--zp-accent);color:var(--zp-onacc,#fff)}
+#zp.editing .zp-urm{display:none}
 .zp-val{font-weight:700;font-size:26px;line-height:1.15;letter-spacing:-.025em;margin-top:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .zp-val small{font-size:15px;font-weight:600;color:var(--zp-muted);letter-spacing:0;margin-left:2px}
 .zp-val.ok{color:var(--zp-ok)}.zp-val.warn{color:var(--zp-warn)}.zp-val.bad{color:var(--zp-bad)}
@@ -2789,6 +2794,24 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         return { ist, soll, sollTo, pts };
     }
 
+    let ruBusy = false;
+    async function ruYearFetch() {           // Kalender unsichtbar laden und „Resturlaub per Ende 12.JJJJ“ auslesen
+        if (ruBusy || Date.now() - (ruYearFetch.t || 0) < 5 * 60e3) return; ruBusy = true; ruYearFetch.t = Date.now();
+        const a = document.getElementById('zm_kalender');
+        const fr = hiddenFrame('zp-kal', a ? a.getAttribute('href') : '/Self/kalender?modulId=0');
+        try {
+            const el = () => { try { return fr.contentDocument && fr.contentDocument.getElementById('resturlaub_kalender'); } catch (e) { return null; } };
+            await zwait(() => { const e = el(); return e && /:\s*-?[\d.,]+/.test(e.textContent); }, 20000);
+            const t = ((el() || {}).textContent || '').replace(/\s+/g, ' ').trim(), m = t.match(/:\s*(-?[\d.,]+)\s*(Tag\w*|Std\w*|h)?/i);
+            if (m) {
+                let old = null; try { old = JSON.parse(localStorage.getItem('zplus_ruy') || 'null'); } catch (e) { }
+                const y = new Date().getFullYear(), keep = old && old.y === y ? old : {};
+                localStorage.setItem('zplus_ruy', JSON.stringify(Object.assign({}, keep, { y, val: m[1], unit: m[2] || 'Tage', per: (t.match(/Ende\s+([\d.]+)/i) || [])[1] || '', ts: Date.now() })));
+                safe('Render', render);
+            }
+        } catch (e) { }
+        ruBusy = false; setTimeout(() => fr.remove(), 500);
+    }
     function readUrlaub() {
         const e = document.getElementById('resturlaub') || document.getElementById('resturlaub_kalender');
         return e ? e.textContent.replace(/\s+/g, ' ').trim() : null;
@@ -2886,7 +2909,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         rauch: `<div class="zp-val num" id="zp-smoke">--</div><div class="zp-sub" id="zp-smoke-sub"></div>`,
         wunsch: `<div class="zp-wish"><input type="time" id="zp-wish-in" class="num"></div><div class="zp-val num" id="zp-wish">--</div><div class="zp-sub" id="zp-wish-sub"></div>`,
         monat: `<div class="zp-val num" id="zp-month">--</div><svg class="zp-spark" id="zp-spark" preserveAspectRatio="none"></svg><div class="zp-sub" id="zp-month-sub"></div>`,
-        urlaub: `<div class="zp-val num" id="zp-url">–</div><div class="zp-sub" id="zp-url-sub"></div>`,
+        urlaub: `<div class="zp-urm" id="zp-url-mode"><button type="button" data-um="m">Monat</button><button type="button" data-um="j">Jahr</button></div><div class="zp-val num" id="zp-url">–</div><div class="zp-sub" id="zp-url-sub"></div>`,
         kommen: `<div class="zp-val num" id="zp-come">--:--</div><div class="zp-sub num" id="zp-come-sub"></div>`,
         brwe: `<div class="zp-val num" id="zp-brwe">–</div><div class="zp-brwe" id="zp-brwe-bar"></div><div class="zp-sub" id="zp-brwe-sub"></div>`
     };
@@ -3264,6 +3287,18 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             }
         });
         safe('Urlaub', () => {
+            if (!$('zp-url')) return;
+            const mode = S.urlMode === 'j' ? 'j' : 'm', box = $('zp-url-mode');
+            if (box) { box.querySelectorAll('[data-um]').forEach(x => x.classList.toggle('on', x.dataset.um === mode)); if (!box._zp) { box._zp = 1; box.addEventListener('click', e => { const x = e.target.closest('[data-um]'); if (!x) return; e.stopPropagation(); S.urlMode = x.dataset.um; saveS(); safe('Render', render); }); } }
+            if (mode === 'j') {           // Resturlaub Jahresende (aus dem Kalender) = was noch nicht eingetragen ist
+                let r = null; try { r = JSON.parse(localStorage.getItem('zplus_ruy') || 'null'); } catch (e) { }
+                const y = new Date().getFullYear();
+                if (!r || r.y !== y || Date.now() - r.ts > 12 * 3600e3) ruYearFetch();
+                if (!r || r.y !== y) { setText('zp-url', '…'); setText('zp-url-sub', 'wird aus dem Kalender geholt'); return; }
+                setHtml('zp-url', esc(r.val) + `<small>${esc(r.unit || 'Tage')}</small>`);
+                setText('zp-url-sub', 'noch offen bis Ende ' + y + (r.plan != null ? ' · ' + r.plan + ' verplant' : '') + (r.pend ? ' · ' + r.pend + ' beantragt' : ''));
+                return;
+            }
             const t = readUrlaub();
             if (t == null) { setText('zp-url', '–'); setText('zp-url-sub', 'auf dieser Seite nicht verfügbar'); return; }
             if (!t || /ermittelt/i.test(t)) { setText('zp-url', '…'); setText('zp-url-sub', 'wird ermittelt'); return; }

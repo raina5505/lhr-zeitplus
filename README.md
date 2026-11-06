@@ -59,7 +59,8 @@ Es gibt auch eine PDF-Anleitung mit Screenshots (Installation und Bedienung). Di
   - **Woche / Monat:** Ist/Soll, Tagesbalken, Saldo-Verlauf.
   - **Mittagspause / Raucherpausen:** größte Lücke im Mittagsfenster, Abzug bis zur Pflichtpause.
   - **Gehen um …:** Was passiert mit dem Saldo, wenn ich um X Uhr gehe?
-  - **Resturlaub**, **Stempelblöcke**.
+  - **Resturlaub** mit Umschalter **Monat / Jahr**: *Monat* = LHR-Resturlaub per Monatsende, *Jahr* = Resturlaub per Jahresende aus dem Kalender (also was noch nicht eingetragen ist), mit verplant/beantragt.
+  - **Stempelblöcke**.
   - **Wochenend-Dienste:** Wochenenden, an denen du **tatsächlich gearbeitet** hast in den **letzten 365 Tagen** (laut KV IT § 5 höchstens **10 Wochenenden in 12 Monaten**, rollierend gezählt; im Tooltip steht, wann das älteste wieder herausfällt). Gezählt wird nur gestempelte Arbeit in der **Wochenendruhe nach ARG § 3**, also Samstag ab 13:00 bis Montag 01:00. Reine Rufbereitschaft (B1/B2) ohne Einsatz zählt **nicht**. Hell dargestellt sind kommende Wochenenden mit geplanter Bereitschaft, die zählen erst bei einem Einsatz. Beim Drüberfahren erscheint die Liste mit den gearbeiteten Stunden. Ab 9 wird es orange, über 10 rot.
 - **Feierabend-Rechner:** Soll erfüllt um, Saldo ±0 um, 10-h-Grenze. **Kernzeit** (Mo–Do 15:00, Fr 12:00) wird berücksichtigt.
 - **Gesamt** = Saldo + FZSA + FZSP + ZA + Überstunden 50 % × 1,5 + 100 % × 2.
@@ -173,6 +174,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 
 | Version | Änderungen |
 |---|---|
+| 5.26.5 | Kachel Resturlaub: Umschalter **Monat / Jahr** (Jahr = noch nicht eingetragener Resturlaub bis Jahresende aus dem Kalender). |
 | 5.26.4 | Wochenend-Dienste zählen rollierend über die **letzten 365 Tage** statt ab 1.1., inkl. Hinweis, wann das älteste herausfällt. |
 | 5.26.3 | Zeitdatenliste: Verlauf-Balken erweitert sich automatisch, wenn früher/später gestempelt wurde (z. B. Bereitschaft bis 24 Uhr); 24:00 und Einsätze über Mitternacht korrekt. |
 | 5.26.2 | Kachel **Wochenend-Dienste**: zählt nur noch gestempelte Arbeit Sa ab 13:00 bis Mo 01:00 (ARG § 3, KV IT § 5), nicht mehr bloße B1/B2-Tage. |
