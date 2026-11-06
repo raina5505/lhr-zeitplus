@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.25.7
+// @version      5.25.8
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.25.7';
+    const VERSION = '5.25.8';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -3919,6 +3919,11 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             if (sel.value && sel.value !== '0') { if (S.myAbtTab !== sel.value || !S.myAbtName) { S.myAbtTab = sel.value; S.myAbtName = nm(); saveS(); } }
             else if (S.myAbtTab && [...sel.options].some(o => o.value === S.myAbtTab)) { sel.value = S.myAbtTab; try { if (typeof window.changeAbteilung === 'function') window.changeAbteilung(sel); else sel.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) { } }
             sel.addEventListener('change', () => { if (sel.value && sel.value !== '0') { S.myAbtTab = sel.value; saveS(); } });
+            const sSel = document.getElementById('tableau_dropdown_status'), pSel = document.getElementById('per_page_count');
+            if (sSel && S.myTabStatus && sSel.value !== S.myTabStatus && [...sSel.options].some(o => o.value === S.myTabStatus)) setTimeout(() => setSel(window, sSel, S.myTabStatus, 'changeStatus'), 600);
+            if (pSel && S.myTabPP && pSel.value !== S.myTabPP && [...pSel.options].some(o => o.value === S.myTabPP)) setTimeout(() => setSel(window, pSel, S.myTabPP, 'onChangePerPage'), 1200);
+            if (sSel) sSel.addEventListener('change', () => { S.myTabStatus = sSel.value; saveS(); });
+            if (pSel) pSel.addEventListener('change', () => { S.myTabPP = pSel.value; saveS(); });
         });
         renderFavBar(tcells);
         { const sp = ['tabl_det_erreichbarkeit_span', 'tabl_det_abwesenheit_span', 'detaildn_name'].map(i => document.getElementById(i)).filter(Boolean);
@@ -4981,6 +4986,12 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
 .tm .dot{width:7px;height:7px;border-radius:50%;flex:none;margin-right:1px}
 .tm .dot.in{background:var(--zp-ok);box-shadow:0 0 0 2px color-mix(in srgb,var(--zp-ok) 25%,transparent)}
 .tm .dot.out{background:var(--zp-bad);box-shadow:0 0 0 2px color-mix(in srgb,var(--zp-bad) 22%,transparent)}
+.tm .f button.spin svg{animation:tmspin .8s linear infinite;color:var(--zp-accent)}
+@keyframes tmspin{to{transform:rotate(360deg)}}
+.tm .f b.ld{font-weight:700;color:var(--zp-accent)}
+.tm .f b.ok{font-weight:700;color:var(--zp-ok)}
+.tm .f i.lv{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--zp-ok);margin-right:5px;vertical-align:1px;animation:tmlv 2s ease-in-out infinite}
+@keyframes tmlv{50%{opacity:.35}}
 .tm .h{color:var(--zp-muted);font-size:12.5px}`;
     let teamDay = 0;
     function renderTeam(box) {
@@ -4995,8 +5006,10 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const age = data ? Date.now() - data.ts : 0;
         let tsx = {}; try { tsx = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
         const tsMax = Math.max(0, ...favs.map(f => (tsx[f.k] || {}).ts || 0));
-        const stTxt = tstBusy ? 'Ein-/Ausgestempelt wird geladen …' : tsMax && Date.now() - tsMax < 60 * 60e3 ? 'Stempel-Status ' + clock(tsMax) : 'Stempel-Status: noch keiner';
-        const foot = `<span class="sp"></span><span class="f">${stTxt} · ${data ? 'Stand ' + clock(data.ts) + (age > 864e5 ? ' (' + pad(new Date(data.ts).getDate()) + '.' + pad(new Date(data.ts).getMonth() + 1) + '.)' : '') : 'noch keine Daten'} · Abwesenheitsübersicht<button type="button" data-tr="1" title="Jetzt aktualisieren">${ico('refresh', 13)}</button></span>`;
+        const busy = tstBusy || teamBusy || tLiveBusy() || Date.now() - teamFlash < 700;
+        const ss = t => { const x = new Date(t); return clock(t) + ':' + pad(x.getSeconds()); };
+        const stTxt = busy ? '<b class="ld">Aktualisiere …</b>' : (Date.now() - teamFlash < 4000 ? '<b class="ok">✓ aktuell</b> · ' : '') + (tsMax && Date.now() - tsMax < 60 * 60e3 ? '<i class="lv"></i>Live ' + ss(tsMax) : 'Stempel-Status: noch keiner');
+        const foot = `<span class="sp"></span><span class="f">${stTxt} · ${data ? 'Stand ' + clock(data.ts) + (age > 864e5 ? ' (' + pad(new Date(data.ts).getDate()) + '.' + pad(new Date(data.ts).getMonth() + 1) + '.)' : '') : 'noch keine Daten'} · Abwesenheitsübersicht<button type="button" data-tr="1" class="${busy ? 'spin' : ''}" title="Jetzt aktualisieren">${ico('refresh', 13)}</button></span>`;
         const day = data && data.days[dk];
         if (!day) { box.innerHTML = `<div class="tm">${head}<span class="h">${teamBusy ? 'Wird geladen …' : 'Für ' + lab.toLowerCase() + ' noch keine Daten.'}</span>${foot}</div>`; return; }
         const av = [], ab = [];
@@ -5020,6 +5033,58 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             <span class="g"><small>Abwesend</small>${ab.join('') || '<span class="h">niemand</span>'}</span>
             ${missing ? `<span class="h" title="Nicht in der aktuellen Abwesenheitsübersicht (Filter/Firma)">+${missing} ohne Daten</span>` : ''}${foot}</div>`;
     }
+    /* Live-Stempelstatus: Tableau bleibt unsichtbar offen und wird alle 20 s von LHR selbst neu geladen (nur Daten, keine ganze Seite) */
+    let tLive = null, teamFlash = 0;
+    const tLiveBusy = () => !!(tLive && tLive.busy);
+    function tableauLive(onUpdate) {
+        if (tLive) return tLive;
+        const a = document.getElementById('zm_tableau');
+        const fr = hiddenFrame('zp-tlive', a ? a.getAttribute('href') : '/Self/Tableau?modulId=0');
+        tLive = { fr, busy: true, ready: false, now: null };
+        const d = () => fr.contentDocument, w = () => fr.contentWindow;
+        const cells = () => { try { return [...d().querySelectorAll('#tableautab2 td, #tableautab td')].filter(td => cellName(td).length > 2); } catch (e) { return []; } };
+        const save = () => {
+            const st = {}, favs = new Set(favList().map(f => f.k));
+            cells().forEach(td => { const k = nameKey(cellName(td)); if (favs.has(k)) st[k] = tstOf(td); });
+            if (!Object.keys(st).length) return false;
+            let old = {}; try { old = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
+            try { localStorage.setItem(TST_KEY, JSON.stringify(Object.assign(old, st))); } catch (e) { }
+            return true;
+        };
+        const sig = () => cells().map(td => cellName(td) + ((td.querySelector('img') || {}).src || '')).join('|');
+        const pull = async () => {             // LHR lädt die Liste mit den aktuellen Filtern neu
+            if (!tLive || tLive.busy) { if (onUpdate) onUpdate(); return; } tLive.busy = true; if (onUpdate) onUpdate();
+            try {
+                const s0 = sig(), sel = d().getElementById('tableau_dropdown_status');
+                if (typeof w().changeStatus === 'function') w().changeStatus(); else if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
+                await zwait(() => cells().length && sig() !== s0, 4000); await zwait(() => cells().length, 8000); await zsleep(300);
+                save();
+            } catch (e) { }
+            tLive.busy = false; if (onUpdate) onUpdate();
+        };
+        tLive.now = pull;
+        (async () => {
+            try {
+                if (!await zwait(() => d() && cells().length, 25000)) throw 'leer';
+                const sSel = d().getElementById('tableau_dropdown_status'), pSel = d().getElementById('per_page_count'), aSel = d().getElementById('tableau_dropdown_abt');
+                let ch = false;
+                if (S.myTabStatus == null && sSel) { S.myTabStatus = sSel.value; ch = true; }
+                if (S.myTabPP == null && pSel) { S.myTabPP = pSel.value; ch = true; }
+                if (ch) saveS();
+                const s1 = sig();
+                if (sSel && sSel.value !== 'alle' && setSel(w(), sSel, 'alle', 'changeStatus')) { await zwait(() => sig() !== s1 && cells().length, 8000); await zsleep(600); }
+                const me = nameKey(userInfo().name), have = () => { const k = new Set(cells().map(td => nameKey(cellName(td)))); return favList().every(f => f.k === me || k.has(f.k)); };
+                if (!have()) {
+                    const s2 = sig(); if (pSel) setSel(w(), pSel, '1000', 'onChangePerPage'); await zsleep(1200);
+                    if (aSel) setSel(w(), aSel, '0', 'changeAbteilung'); await zwait(() => sig() !== s2 && cells().length, 15000); await zsleep(1000);
+                }
+                save();
+            } catch (e) { }
+            tLive.ready = true; tLive.busy = false; if (onUpdate) onUpdate();
+            setInterval(() => { if (!document.hidden) pull(); }, 20000);
+        })();
+        return tLive;
+    }
     function buildTeam() {
         const dash = document.getElementById('zp-host'); if (!dash || document.getElementById('zp-team-host')) return;
         const host = el('div'); host.id = 'zp-team-host'; dash.after(host);
@@ -5027,21 +5092,15 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const box = el('div', 'zp-font'); root.appendChild(box);
         box.addEventListener('click', e => {
             const t = e.target.closest('[data-td]'); if (t) { teamDay = +t.dataset.td; renderTeam(box); return; }
-            if (e.target.closest('[data-tr]')) { teamRefresh(() => renderTeam(box)); renderTeam(box); }
+            if (e.target.closest('[data-tr]')) { teamFlash = Date.now(); teamRefresh(() => { teamFlash = Date.now(); renderTeam(box); }); if (tLive && tLive.now) tLive.now(); else tableauLive(() => renderTeam(box)); renderTeam(box); }
         });
         renderTeam(box);
         const data = teamStore();
         if (favList().length && (!data || Date.now() - data.ts > 2 * 3600e3)) setTimeout(() => teamRefresh(() => renderTeam(box)), 5000);
         setInterval(() => { if (!document.hidden) renderTeam(box); }, 5 * 60e3);
-        // Ein-/Ausgestempelt-Punkte: Tableau im Hintergrund alle 5 Minuten abfragen
-        const tstTick = () => {
-            if (document.hidden || tstBusy || !favList().length) return;
-            let tst = {}; try { tst = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
-            const me = nameKey(userInfo().name);
-            if (favList().every(f => f.k === me || (tst[f.k] && Date.now() - tst[f.k].ts < 90e3))) return;
-            tableauRefresh(() => renderTeam(box)); setTimeout(() => renderTeam(box), 300);
-        };
-        setTimeout(tstTick, 2500); setInterval(tstTick, 45e3); setInterval(() => { if (!document.hidden) renderTeam(box); }, 30e3);
+        // Ein-/Ausgestempelt-Punkte live (alle 20 s)
+        setTimeout(() => { if (favList().length) tableauLive(() => renderTeam(box)); }, 1500);
+        setInterval(() => { if (!document.hidden) renderTeam(box); }, 15e3);
     }
     function watchDialog() {
         let pending = false;
