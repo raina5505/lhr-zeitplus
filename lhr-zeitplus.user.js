@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.26.3
+// @version      5.26.4
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.26.3';
+    const VERSION = '5.26.4';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -82,7 +82,7 @@
         monat:  { name: 'Monat',           icon: 'trend',    tip: 'Saldo-Verlauf im Monat und Ist/Soll' },
         urlaub: { name: 'Resturlaub',      icon: 'sun',      tip: 'Wert aus der LHR-Resturlaub-Anzeige' },
         kommen: { name: 'Stempelblöcke',   icon: 'door',     tip: 'Alle Kommen/Gehen-Blöcke von heute' },
-        brwe:   { name: 'Wochenend-Dienste', icon: 'zap',      tip: 'Wochenenden mit tatsächlich gestempelter Arbeit (Sa ab 13:00 / So) – laut KV IT max. 10 in 12 Monaten' }
+        brwe:   { name: 'Wochenend-Dienste', icon: 'zap',      tip: 'Wochenenden mit tatsächlich gestempelter Arbeit (Sa ab 13:00 / So) in den letzten 365 Tagen – laut KV IT max. 10' }
     };
     const DEF_LAYOUT = [
         { id: 'heute', on: true, wide: false }, { id: 'saldo', on: true, wide: false }, { id: 'woche', on: true, wide: false },
@@ -446,7 +446,7 @@
     /* Bereitschaftstage für den Kalender direkt aus den Zeitdatenlisten holen (im Hintergrund, aktueller Monat zuletzt) */
     let brSyncing = false;
     function syncBRKal() { if (kalData) return syncBR(kalData.y, () => { kalLastSig = ''; renderKal(); }); }
-    async function syncBR(y, onChange) {
+    async function syncBR(y, onChange, fromIdx) {
         if (brSyncing) return; brSyncing = true;
         try {
             const now = new Date(), cy = now.getFullYear(), cm = now.getMonth();
@@ -455,6 +455,7 @@
             for (let m = 0; m < 12; m++) {
                 const idx = (y - cy) * 12 + (m - cm);          // 0 = aktueller Monat
                 if (idx > 1) continue;                        // Zukunft: nur nächster Monat
+                if (fromIdx != null && idx < fromIdx) continue;   // z.B. nur die letzten 12 Monate
                 const per = pad(m + 1) + '.' + y, age = Date.now() - (seen[per] || 0);
                 const maxAge = idx >= -1 ? 3 * 3600e3 : 20 * 86400e3;
                 if (age > maxAge) list.push({ per, idx });
@@ -3228,11 +3229,12 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 
         safe('BR-Wochenenden', () => {
             if (!$('zp-brwe')) return;
-            const y = new Date().getFullYear(), lim = +S.brWeLimit || 10, t0 = new Date(); t0.setHours(0, 0, 0, 0);
+            const lim = +S.brWeLimit || 10, t0 = new Date(); t0.setHours(0, 0, 0, 0);
+            const from = new Date(t0); from.setDate(from.getDate() - 364);          // letzte 365 Tage (KV IT: Durchrechnung 12 Monate)
             const satOf = dt => { const s = new Date(dt); s.setHours(12, 0, 0, 0); s.setDate(s.getDate() - ((s.getDay() + 1) % 7)); return s; };   // Sa der Woche (Mo zählt zum Vor-WE)
             const wes = new Map(), we = weStore(), brs = brStore();
             Object.entries(we).forEach(([k, m]) => {
-                const dt = keyDate(k), sat = satOf(dt); if (sat.getFullYear() !== y || !(m > 0)) return;
+                const dt = keyDate(k), sat = satOf(dt); if (!(m > 0) || dt < from || dt > new Date(t0.getTime() + 864e5)) return;
                 const sk = dayKey(sat), e = wes.get(sk) || { sat, min: 0, days: [], br: false };
                 e.min += m; e.days.push(dt); if (brs[k]) e.br = true; wes.set(sk, e);
             });
@@ -3240,19 +3242,26 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             // geplant: kommende Wochenenden mit Bereitschaft (zählen erst, wenn wirklich gearbeitet wird)
             let bp = {}; try { bp = JSON.parse(localStorage.getItem('zplus_brplan') || '{}') || {}; } catch (e) { }
             const plan = new Map();
-            [...Object.keys(brs), ...Object.keys(bp)].forEach(k => { const dt = keyDate(k); if (dt < t0 || dt.getFullYear() !== y || (dt.getDay() !== 0 && dt.getDay() !== 6)) return; const sk = dayKey(satOf(dt)); if (!wes.has(sk)) plan.set(sk, satOf(dt)); });
+            [...Object.keys(brs), ...Object.keys(bp)].forEach(k => { const dt = keyDate(k); if (dt < t0 || (dt.getDay() !== 0 && dt.getDay() !== 6)) return; const sk = dayKey(satOf(dt)); if (!wes.has(sk)) plan.set(sk, satOf(dt)); });
             const n = done.length, np = plan.size, left = lim - n;
             setHtml('zp-brwe', `${n}<small> / ${lim}</small>`);
             const v = $('zp-brwe'); if (v) v.style.color = n > lim ? 'var(--zp-bad)' : n >= lim - 1 ? 'var(--zp-warn)' : '';
             const bar = $('zp-brwe-bar');
             if (bar) bar.innerHTML = Array.from({ length: Math.max(lim, n) }, (_, i) => `<i class="${i < n ? 'd' : i < n + np ? 'p' : ''}${i >= lim ? ' x' : ''}"></i>`).join('');
-            const f = d => pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.';
-            setHtml('zp-brwe-sub', (left >= 0 ? `noch ${left} frei` : `<b style="color:var(--zp-bad)">${-left} zu viel</b>`) + (np ? ` · ${np} BR geplant` : ''));
+            const f = d => pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + String(d.getFullYear()).slice(2);
+            const nextFree = done.length ? new Date(done[0].sat.getTime() + 365 * 864e5) : null;     // ab da fällt das älteste raus
+            setHtml('zp-brwe-sub', (left >= 0 ? `noch ${left} frei` : `<b style="color:var(--zp-bad)">${-left} zu viel</b>`) + (np ? ` · ${np} BR geplant` : '') + ' · 365 Tage');
             const card = v && v.closest('.zp-card');
-            if (card) card.title = 'Wochenenden mit Dienst ' + y + ' (KV IT: max. ' + lim + '):\n' + (done.length ? done.map(e => '✓ Sa ' + f(e.sat) + ' · ' + dur(e.min * 60e3) + ' gearbeitet' + (e.br ? ' (Bereitschaft)' : '')).join('\n') : 'noch keines') +
+            if (card) card.title = 'Wochenenden mit Dienst in den letzten 365 Tagen (seit ' + f(from) + ', KV IT: max. ' + lim + '):\n' + (done.length ? done.map(e => '✓ Sa ' + f(e.sat) + ' · ' + dur(e.min * 60e3) + ' gearbeitet' + (e.br ? ' (Bereitschaft)' : '')).join('\n') : 'noch keines') +
+                (nextFree ? '\n\nDas älteste fällt am ' + f(nextFree) + ' aus dem Zeitraum.' : '') +
                 (np ? '\n\nGeplante Bereitschaft (zählt nur bei Einsatz):\n' + [...plan.values()].sort((a, b) => a - b).map(d => '◦ Sa ' + f(d)).join('\n') : '') +
                 '\n\nGezählt wird nur gestempelte Arbeit in der Wochenendruhe (ARG § 3): Sa ab 13:00 bis Mo 01:00. Bereitschaft ohne Einsatz zählt nicht.';
-            if (!renderBRwe.synced) { renderBRwe.synced = true; if (localStorage.getItem('zplus_wev') !== '1') { try { localStorage.removeItem('zplus_brm'); localStorage.setItem('zplus_wev', '1'); } catch (e) { } } setTimeout(() => syncBR(y, () => safe('Render', render)), 3000); }
+            if (!renderBRwe.synced) {
+                renderBRwe.synced = true;
+                if (localStorage.getItem('zplus_wev') !== '1') { try { localStorage.removeItem('zplus_brm'); localStorage.setItem('zplus_wev', '1'); } catch (e) { } }
+                const cy = t0.getFullYear(), fm = from.getMonth(), cb = () => safe('Render', render);
+                setTimeout(async () => { try { if (from.getFullYear() < cy) await syncBR(cy - 1, cb, (fm - 12) - t0.getMonth()); await syncBR(cy, cb); } catch (e) { } }, 3000);
+            }
         });
         safe('Urlaub', () => {
             const t = readUrlaub();
