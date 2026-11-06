@@ -5,6 +5,10 @@ Am LHR-System selbst wird **nichts verändert**: Das Script verändert nur die A
 
 > **Aktuelle Version:** steht oben im Script (`@version`) und im Menü unter deinem Namen → „Nach Updates suchen“.
 
+![Zeitdatenliste mit Dashboard](docs/img/zeitdatenliste.png)
+
+> 🔒 **Alle Screenshots sind Beispieldaten:** Namen, Personalnummern und Zeiten sind erfunden bzw. verfälscht.
+
 ---
 
 ## Inhalt
@@ -67,6 +71,9 @@ Es gibt auch eine PDF-Anleitung mit Screenshots (Installation und Bedienung). Di
 - **Erinnerungen:** Kaffeepause, Daily usw. als Browser-Benachrichtigung.
 
 ### Buchen
+
+![Buchen](docs/img/buchen.png)
+
 - Große Uhr, Buchungsarten als Buttons, Code-Feld mit Enter zum Buchen.
 - Rechts **„Wenn du jetzt gehst“**: Heute netto, **Heute +/−**, Saldo danach, **Wochenstunden** (live), Kernzeit-Status.
 - Darunter der **Stand** von LHR (Stichtag gestern) als Kacheln.
@@ -79,18 +86,29 @@ Es gibt auch eine PDF-Anleitung mit Screenshots (Installation und Bedienung). Di
 - **Resturlaub-Kachel:** Resturlaub, gebucht und verplant.
 - **Brückentage:** Es werden nur echte Brücken zwischen Feiertag und Wochenende vorgeschlagen (1–3 Arbeitstage). Eigener Urlaub zählt nicht mit, schon komplett genommene Brücken verschwinden.
 
+  ![Brückentage](docs/img/brueckentage.png)
+
 ### Abwesenheitsübersicht
+
+![Abwesenheitsübersicht](docs/img/abwesenheiten.png)
+
 - Öffnet immer **deine eigene Abteilung** (wird aus dem Tableau gelernt).
 - Moderne Rasteransicht, alle LHR-Farben (Urlaub rot usw.), R = Remote.
 - **Heutige Spalte** ist eingerahmt. Kopf und Spalten richten sich automatisch neu aus, wenn sie auseinanderlaufen.
 - **☆ beim Namen** markiert jemanden als Favorit. **„Ich + Favoriten“** zeigt eine kompakte Übersicht mit allen Abwesenheiten, auch für Favoriten aus anderen Abteilungen.
 
 ### Tableau
+
+![Tableau](docs/img/tableau.png)
+
 - Karten-Ansicht, Detail erst nach Klick auf eine Person.
 - Startet immer mit deiner Abteilung. Dein eigener Eintrag wird über die Personalnummer markiert.
 - Favoriten aus anderen Abteilungen erscheinen oben mit Status.
 
 ### Planer
+
+![Planer](docs/img/planer.png)
+
 - Saubere, ruhige Farben. **B1/B2 stehen direkt im Kästchen**, R = Remote (türkiser Rahmen), R + B = rot/türkiser Rahmen.
 - **Eigene Monatsnavigation:** ‹ Monat ›, Monatsauswahl (Klick auf den Monat), **Heute**. Der Planer öffnet immer im aktuellen Monat.
 - **Datumszeile bleibt oben stehen**, heutige Spalte ist eingerahmt.
@@ -154,6 +172,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 
 | Version | Änderungen |
 |---|---|
+| 5.26.1 (Doku) | README mit anonymisierten Screenshots (keine echten Namen/Zeiten). |
 | 5.26.1 | Menü unter dem Namen: **„Hilfe zu LHR Zeit +“** öffnet diese Anleitung. Planer: Wechsel der Anzeige wird respektiert. |
 | 5.26.0 | Neue Kachel **BR-Wochenenden** (max. 10/Jahr, gearbeitet + geplant aus Zeitdatenliste und Planer). |
 | 5.25.8 | Stempel-Status live alle 20 s, ↻ dreht sich mit Rückmeldung. |
