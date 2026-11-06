@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.26.2
+// @version      5.26.3
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.26.2';
+    const VERSION = '5.26.3';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -784,7 +784,7 @@
             <div class="zp-segc" id="zl-view"><button type="button" data-v="list">${'Zeit+ Liste'}</button><button type="button" data-v="orig">Original-Tabelle</button></div>
           </div>
           <div class="zl-body">
-            <div class="zl-cols" id="zl-cols"><span>Tag</span><span>Buchungen</span><span class="tlh">Verlauf 06–19 Uhr</span><span class="r isth">Ist</span><span class="r">+/− Tag</span><span class="r">Saldo</span><span></span></div>
+            <div class="zl-cols" id="zl-cols"><span>Tag</span><span>Buchungen</span><span class="tlh">Verlauf</span><span class="r isth">Ist</span><span class="r">+/− Tag</span><span class="r">Saldo</span><span></span></div>
             <div id="zl-rows"></div>
           </div>`;
         L.appendChild(box);
@@ -1074,14 +1074,18 @@
             zlBox.style.setProperty('--zl-grid', `92px minmax(${nx > 6 ? 220 : 260}px,1fr)${tlCol ? ' 190px' : ''} ${VC.map(v => v.base ? v.w : 'minmax(50px,max-content)').join(' ')} 20px`);
             zlBox.style.setProperty('--zl-gridm', `80px 1fr ${VC.filter(v => v.key !== 'ist').map(v => v.key === 'tg' ? '60px' : v.key === 'sal' ? '64px' : 'minmax(50px,max-content)').join(' ')} 18px`);
         }
-        setHtml('zl-cols', `<span>Tag</span><span>${tlIn ? 'Buchungen · Verlauf 06–19 Uhr' : 'Buchungen'}</span>${tlCol ? '<span class="tlh" style="white-space:nowrap">Verlauf 06–19 Uhr</span>' : ''}${VC.map(v => `<span class="r zl-vh${v.key === 'ist' ? ' isth' : ''}" draggable="true" data-col="${v.key}" title="${esc(v.title)} – ziehen zum Verschieben">${esc(v.short)}</span>`).join('')}<span></span>`);
+        // Verlauf-Bereich: normal 06–19 Uhr, wird erweitert, wenn im Monat früher/später gestempelt wurde (z.B. Bereitschaft am Abend)
+        let R0 = 360, R1 = 1140;
+        days.forEach(x => x.segs.forEach(sg => { const a = mod(sg.s); let b = sg.e != null ? mod(sg.e) : a; if (b < a) b += 1440; R0 = Math.min(R0, Math.floor(a / 60) * 60); R1 = Math.max(R1, Math.min(1440, Math.ceil(b / 60) * 60)); }));
+        const tlLab = 'Verlauf ' + pad(R0 / 60) + '–' + pad(R1 / 60) + ' Uhr';
+        setHtml('zl-cols', `<span>Tag</span><span>${tlIn ? 'Buchungen · ' + tlLab : 'Buchungen'}</span>${tlCol ? '<span class="tlh" style="white-space:nowrap">' + tlLab + '</span>' : ''}${VC.map(v => `<span class="r zl-vh${v.key === 'ist' ? ' isth' : ''}" draggable="true" data-col="${v.key}" title="${esc(v.title)} – ziehen zum Verschieben">${esc(v.short)}</span>`).join('')}<span></span>`);
 
         // Kommende Tage: eingeblendet, wenn LHR bis Monatsende berechnet hat (Saldo/Ist schon da) – oder per Einstellung
         const futureDays = days.filter(x => x.future);
         const calc = futureDays.some(x => x.sal != null || x.tg != null);
         listState.futureEff = listState.future != null ? listState.future : S.futureDays === 'show' ? true : S.futureDays === 'hide' ? false : calc;
         // Zeilen
-        const R0 = 360, R1 = 1140, X = t => Math.max(0, Math.min(100, (mod(t) - R0) / (R1 - R0) * 100));
+        const XM = m => Math.max(0, Math.min(100, (m - R0) / (R1 - R0) * 100)), X = t => XM(mod(t));
         const rowHtml = x => {
             const lunch = lunchOf(x.segs);
             const open = listState.open.has(x.k);
@@ -1116,7 +1120,8 @@
             x.segs.forEach((sg, i) => {
                 const e = sg.e != null ? sg.e : (live && i === x.segs.length - 1 ? now : null);
                 if (e == null) return;
-                bar += `<i class="${live && sg.e == null ? 'live' : ''}" style="left:${X(sg.s)}%;width:${Math.max(.4, X(e) - X(sg.s))}%"></i>`;
+                const sM = mod(sg.s); let eM = mod(e); if (eM < sM) eM += 1440;          // 24:00 / über Mitternacht
+                bar += `<i class="${live && sg.e == null ? 'live' : ''}" style="left:${XM(sM)}%;width:${Math.max(.4, XM(eM) - XM(sM))}%"></i>`;
             });
             const n = (v, signed, extra) => v == null ? `<span class="zl-n mut num ${extra || ''}">–</span>` : `<span class="zl-n num ${extra || ''} ${signed ? sc(v) : ''}">${dur(v, signed)}</span>`;
             const showVals = !x.future || (calc && (x.sal != null || x.tg != null || x.ist != null));

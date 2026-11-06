@@ -64,7 +64,7 @@ Es gibt auch eine PDF-Anleitung mit Screenshots (Installation und Bedienung). Di
 - **Feierabend-Rechner:** Soll erfüllt um, Saldo ±0 um, 10-h-Grenze. **Kernzeit** (Mo–Do 15:00, Fr 12:00) wird berücksichtigt.
 - **Gesamt** = Saldo + FZSA + FZSP + ZA + Überstunden 50 % × 1,5 + 100 % × 2.
 - **Bereitschaft** (Arbeitsmodell EITBR): Soll 5 h, ohne Pflichtpause. Bereitschaft am Wochenende oder Feiertag wird wie ein Arbeitstag angezeigt (nicht ausgegraut).
-- **Liste:** schöne Tagesliste. Remote = türkiser Rahmen, Bereitschaft = roter Rahmen, Bereitschaft + Remote = Rahmen, der rot/türkis im Uhrzeigersinn durchläuft.
+- **Liste:** schöne Tagesliste. Der Verlauf-Balken zeigt normal 06–19 Uhr und erweitert sich automatisch, wenn im Monat früher oder später gestempelt wurde (z. B. Bereitschaft am Abend). Remote = türkiser Rahmen, Bereitschaft = roter Rahmen, Bereitschaft + Remote = Rahmen, der rot/türkis im Uhrzeigersinn durchläuft.
 - **Team-Leiste:** Favoriten heute/morgen: *verfügbar* (Büro/HO) oder *abwesend*.
   - **Punkt vor dem Namen:** 🟢 eingestempelt, 🔴 nicht eingestempelt. Kommt live aus dem Tableau, wird alle 20 s aktualisiert.
   - **↻** aktualisiert sofort: Der Kreis dreht sich, danach kommt „✓ aktuell“.
@@ -173,6 +173,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 
 | Version | Änderungen |
 |---|---|
+| 5.26.3 | Zeitdatenliste: Verlauf-Balken erweitert sich automatisch, wenn früher/später gestempelt wurde (z. B. Bereitschaft bis 24 Uhr); 24:00 und Einsätze über Mitternacht korrekt. |
 | 5.26.2 | Kachel **Wochenend-Dienste**: zählt nur noch gestempelte Arbeit Sa ab 13:00 bis Mo 01:00 (ARG § 3, KV IT § 5), nicht mehr bloße B1/B2-Tage. |
 | 5.26.1 (Doku) | README mit anonymisierten Screenshots (keine echten Namen/Zeiten). |
 | 5.26.1 | Menü unter dem Namen: **„Hilfe zu LHR Zeit +“** öffnet diese Anleitung. Planer: Wechsel der Anzeige wird respektiert. |
