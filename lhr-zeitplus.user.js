@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.26.1
+// @version      5.26.2
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.26.1';
+    const VERSION = '5.26.2';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -82,7 +82,7 @@
         monat:  { name: 'Monat',           icon: 'trend',    tip: 'Saldo-Verlauf im Monat und Ist/Soll' },
         urlaub: { name: 'Resturlaub',      icon: 'sun',      tip: 'Wert aus der LHR-Resturlaub-Anzeige' },
         kommen: { name: 'Stempelblöcke',   icon: 'door',     tip: 'Alle Kommen/Gehen-Blöcke von heute' },
-        brwe:   { name: 'BR-Wochenenden',  icon: 'zap',      tip: 'Wochenenden mit Bereitschaft (Sa oder So, B1/B2) in diesem Jahr – erlaubt sind 10' }
+        brwe:   { name: 'Wochenend-Dienste', icon: 'zap',      tip: 'Wochenenden mit tatsächlich gestempelter Arbeit (Sa ab 13:00 / So) – laut KV IT max. 10 in 12 Monaten' }
     };
     const DEF_LAYOUT = [
         { id: 'heute', on: true, wide: false }, { id: 'saldo', on: true, wide: false }, { id: 'woche', on: true, wide: false },
@@ -2673,7 +2673,36 @@ button.zk-li:hover{border-color:var(--zp-accent)}
     const isBR = rows => { const z = zmOf(rows); return !!z && brList().includes(z); };
     const BR_KEY = 'zplus_br';
     const brStore = () => { try { return JSON.parse(localStorage.getItem(BR_KEY) || '{}') || {}; } catch (e) { return {}; } };
+    /* Wochenend-Dienst nach KV IT § 5 (max. 10 Wochenenden / 12 Monate) – zählt nur tatsächlich gestempelte Arbeit
+       in der Wochenendruhe nach ARG § 3: ab Samstag 13:00 durchgehend 36 h (bis Montag 01:00). Reine Rufbereitschaft ohne Einsatz zählt nicht. */
+    const WE_KEY = 'zplus_wework';
+    const weStore = () => { try { return JSON.parse(localStorage.getItem(WE_KEY) || '{}') || {}; } catch (e) { return {}; } };
+    function weMinutes(rows, dt) {
+        const dow = dt.getDay(), win = dow === 6 ? [780, 1440] : dow === 0 ? [0, 1440] : dow === 1 ? [0, 60] : null; if (!win) return 0;
+        const mm = t => { const m = String(t || '').match(/(\d{1,2}):(\d{2})/); return m ? +m[1] * 60 + +m[2] : null; };
+        const isToday = dayKey(dt) === todayKey(), nowM = new Date().getHours() * 60 + new Date().getMinutes();
+        let sum = 0;
+        rows.forEach(r => {
+            const zd = r.querySelector('td.td_zeitdaten'); if (!zd) return;
+            const a = zd.querySelector('.td_text1_isDate'), b = zd.querySelector('.td_text2_isDate');
+            const s0 = a && mm(a.textContent); if (s0 == null) return;
+            let e0 = b ? mm(b.textContent) : null;
+            if (e0 == null) { if (!isToday) return; e0 = nowM; }
+            if (e0 < s0) e0 += 1440;                     // über Mitternacht
+            sum += Math.max(0, Math.min(e0, win[1]) - Math.max(s0, win[0]));
+        });
+        return sum;
+    }
     function rememberBR(days) {                 // Bereitschaftstage merken (für den Kalender)
+        try {
+            const we = weStore(); let wch = false;
+            for (const [k, rows] of days) {
+                const dt = keyDate(k), dow = dt.getDay(); if (dow !== 6 && dow !== 0 && dow !== 1) continue;
+                const m = weMinutes(rows, dt);
+                if (m > 0) { if (we[k] !== m) { we[k] = m; wch = true; } } else if (we[k]) { delete we[k]; wch = true; }
+            }
+            if (wch) localStorage.setItem(WE_KEY, JSON.stringify(we));
+        } catch (e) { }
         try {
             const st = brStore(); let ch = false; const ym = new Set();
             for (const [k] of days) ym.add(k.slice(3));
@@ -3195,25 +3224,30 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         safe('BR-Wochenenden', () => {
             if (!$('zp-brwe')) return;
             const y = new Date().getFullYear(), lim = +S.brWeLimit || 10, t0 = new Date(); t0.setHours(0, 0, 0, 0);
-            const wes = new Map();          // Samstag des Wochenendes → {past, days}
-            let bp = {}; try { bp = JSON.parse(localStorage.getItem('zplus_brplan') || '{}') || {}; } catch (e) { }
-            const keys = new Set(Object.keys(brStore())); Object.keys(bp).forEach(k => { if (keyDate(k) > t0) keys.add(k); });      // Zukunft auch aus dem Planer
-            keys.forEach(k => {
-                const dt = keyDate(k); if (dt.getFullYear() !== y || (dt.getDay() !== 0 && dt.getDay() !== 6)) return;
-                const sat = new Date(dt); sat.setDate(dt.getDate() - (dt.getDay() === 0 ? 1 : 0));
-                const sk = dayKey(sat), e = wes.get(sk) || { sat, past: false, days: [] };
-                e.days.push(dt); if (dt <= t0) e.past = true; wes.set(sk, e);
+            const satOf = dt => { const s = new Date(dt); s.setHours(12, 0, 0, 0); s.setDate(s.getDate() - ((s.getDay() + 1) % 7)); return s; };   // Sa der Woche (Mo zählt zum Vor-WE)
+            const wes = new Map(), we = weStore(), brs = brStore();
+            Object.entries(we).forEach(([k, m]) => {
+                const dt = keyDate(k), sat = satOf(dt); if (sat.getFullYear() !== y || !(m > 0)) return;
+                const sk = dayKey(sat), e = wes.get(sk) || { sat, min: 0, days: [], br: false };
+                e.min += m; e.days.push(dt); if (brs[k]) e.br = true; wes.set(sk, e);
             });
-            const all = [...wes.values()].sort((a, b) => a.sat - b.sat), done = all.filter(e => e.past), plan = all.filter(e => !e.past);
-            const n = done.length, left = lim - n - plan.length;
+            const done = [...wes.values()].sort((a, b) => a.sat - b.sat);
+            // geplant: kommende Wochenenden mit Bereitschaft (zählen erst, wenn wirklich gearbeitet wird)
+            let bp = {}; try { bp = JSON.parse(localStorage.getItem('zplus_brplan') || '{}') || {}; } catch (e) { }
+            const plan = new Map();
+            [...Object.keys(brs), ...Object.keys(bp)].forEach(k => { const dt = keyDate(k); if (dt < t0 || dt.getFullYear() !== y || (dt.getDay() !== 0 && dt.getDay() !== 6)) return; const sk = dayKey(satOf(dt)); if (!wes.has(sk)) plan.set(sk, satOf(dt)); });
+            const n = done.length, np = plan.size, left = lim - n;
             setHtml('zp-brwe', `${n}<small> / ${lim}</small>`);
-            const v = $('zp-brwe'); if (v) v.style.color = n + plan.length > lim ? 'var(--zp-bad)' : n + plan.length >= lim - 1 ? 'var(--zp-warn)' : '';
+            const v = $('zp-brwe'); if (v) v.style.color = n > lim ? 'var(--zp-bad)' : n >= lim - 1 ? 'var(--zp-warn)' : '';
             const bar = $('zp-brwe-bar');
-            if (bar) bar.innerHTML = Array.from({ length: Math.max(lim, n + plan.length) }, (_, i) => `<i class="${i < n ? 'd' : i < n + plan.length ? 'p' : ''}${i >= lim ? ' x' : ''}"></i>`).join('');
+            if (bar) bar.innerHTML = Array.from({ length: Math.max(lim, n) }, (_, i) => `<i class="${i < n ? 'd' : i < n + np ? 'p' : ''}${i >= lim ? ' x' : ''}"></i>`).join('');
             const f = d => pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.';
-            setHtml('zp-brwe-sub', (plan.length ? `${plan.length} geplant · ` : '') + (left >= 0 ? `noch ${left} frei` : `<b style="color:var(--zp-bad)">${-left} zu viel</b>`));
-            const card = v && v.closest('.zp-card'); if (card) card.title = 'Bereitschafts-Wochenenden ' + y + ':\n' + (all.length ? all.map(e => (e.past ? '✓ ' : '◦ ') + 'Sa ' + f(e.sat) + ' (' + e.days.map(d => WD_SHORT[d.getDay()]).join('+') + ')').join('\n') : 'noch keine') + '\n\nGezählt wird jedes Wochenende mit Bereitschaft am Samstag und/oder Sonntag.';
-            if (!renderBRwe.synced) { renderBRwe.synced = true; setTimeout(() => syncBR(y, () => safe('Render', render)), 3000); }
+            setHtml('zp-brwe-sub', (left >= 0 ? `noch ${left} frei` : `<b style="color:var(--zp-bad)">${-left} zu viel</b>`) + (np ? ` · ${np} BR geplant` : ''));
+            const card = v && v.closest('.zp-card');
+            if (card) card.title = 'Wochenenden mit Dienst ' + y + ' (KV IT: max. ' + lim + '):\n' + (done.length ? done.map(e => '✓ Sa ' + f(e.sat) + ' · ' + dur(e.min * 60e3) + ' gearbeitet' + (e.br ? ' (Bereitschaft)' : '')).join('\n') : 'noch keines') +
+                (np ? '\n\nGeplante Bereitschaft (zählt nur bei Einsatz):\n' + [...plan.values()].sort((a, b) => a - b).map(d => '◦ Sa ' + f(d)).join('\n') : '') +
+                '\n\nGezählt wird nur gestempelte Arbeit in der Wochenendruhe (ARG § 3): Sa ab 13:00 bis Mo 01:00. Bereitschaft ohne Einsatz zählt nicht.';
+            if (!renderBRwe.synced) { renderBRwe.synced = true; if (localStorage.getItem('zplus_wev') !== '1') { try { localStorage.removeItem('zplus_brm'); localStorage.setItem('zplus_wev', '1'); } catch (e) { } } setTimeout(() => syncBR(y, () => safe('Render', render)), 3000); }
         });
         safe('Urlaub', () => {
             const t = readUrlaub();

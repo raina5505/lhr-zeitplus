@@ -60,7 +60,7 @@ Es gibt auch eine PDF-Anleitung mit Screenshots (Installation und Bedienung). Di
   - **Mittagspause / Raucherpausen:** größte Lücke im Mittagsfenster, Abzug bis zur Pflichtpause.
   - **Gehen um …:** Was passiert mit dem Saldo, wenn ich um X Uhr gehe?
   - **Resturlaub**, **Stempelblöcke**.
-  - **BR-Wochenenden:** Wochenenden mit Bereitschaft (Sa und/oder So, B1 oder B2) im laufenden Jahr, von maximal **10**. Volle Balken sind gearbeitet, helle sind geplant (aus der Zeitdatenliste und dem Planer). Beim Drüberfahren erscheint die Liste aller Wochenenden. Ab 9 wird es orange, über 10 rot.
+  - **Wochenend-Dienste:** Wochenenden, an denen du **tatsächlich gearbeitet** hast (laut KV IT § 5 höchstens **10 Wochenenden in 12 Monaten**). Gezählt wird nur gestempelte Arbeit in der **Wochenendruhe nach ARG § 3**, also Samstag ab 13:00 bis Montag 01:00. Reine Rufbereitschaft (B1/B2) ohne Einsatz zählt **nicht**. Hell dargestellt sind kommende Wochenenden mit geplanter Bereitschaft, die zählen erst bei einem Einsatz. Beim Drüberfahren erscheint die Liste mit den gearbeiteten Stunden. Ab 9 wird es orange, über 10 rot.
 - **Feierabend-Rechner:** Soll erfüllt um, Saldo ±0 um, 10-h-Grenze. **Kernzeit** (Mo–Do 15:00, Fr 12:00) wird berücksichtigt.
 - **Gesamt** = Saldo + FZSA + FZSP + ZA + Überstunden 50 % × 1,5 + 100 % × 2.
 - **Bereitschaft** (Arbeitsmodell EITBR): Soll 5 h, ohne Pflichtpause. Bereitschaft am Wochenende oder Feiertag wird wie ein Arbeitstag angezeigt (nicht ausgegraut).
@@ -139,6 +139,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 | `zplus_tstat` | Stempel-Status der Favoriten (aus dem Tableau) |
 | `zplus_br`, `zplus_brm` | erkannte Bereitschaftstage / bereits eingelesene Monate |
 | `zplus_brplan` | eigene geplante Bereitschaften aus dem Planer |
+| `zplus_wework` | gestempelte Minuten in der Wochenendruhe je Tag (für die Kachel Wochenend-Dienste) |
 | `zplus_leg` | Farblegende aus dem Kalender (für Hover-Texte) |
 | `zplus_upd` | Ergebnis der letzten Update-Prüfung |
 | `zplus_fired` | heute schon ausgelöste Erinnerungen |
@@ -172,6 +173,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 
 | Version | Änderungen |
 |---|---|
+| 5.26.2 | Kachel **Wochenend-Dienste**: zählt nur noch gestempelte Arbeit Sa ab 13:00 bis Mo 01:00 (ARG § 3, KV IT § 5), nicht mehr bloße B1/B2-Tage. |
 | 5.26.1 (Doku) | README mit anonymisierten Screenshots (keine echten Namen/Zeiten). |
 | 5.26.1 | Menü unter dem Namen: **„Hilfe zu LHR Zeit +“** öffnet diese Anleitung. Planer: Wechsel der Anzeige wird respektiert. |
 | 5.26.0 | Neue Kachel **BR-Wochenenden** (max. 10/Jahr, gearbeitet + geplant aus Zeitdatenliste und Planer). |
