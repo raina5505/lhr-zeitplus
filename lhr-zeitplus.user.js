@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.25.8
+// @version      5.26.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.25.8';
+    const VERSION = '5.26.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -81,12 +81,14 @@
         wunsch: { name: 'Gehen um …',      icon: 'target',   tip: 'Was passiert mit dem Saldo, wenn du zu dieser Uhrzeit gehst?' },
         monat:  { name: 'Monat',           icon: 'trend',    tip: 'Saldo-Verlauf im Monat und Ist/Soll' },
         urlaub: { name: 'Resturlaub',      icon: 'sun',      tip: 'Wert aus der LHR-Resturlaub-Anzeige' },
-        kommen: { name: 'Stempelblöcke',   icon: 'door',     tip: 'Alle Kommen/Gehen-Blöcke von heute' }
+        kommen: { name: 'Stempelblöcke',   icon: 'door',     tip: 'Alle Kommen/Gehen-Blöcke von heute' },
+        brwe:   { name: 'BR-Wochenenden',  icon: 'zap',      tip: 'Wochenenden mit Bereitschaft (Sa oder So, B1/B2) in diesem Jahr – erlaubt sind 10' }
     };
     const DEF_LAYOUT = [
         { id: 'heute', on: true, wide: false }, { id: 'saldo', on: true, wide: false }, { id: 'woche', on: true, wide: false },
         { id: 'monat', on: true, wide: false }, { id: 'pause', on: false, wide: false }, { id: 'rauch', on: false, wide: false },
-        { id: 'wunsch', on: false, wide: false }, { id: 'urlaub', on: false, wide: false }, { id: 'kommen', on: false, wide: false }
+        { id: 'wunsch', on: false, wide: false }, { id: 'urlaub', on: false, wide: false }, { id: 'kommen', on: false, wide: false },
+        { id: 'brwe', on: false, wide: false }
     ];
 
     /* ════════════════════ APP-LEISTE ════════════════════ */
@@ -323,7 +325,8 @@
             const sel = document.getElementById('ml_select');
             const langs = sel ? [...sel.options].map(o => `<button type="button" data-lang="${esc(o.textContent.trim())}" class="${o.selected ? 'on' : ''}">${esc(o.textContent.trim().toUpperCase())}</button>`).join('') : '';
             openPop(t, `<h5>${esc(u.name)}${u.nr ? ' · ' + esc(u.nr) : ''}${u.status ? ' · ' + esc(u.status) : ''}</h5>
-                ${link('change_pw', 'user', 'Benutzerdaten ändern')}${link('call_hilfe', 'help', 'Hilfe', '', true)}
+                ${link('change_pw', 'user', 'Benutzerdaten ändern')}${link('call_hilfe', 'help', 'LHR-Hilfe', '', true)}
+                <a class="zs-mi" href="https://github.com/raina5505/lhr-zeitplus#readme" target="_blank" rel="noopener">${ico('file', 15)}Hilfe zu LHR Zeit +<small style="margin-left:auto;opacity:.6">Anleitung</small></a>
                 ${langs ? `<div class="zs-sepl"></div><h5>${ico('globe', 12)} Sprache</h5><div class="zs-langs">${langs}</div>` : ''}
                 <div class="zs-sepl"></div><button type="button" class="zs-mi" data-act="${updAvail() ? 'upd' : 'updcheck'}">${ico('refresh', 15)}${updAvail() ? 'Update auf ' + esc(updState().latest) + ' installieren' : 'Nach Updates suchen'}<small style="margin-left:auto;opacity:.6">v${VERSION}</small></button>
                 <div class="zs-sepl"></div>${link('logout', 'logout', 'Abmelden', 'danger')}`, 250);
@@ -442,10 +445,11 @@
 
     /* Bereitschaftstage für den Kalender direkt aus den Zeitdatenlisten holen (im Hintergrund, aktueller Monat zuletzt) */
     let brSyncing = false;
-    async function syncBRKal() {
-        if (brSyncing || !kalData) return; brSyncing = true;
+    function syncBRKal() { if (kalData) return syncBR(kalData.y, () => { kalLastSig = ''; renderKal(); }); }
+    async function syncBR(y, onChange) {
+        if (brSyncing) return; brSyncing = true;
         try {
-            const y = kalData.y, now = new Date(), cy = now.getFullYear(), cm = now.getMonth();
+            const now = new Date(), cy = now.getFullYear(), cm = now.getMonth();
             let seen = {}; try { seen = JSON.parse(localStorage.getItem('zplus_brm') || '{}') || {}; } catch (e) { }
             const list = [];
             for (let m = 0; m < 12; m++) {
@@ -473,7 +477,7 @@
                 seen[per] = Date.now();
                 try { localStorage.setItem('zplus_brm', JSON.stringify(seen)); } catch (e) { }
             }
-            if (changed) { kalLastSig = ''; renderKal(); }
+            if (changed && onChange) onChange();
         } finally { brSyncing = false; }
     }
 
@@ -1283,6 +1287,7 @@
     const parseClock = txt => { const m = String(txt || '').match(/(\d{1,2}):(\d{2})/); return m ? at(m[1] + ':' + m[2]) : null; };
     const dayKey = d => pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.' + d.getFullYear();
     const todayKey = () => dayKey(new Date());
+    const renderBRwe = {};
     let BU_LIVE = null;                        // Buchen-Seite: Stand-Kacheln live nachrechnen
     let TB_OVERRIDE = null;                    // Buchen-Seite: Zeitdatenliste im Hintergrund geladen
     const tbody = () => TB_OVERRIDE || document.getElementById('zdlBody');
@@ -2492,6 +2497,11 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 .zp-segc button{height:26px;padding:0 11px;border-radius:8px;font-size:12px;font-weight:600;color:var(--zp-muted)}
 .zp-segc button:hover{color:var(--zp-text)}
 .zp-segc button.on{background:var(--zp-accent);color:var(--zp-onacc,#fff)}
+.zp-brwe{display:flex;gap:3px;margin:8px 0 6px}
+.zp-brwe i{flex:1;height:7px;border-radius:3px;background:var(--zp-surf2,#eceef3);box-shadow:inset 0 0 0 1px var(--zp-line)}
+.zp-brwe i.d{background:var(--zp-bad);box-shadow:none}
+.zp-brwe i.p{background:color-mix(in srgb,var(--zp-bad) 35%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--zp-bad) 60%,transparent)}
+.zp-brwe i.x{outline:1.5px solid var(--zp-bad);outline-offset:1px}
 .zp-tg{position:relative;width:40px;height:23px;flex:none;-webkit-appearance:none;appearance:none;border-radius:99px;background:var(--zp-surf2);border:1px solid var(--zp-line);cursor:pointer;transition:.2s;margin:0}
 .zp-tg::after{content:'';position:absolute;top:2px;left:2px;width:17px;height:17px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.35);transition:.2s}
 .zp-tg:checked{background:var(--zp-accent);border-color:var(--zp-accent)}
@@ -2842,7 +2852,8 @@ button.zk-li:hover{border-color:var(--zp-accent)}
         wunsch: `<div class="zp-wish"><input type="time" id="zp-wish-in" class="num"></div><div class="zp-val num" id="zp-wish">--</div><div class="zp-sub" id="zp-wish-sub"></div>`,
         monat: `<div class="zp-val num" id="zp-month">--</div><svg class="zp-spark" id="zp-spark" preserveAspectRatio="none"></svg><div class="zp-sub" id="zp-month-sub"></div>`,
         urlaub: `<div class="zp-val num" id="zp-url">–</div><div class="zp-sub" id="zp-url-sub"></div>`,
-        kommen: `<div class="zp-val num" id="zp-come">--:--</div><div class="zp-sub num" id="zp-come-sub"></div>`
+        kommen: `<div class="zp-val num" id="zp-come">--:--</div><div class="zp-sub num" id="zp-come-sub"></div>`,
+        brwe: `<div class="zp-val num" id="zp-brwe">–</div><div class="zp-brwe" id="zp-brwe-bar"></div><div class="zp-sub" id="zp-brwe-sub"></div>`
     };
 
     function buildDash() {
@@ -3181,6 +3192,29 @@ button.zk-li:hover{border-color:var(--zp-accent)}
             renderSpark(m.pts);
         });
 
+        safe('BR-Wochenenden', () => {
+            if (!$('zp-brwe')) return;
+            const y = new Date().getFullYear(), lim = +S.brWeLimit || 10, t0 = new Date(); t0.setHours(0, 0, 0, 0);
+            const wes = new Map();          // Samstag des Wochenendes → {past, days}
+            let bp = {}; try { bp = JSON.parse(localStorage.getItem('zplus_brplan') || '{}') || {}; } catch (e) { }
+            const keys = new Set(Object.keys(brStore())); Object.keys(bp).forEach(k => { if (keyDate(k) > t0) keys.add(k); });      // Zukunft auch aus dem Planer
+            keys.forEach(k => {
+                const dt = keyDate(k); if (dt.getFullYear() !== y || (dt.getDay() !== 0 && dt.getDay() !== 6)) return;
+                const sat = new Date(dt); sat.setDate(dt.getDate() - (dt.getDay() === 0 ? 1 : 0));
+                const sk = dayKey(sat), e = wes.get(sk) || { sat, past: false, days: [] };
+                e.days.push(dt); if (dt <= t0) e.past = true; wes.set(sk, e);
+            });
+            const all = [...wes.values()].sort((a, b) => a.sat - b.sat), done = all.filter(e => e.past), plan = all.filter(e => !e.past);
+            const n = done.length, left = lim - n - plan.length;
+            setHtml('zp-brwe', `${n}<small> / ${lim}</small>`);
+            const v = $('zp-brwe'); if (v) v.style.color = n + plan.length > lim ? 'var(--zp-bad)' : n + plan.length >= lim - 1 ? 'var(--zp-warn)' : '';
+            const bar = $('zp-brwe-bar');
+            if (bar) bar.innerHTML = Array.from({ length: Math.max(lim, n + plan.length) }, (_, i) => `<i class="${i < n ? 'd' : i < n + plan.length ? 'p' : ''}${i >= lim ? ' x' : ''}"></i>`).join('');
+            const f = d => pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.';
+            setHtml('zp-brwe-sub', (plan.length ? `${plan.length} geplant · ` : '') + (left >= 0 ? `noch ${left} frei` : `<b style="color:var(--zp-bad)">${-left} zu viel</b>`));
+            const card = v && v.closest('.zp-card'); if (card) card.title = 'Bereitschafts-Wochenenden ' + y + ':\n' + (all.length ? all.map(e => (e.past ? '✓ ' : '◦ ') + 'Sa ' + f(e.sat) + ' (' + e.days.map(d => WD_SHORT[d.getDay()]).join('+') + ')').join('\n') : 'noch keine') + '\n\nGezählt wird jedes Wochenende mit Bereitschaft am Samstag und/oder Sonntag.';
+            if (!renderBRwe.synced) { renderBRwe.synced = true; setTimeout(() => syncBR(y, () => safe('Render', render)), 3000); }
+        });
         safe('Urlaub', () => {
             const t = readUrlaub();
             if (t == null) { setText('zp-url', '–'); setText('zp-url-sub', 'auf dieser Seite nicht verfügbar'); return; }
@@ -4083,6 +4117,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             });
             new MutationObserver(() => pnRender()).observe(lpt, { childList: true, characterData: true, subtree: true });
             document.documentElement.classList.add('zp-pnav');
+            { const sa = document.getElementById('sel_anzeige'); if (sa) sa.addEventListener('change', () => { if (!pnBusy) pnSS.set({ user: Date.now(), target: null }); }); }
             // Beim Öffnen: angefangene Auswahl fortsetzen, sonst immer der aktuelle Monat (außer man hat gerade selbst geblättert)
             const start = Date.now();
             const boot = () => {
@@ -4147,7 +4182,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             const kwT = ((th.querySelector('.kw-zeile') || {}).textContent || '').trim(), atT = ((th.querySelector('.kw-arbeitstage') || {}).textContent || '').trim();
             const kw = kwT && /^\d+$/.test(kwT) ? +kwT : (wd === 1 ? isoWeek(dt) : 0);
             const hol = /feiertag/i.test(th.className);
-            th.dataset.zpWd = '1';
+            th.dataset.zpWd = '1'; th.dataset.zpDate = dayKey(dt);
             th.innerHTML = `<span class="zp-wd">${WD_SHORT[wd]}</span><b>${dt.getDate()}.${dt.getMonth() + 1}.</b>${kw ? `<span class="zp-kw">KW ${kw}</span>` : '<span class="zp-kw0"></span>'}`;
             if (atT) th.title = `KW ${kw} · ${atT} Arbeitstage`;
             th.classList.toggle('zp-we', wd === 0 || wd === 6);
@@ -4334,6 +4369,16 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             const inf = planerCellInfo(td); if (!inf.n) return;
             const s = st[i]; s.k++; s.t += inf.n; if (inf.abs) s.a++; if (inf.rem) s.r++; if (inf.br) s.b++; if (inf.fei) s.f++;
         }));
+        // eigene geplante Bereitschaften (B1/B2) merken → Kachel „BR-Wochenenden“
+        try {
+            const me = rows.find(tr => tr.classList.contains('zp-me'));
+            if (me) {
+                let plan = {}; try { plan = JSON.parse(localStorage.getItem('zplus_brplan') || '{}') || {}; } catch (e) { }
+                let ch = false;
+                [...me.children].forEach((td, i) => { const k = hs[i] && hs[i].dataset.zpDate; if (!k) return; const b = planerCellInfo(td).br; if (b && !plan[k]) { plan[k] = 1; ch = true; } else if (!b && plan[k]) { delete plan[k]; ch = true; } });
+                if (ch) localStorage.setItem('zplus_brplan', JSON.stringify(plan));
+            }
+        } catch (e) { }
         hs.forEach((th, i) => {
             if (!th.dataset.zpWd || th.classList.contains('dtfc-fixed-left')) return;
             const s = st[i], j = JSON.stringify(s); if (th.dataset.zpStat === j) return;
