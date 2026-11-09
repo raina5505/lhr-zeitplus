@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.26.6
+// @version      5.26.7
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.26.6';
+    const VERSION = '5.26.7';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -4218,6 +4218,56 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         }
         pnRender();
     }
+    /* Bereitschaft (B1/B2) aller Personen aus dem Planer merken → Team-Leiste */
+    const TBR_KEY = 'zplus_teambr';
+    const tbrStore = () => { try { return JSON.parse(localStorage.getItem(TBR_KEY) || 'null') || { d: {}, scanned: {}, ts: 0 }; } catch (e) { return { d: {}, scanned: {}, ts: 0 }; } };
+    function planerScan(doc) {
+        const tab = doc.getElementById('tabdiv'); if (!tab) return 0;
+        const hr = tab.querySelector('.dataTables_scrollHead thead tr:last-child') || tab.querySelector('thead tr:last-child'); if (!hr) return 0;
+        const yTxt = ((doc.getElementById('le_periode_text') || {}).textContent || '').match(/(\d{4})/);
+        let yy = yTxt ? +yTxt[1] : new Date().getFullYear(), lastM = null;
+        const dates = [...hr.children].map(th => {
+            if (th.dataset.zpDate) return th.dataset.zpDate;
+            const de = th.querySelector('[data-dt]'); const d1 = de && dParse(de.getAttribute('data-dt')); if (d1) { lastM = d1.getMonth(); yy = d1.getFullYear(); return dayKey(d1); }
+            const lab = (th.getAttribute('aria-label') || th.textContent || '').replace(/&nbsp;| /g, ' ').trim(); const m = lab.match(/^(\d{1,2})\.(\d{1,2})\.?(?:\s|$)/); if (!m) return null;
+            const mo = +m[2] - 1; if (lastM != null && mo < lastM) yy++; lastM = mo; return dayKey(new Date(yy, mo, +m[1], 12));
+        });
+        const tipOf = x => { let v = [...x.attributes].filter(a => /title|tippy|data-|aria-label/.test(a.name)).map(a => a.value).join(' '); try { const tp = x._tippy; if (tp && tp.props) { const c = tp.props.content; v += ' ' + (typeof c === 'string' ? c : c && c.textContent ? c.textContent : ''); } } catch (e) { } return v; };
+        const st = tbrStore(), lo = Date.now() - 40 * 864e5, hi = Date.now() + 70 * 864e5;
+        dates.forEach(k => { if (k) { st.scanned[k] = 1; if (st.d[k]) st.d[k] = {}; } });
+        let n = 0;
+        tab.querySelectorAll('.dataTables_scrollBody tbody tr, :scope > table tbody tr, .dataTables_wrapper > table tbody tr').forEach(tr => {
+            if (tr.classList.contains('dtrg-group') || tr.classList.contains('sum_row') || tr.children.length < 5) return;
+            const nm = [...tr.children].filter(c => c.classList.contains('dtfc-fixed-left')).map(c => (c.textContent || '').replace(/\s+/g, ' ').trim()).find(t => /[a-zäöü]{2}/i.test(t)) || [...tr.children].slice(0, 3).map(c => c.textContent.trim()).find(t => /[a-zäöü]{2}/i.test(t));
+            const k = nameKey(nm); if (!k) return;
+            [...tr.children].forEach((td, i) => {
+                const dk = dates[i]; if (!dk) return;
+                const t = (td.textContent || '').replace(/\s+/g, '').toUpperCase(); if (!/B/.test(t)) return;
+                let m = t.match(/B(\d)/);
+                if (!m && /(^|[^A-Z])B([^A-Z]|$)|^R?B$/.test(t)) { const tips = [td, ...td.querySelectorAll('*')].map(tipOf).join(' ').replace(/<[^>]*>/g, ' '); m = tips.match(/\bB\s?([0-9])\b|Bereitschaft\s*([0-9])/i); }
+                if (!m && !/(^|[^A-Z])B([^A-Z]|$)|^R?B\d?$|RB/.test(t)) return;
+                (st.d[dk] = st.d[dk] || {})[k] = 'B' + (m ? (m[1] || m[2] || '') : ''); n++;
+            });
+        });
+        Object.keys(st.d).forEach(k => { const t = keyDate(k).getTime(); if (t < lo || t > hi) delete st.d[k]; });
+        Object.keys(st.scanned).forEach(k => { const t = keyDate(k).getTime(); if (t < lo || t > hi) delete st.scanned[k]; });
+        st.ts = Date.now();
+        try { localStorage.setItem(TBR_KEY, JSON.stringify(st)); } catch (e) { }
+        return n;
+    }
+    let tbrBusy = false;
+    async function planerBg(done) {           // Planer unsichtbar laden und Bereitschaften auslesen
+        if (tbrBusy) return; tbrBusy = true;
+        const a = document.getElementById('zm_planer');
+        const fr = hiddenFrame('zp-planer', a ? a.getAttribute('href') : '/Self/Urlaubsplaner?modulId=0');
+        try {
+            const d = () => fr.contentDocument;
+            await zwait(() => d() && d().querySelectorAll('#tabdiv tbody tr').length > 2, 25000);
+            await zsleep(1500);
+            planerScan(d());
+        } catch (e) { }
+        tbrBusy = false; setTimeout(() => fr.remove(), 500); if (done) done();
+    }
     function planerMarks() {
         const tab = document.getElementById('tabdiv'); if (!tab) return;
         tab.querySelectorAll('tbody tr:not(.sum_row) > td:not(.dtfc-fixed-left)').forEach(td => {
@@ -4276,6 +4326,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         });
         if (rewrote) { clearTimeout(planerMarks.adj); planerMarks.adj = setTimeout(() => { try { const jq = window.jQuery; if (jq && jq.fn && jq.fn.dataTable) jq('#tabdiv table.dataTable').filter((i, t) => !t.closest('.dataTables_scrollHead')).each((i, t) => { if (jq.fn.dataTable.isDataTable(t)) jq(t).DataTable().columns.adjust(); }); } catch (e) { } }, 120); }
         planerTipInit();
+        if (Date.now() - (planerMarks.scanT || 0) > 8000) { planerMarks.scanT = Date.now(); safe('Planer', () => planerScan(document)); }
         planerStats(tab);
         planerToday(tab);
     }
@@ -5128,6 +5179,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
 .tm .f b.ok{font-weight:700;color:var(--zp-ok)}
 .tm .f i.lv{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--zp-ok);margin-right:5px;vertical-align:1px;animation:tmlv 2s ease-in-out infinite}
 @keyframes tmlv{50%{opacity:.35}}
+.tm .c b.br{font-size:10px;font-weight:800;color:var(--zp-bad);padding:0 4px;border-radius:5px;box-shadow:inset 0 0 0 1.2px var(--zp-bad);line-height:15px;margin-right:1px}
 .tm .h{color:var(--zp-muted);font-size:12.5px}`;
     let teamDay = 0;
     function renderTeam(box) {
@@ -5150,6 +5202,8 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         if (!day) { box.innerHTML = `<div class="tm">${head}<span class="h">${teamBusy ? 'Wird geladen …' : 'Für ' + lab.toLowerCase() + ' noch keine Daten.'}</span>${foot}</div>`; return; }
         const av = [], ab = [];
         let tst = {}; try { tst = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
+        const tbr = tbrStore();
+        if (!tbr.scanned[dk] || Date.now() - tbr.ts > 6 * 3600e3) { if (!tbrBusy && Date.now() - (renderTeam.pbg || 0) > 10 * 60e3) { renderTeam.pbg = Date.now(); setTimeout(() => planerBg(() => { teamSig = ''; const h = document.getElementById('zp-team-host'); if (h && h.shadowRoot) { const bx = h.shadowRoot.querySelector('.zp-font'); if (bx) renderTeam(bx); } }), 4000); } }
         const dot = k => {            // grün = eingestempelt, rot = nicht eingestempelt (aus dem Tableau, nur heute)
             if (teamDay) return ''; const t = tst[k]; if (!t || Date.now() - t.ts > 60 * 60e3) return '';
             const x = (t.st + ' ' + t.src).toLowerCase(), p = /nicht\s*anwesend|abwesend|ausgestempelt|gegangen|offline/.test(x) ? 0 : /anwesend|eingestempelt|online/.test(x) ? 1 : 0;
@@ -5157,7 +5211,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         };
         favs.forEach(f => {
             if (f.k === myKey) return;
-            const e = day[f.k], n = dot(f.k) + esc((data.names[f.k] || f.n).replace(/\s+/g, ' '));
+            const bq = (tbr.d[dk] || {})[f.k], e = day[f.k], n = (bq ? `<b class="br" title="Bereitschaft ${esc(bq)} (aus dem Planer)">${esc(bq)}</b>` : '') + dot(f.k) + esc((data.names[f.k] || f.n).replace(/\s+/g, ' '));
             if (!e) return;
             if (e.st === 'abs') ab.push(`<span class="c abs" title="abwesend${e.l ? ' (' + esc(e.l) + ')' : ''}">${n}${e.l ? `<em>${esc(e.l)}</em>` : ''}</span>`);
             else if (e.st === 'rem') av.push(`<span class="c rem" title="Remote / Homeoffice">${n}<em>HO</em></span>`);
@@ -5559,6 +5613,7 @@ html.zp-bu #zp-bu .zpb-msg > button{margin-left:auto !important;flex:none;backgr
         document.documentElement.classList.add('zp-p-' + PAGE);
         if (/urlaubsplaner/i.test(location.pathname)) document.documentElement.classList.add('zp-planer');
         if (/urlaubsplaner/i.test(location.pathname)) setTimeout(() => safe('Planer', planerNav), 300);
+        if (/urlaubsplaner/i.test(location.pathname)) { let lastSig = ''; setInterval(() => { if (document.hidden) return; const tb = document.getElementById('tabdiv'), sg = tb ? tb.querySelectorAll('tbody td').length + '|' + ((document.getElementById('le_periode_text') || {}).textContent || '') : ''; if (sg && sg !== lastSig && tb.querySelector('thead th[data-zp-date]')) { lastSig = sg; safe('Planer', () => planerScan(document)); } }, 3000); }
         { const upd = () => { const h = document.getElementById('zp-shell-host'); document.documentElement.style.setProperty('--zp-sh', (h ? Math.round(h.getBoundingClientRect().height) : 0) + 'px'); }; setTimeout(upd, 500); setInterval(upd, 3000); window.addEventListener('resize', upd); }
         if (IS_ABW) document.documentElement.classList.add('zp-abwp');
         { const lpt = document.getElementById('le_periode_text'); if (lpt) { let t = null; new MutationObserver(() => { clearTimeout(t); t = setTimeout(() => safe('App-Leiste', () => { readShellSource(); renderShell(); }), 250); }).observe(lpt.closest('#tabdivup') || lpt, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['class'] }); } }

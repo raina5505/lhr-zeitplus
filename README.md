@@ -67,6 +67,7 @@ Es gibt auch eine PDF-Anleitung mit Screenshots (Installation und Bedienung). Di
 - **Bereitschaft** (Arbeitsmodell EITBR): Soll 5 h, ohne Pflichtpause. Bereitschaft am Wochenende oder Feiertag wird wie ein Arbeitstag angezeigt (nicht ausgegraut).
 - **Liste:** schöne Tagesliste. Der Verlauf-Balken zeigt normal 06–19 Uhr und erweitert sich automatisch, wenn im Monat früher oder später gestempelt wurde (z. B. Bereitschaft am Abend). Remote = türkiser Rahmen, Bereitschaft = roter Rahmen, Bereitschaft + Remote = Rahmen, der rot/türkis im Uhrzeigersinn durchläuft.
 - **Team-Leiste:** Favoriten heute/morgen: *verfügbar* (Büro/HO) oder *abwesend*.
+  - **B1 / B2** (rot umrandet, vor dem Punkt): Die Person hat an dem Tag Bereitschaft. Kommt aus dem Planer, wird im Hintergrund alle paar Stunden und bei jedem Planer-Besuch aktualisiert.
   - **Punkt vor dem Namen:** 🟢 eingestempelt, 🔴 nicht eingestempelt. Kommt live aus dem Tableau, wird alle 20 s aktualisiert.
   - **↻** aktualisiert sofort: Der Kreis dreht sich, danach kommt „✓ aktuell“.
 - **Erinnerungen:** Kaffeepause, Daily usw. als Browser-Benachrichtigung.
@@ -140,6 +141,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 | `zplus_tstat` | Stempel-Status der Favoriten (aus dem Tableau) |
 | `zplus_br`, `zplus_brm` | erkannte Bereitschaftstage / bereits eingelesene Monate |
 | `zplus_brplan` | eigene geplante Bereitschaften aus dem Planer |
+| `zplus_teambr` | Bereitschaften (B1/B2) aller Personen aus dem Planer (±6 Wochen) |
 | `zplus_wework` | gestempelte Minuten in der Wochenendruhe je Tag (für die Kachel Wochenend-Dienste) |
 | `zplus_leg` | Farblegende aus dem Kalender (für Hover-Texte) |
 | `zplus_upd` | Ergebnis der letzten Update-Prüfung |
@@ -174,6 +176,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 
 | Version | Änderungen |
 |---|---|
+| 5.26.7 | Team-Leiste: **B1/B2-Kennzeichen** bei Kollegen mit Bereitschaft (aus dem Planer). |
 | 5.26.6 | Mehrfacherfassung: Dialog scrollt bei vielen Zeilen, Buttons (Beantragen/Abbrechen) bleiben unten sichtbar; Vorschau-Achse erweitert sich bei späten Zeiten (z. B. bis 22:30). |
 | 5.26.5 | Kachel Resturlaub: Umschalter **Monat / Jahr** (Jahr = noch nicht eingetragener Resturlaub bis Jahresende aus dem Kalender). |
 | 5.26.4 | Wochenend-Dienste zählen rollierend über die **letzten 365 Tage** statt ab 1.1., inkl. Hinweis, wann das älteste herausfällt. |
