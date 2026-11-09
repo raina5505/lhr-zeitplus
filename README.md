@@ -64,7 +64,7 @@ Es gibt auch eine PDF-Anleitung mit Screenshots (Installation und Bedienung). Di
   - **Wochenend-Dienste:** Wochenenden, an denen du **tatsächlich gearbeitet** hast in den **letzten 365 Tagen** (laut KV IT § 5 höchstens **10 Wochenenden in 12 Monaten**, rollierend gezählt; im Tooltip steht, wann das älteste wieder herausfällt). Gezählt wird nur gestempelte Arbeit in der **Wochenendruhe nach ARG § 3**, also Samstag ab 13:00 bis Montag 01:00. Reine Rufbereitschaft (B1/B2) ohne Einsatz zählt **nicht**. Hell dargestellt sind kommende Wochenenden mit geplanter Bereitschaft, die zählen erst bei einem Einsatz. Beim Drüberfahren erscheint die Liste mit den gearbeiteten Stunden. Ab 9 wird es orange, über 10 rot.
 - **Feierabend-Rechner:** Soll erfüllt um, Saldo ±0 um, 10-h-Grenze. **Kernzeit** (Mo–Do 15:00, Fr 12:00) wird berücksichtigt.
 - **Gesamt** = Saldo + FZSA + FZSP + ZA + Überstunden 50 % × 1,5 + 100 % × 2.
-- **Bereitschaft** (Arbeitsmodell EITBR): Soll 5 h, ohne Pflichtpause. Bereitschaft am Wochenende oder Feiertag wird wie ein Arbeitstag angezeigt (nicht ausgegraut).
+- **Bereitschaft** (Arbeitsmodell EITBR): Soll 5 h, ohne Pflichtpause. In der Liste wird an Bereitschaftstagen keine Mittagspause markiert. Bereitschaft am Wochenende oder Feiertag wird wie ein Arbeitstag angezeigt (nicht ausgegraut).
 - **Liste:** schöne Tagesliste. Der Verlauf-Balken zeigt normal 06–19 Uhr und erweitert sich automatisch, wenn im Monat früher oder später gestempelt wurde (z. B. Bereitschaft am Abend). Remote = türkiser Rahmen, Bereitschaft = roter Rahmen, Bereitschaft + Remote = Rahmen, der rot/türkis im Uhrzeigersinn durchläuft.
 - **Team-Leiste:** Favoriten heute/morgen: *verfügbar* (Büro/HO) oder *abwesend*.
   - **B1 / B2** (rot umrandet, vor dem Punkt): Die Person hat an dem Tag Bereitschaft. Kommt aus dem Planer, wird im Hintergrund alle paar Stunden und bei jedem Planer-Besuch aktualisiert.
@@ -176,6 +176,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 
 | Version | Änderungen |
 |---|---|
+| 5.26.8 | Zeitdatenliste: an Bereitschaftstagen (z. B. Sonntag) wird keine Mittagspause mehr erkannt/angezeigt. |
 | 5.26.7 | Team-Leiste: **B1/B2-Kennzeichen** bei Kollegen mit Bereitschaft (aus dem Planer). |
 | 5.26.6 | Mehrfacherfassung: Dialog scrollt bei vielen Zeilen, Buttons (Beantragen/Abbrechen) bleiben unten sichtbar; Vorschau-Achse erweitert sich bei späten Zeiten (z. B. bis 22:30). |
 | 5.26.5 | Kachel Resturlaub: Umschalter **Monat / Jahr** (Jahr = noch nicht eingetragener Resturlaub bis Jahresende aus dem Kalender). |

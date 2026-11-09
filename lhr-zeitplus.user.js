@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.26.7
+// @version      5.26.8
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.26.7';
+    const VERSION = '5.26.8';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1089,11 +1089,11 @@
         // Zeilen
         const XM = m => Math.max(0, Math.min(100, (m - R0) / (R1 - R0) * 100)), X = t => XM(mod(t));
         const rowHtml = x => {
-            const lunch = lunchOf(x.segs);
+            const lunch = x.br ? null : lunchOf(x.segs);          // Bereitschaft: keine Mittagspause
             const open = listState.open.has(x.k);
             const ll = lunch ? mins(lunch.len) : 0;
             let ded = x.pause != null ? mins(x.pause) : null;
-            const dedTip = lunch ? `Mittag ${clock(lunch.s)}–${clock(lunch.e)} = ${ll} min` : 'keine Mittagspause gestempelt';
+            const dedTip = lunch ? `Mittag ${clock(lunch.s)}–${clock(lunch.e)} = ${ll} min` : x.br ? 'Bereitschaft – keine Mittagspause' : 'keine Mittagspause gestempelt';
             const dedFull = ded ? `${dedTip}. LHR hat ${ded} min Pause abgezogen (Pause-Spalte, keine Arbeitszeit).` : dedTip + '. Kein Pausenabzug in LHR.';
             const cls = ['zl-row', x.br ? 'br' : '', x.rem ? 'rem' : '', x.isT ? 'today' : '', x.future ? 'future' : '', x.future && calc ? 'calc' : '', x.we && !x.segs.length && !x.br ? 'we' : '', x.edge && !x.isT ? 'edge' : '', open ? 'open' : ''].join(' ');
             let st;
