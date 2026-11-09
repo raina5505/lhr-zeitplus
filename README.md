@@ -80,7 +80,7 @@ Es gibt auch eine PDF-Anleitung mit Screenshots (Installation und Bedienung). Di
 - Darunter der **Stand** von LHR (Stichtag gestern) als Kacheln.
 
 ### Mehrfacherfassung
-- **Vorschau**, wie die Tage danach in der Zeitdatenliste aussehen, mit Warnungen bei Überschneidungen, Wochenenden, Feiertagen usw.
+- **Vorschau**, wie die Tage danach in der Zeitdatenliste aussehen (Zeitachse passt sich an, auch für Abend-Einsätze). Bei vielen Zeilen scrollt der Dialog, die Buttons bleiben unten stehen. Die Vorschau mit Warnungen bei Überschneidungen, Wochenenden, Feiertagen usw.
 
 ### Kalender
 - Jahresansicht mit Farben aus LHR, Bereitschaftstagen (dünner roter Rahmen), Remote (türkis), BR + Remote (Neon-Rahmen).
@@ -174,6 +174,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 
 | Version | Änderungen |
 |---|---|
+| 5.26.6 | Mehrfacherfassung: Dialog scrollt bei vielen Zeilen, Buttons (Beantragen/Abbrechen) bleiben unten sichtbar; Vorschau-Achse erweitert sich bei späten Zeiten (z. B. bis 22:30). |
 | 5.26.5 | Kachel Resturlaub: Umschalter **Monat / Jahr** (Jahr = noch nicht eingetragener Resturlaub bis Jahresende aus dem Kalender). |
 | 5.26.4 | Wochenend-Dienste zählen rollierend über die **letzten 365 Tage** statt ab 1.1., inkl. Hinweis, wann das älteste herausfällt. |
 | 5.26.3 | Zeitdatenliste: Verlauf-Balken erweitert sich automatisch, wenn früher/später gestempelt wurde (z. B. Bereitschaft bis 24 Uhr); 24:00 und Einsätze über Mitternacht korrekt. |

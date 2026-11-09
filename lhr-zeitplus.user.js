@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.26.5
+// @version      5.26.6
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.26.5';
+    const VERSION = '5.26.6';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1687,6 +1687,8 @@ html.zp-dark #tabdiv table.dataTable tbody td.dtfc-fixed-left,html.zp-dark #tabd
 html.zp-dark #tabdiv table.dataTable thead th.dtfc-fixed-left{background-color:var(--zp-th,var(--zp-surf)) !important;color:var(--zp-muted) !important}
 #tabdiv table.dataTable tbody tr:hover > td.dtfc-fixed-left{background-color:color-mix(in srgb,var(--zp-accent,#4f5bd5) 16%,var(--zp-td,#fff)) !important}
 html.zp-dark body:not(#zp-a):not(#zp-b) #tabdiv table.dataTable tbody tr:hover > td.dtfc-fixed-left{background-color:color-mix(in srgb,var(--zp-accent) 18%,var(--zp-td,var(--zp-surf))) !important}
+html body:not(#zp-a):not(#zp-b) #mehrfacherfassung{max-height:calc(100vh - 24px) !important;overflow-y:auto !important;overflow-x:hidden !important;overscroll-behavior:contain;scrollbar-width:thin}
+html body:not(#zp-a):not(#zp-b) #mehrfacherfassung #multi_buttonPanel{position:sticky;bottom:0;z-index:5;background:var(--zp-surf,#fff);padding-top:8px;padding-bottom:8px;box-shadow:0 -8px 16px -10px rgba(0,0,0,.45)}
 #mehrfacherfassung_submit.zp-mfe-err{box-shadow:0 0 0 2px var(--zp-bad,#e5484d) !important}
 html.zp-p-other #content tr.zp-me > td{box-shadow:inset 0 2px 0 var(--zp-accent,#4f5bd5),inset 0 -2px 0 var(--zp-accent,#4f5bd5) !important}
 html.zp-p-other #content tr.zp-me > td:first-child{box-shadow:inset 3px 0 0 var(--zp-accent,#4f5bd5),inset 0 2px 0 var(--zp-accent,#4f5bd5),inset 0 -2px 0 var(--zp-accent,#4f5bd5) !important}
@@ -4772,6 +4774,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     /* ───── Mehrfacherfassung: Vorschau, wie die Tage danach in der Zeitdatenliste aussehen + Fehlbuchungs-Hinweise ───── */
     const MFE_CSS = `
 .mp{font:13px/1.4 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text);background:var(--zp-surf);border:1px solid var(--zp-line);border-radius:14px;padding:14px 16px;margin:16px auto 14px;max-width:880px;text-align:left}
+.mp .days{max-height:42vh;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
 .mp h4{margin:0 0 4px;font-size:15px;display:flex;align-items:center;gap:8px}
 .mp .s{color:var(--zp-muted);font-size:12px;margin-bottom:10px}
 .mp .sum{display:inline-flex;gap:6px;margin-left:auto;font-size:12px;font-weight:600}
@@ -4859,7 +4862,12 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const keys = [...days.keys()].sort((x, y) => days.get(x).dt - days.get(y).dt);
         let loading = false, nE = loose.filter(m => m.t === 'e').length, nW = 0;
         const t0 = new Date(); t0.setHours(23, 59, 59);
-        const LO = 6 * 60, HI = 20 * 60, X = v => Math.max(0, Math.min(100, (v - LO) / (HI - LO) * 100));
+        // Achse: normal 06–20, erweitert sich bei früheren/späteren Zeiten (z.B. Bereitschaft bis 22:30)
+        let LO = 6 * 60, HI = 20 * 60;
+        keys.forEach(k => { const d = days.get(k); d.nb.forEach(b => { if (b.s != null && !isNaN(b.s)) LO = Math.min(LO, Math.floor(b.s / 60) * 60); const e = b.e != null && !isNaN(b.e) ? b.e : b.s; if (e != null && !isNaN(e)) HI = Math.max(HI, Math.min(1440, Math.ceil(e / 60) * 60)); });
+            const md = mfeMonthDays(d.dt, () => mfePreview(dlg, host)); if (md && md !== 'loading') mfeExisting(md.get(k)).segs.forEach(g => { LO = Math.min(LO, Math.floor(g.s / 60) * 60); if (g.e != null) HI = Math.max(HI, Math.min(1440, Math.ceil(g.e / 60) * 60)); }); });
+        const X = v => Math.max(0, Math.min(100, (v - LO) / (HI - LO) * 100));
+        const axTicks = (() => { const n = 5, out = []; for (let i = 0; i <= n; i++) { const m = LO + (HI - LO) * i / n; out.push(`<span>${pad(Math.round(m / 60))}</span>`); } return out.join(''); })();
         const rows = keys.map(k => {
             const d = days.get(k), wd = d.dt.getDay();
             const md = mfeMonthDays(d.dt, () => mfePreview(dlg, host));
@@ -4905,7 +4913,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         box.innerHTML = `<h4>${ico('eye', 16)} Vorschau: so sieht's danach in der Zeitdatenliste aus<span class="sum">${sum}${sumW}${ok}</span></h4>
             <div class="s">Grau = schon gebucht, blau = neu aus diesem Dialog, rot = Überschneidung. Pausenabzüge rechnet LHR erst nach dem Eintragen.${loading ? ' Lade Monatsdaten …' : ''}</div>
             ${loose.map(m => `<div class="m e">${ico('alert', 13)}<span>${esc(m.x)}</span></div>`).join('')}
-            ${keys.length ? `<div class="ax"><span>06</span><span>09</span><span>12</span><span>15</span><span>18</span><span>20</span></div>${rows}` : '<div class="none">Sobald du oben Tag und Uhrzeiten einträgst, erscheint hier die Vorschau.</div>'}`;
+            ${keys.length ? `<div class="ax">${axTicks}</div><div class="days">${rows}</div>` : '<div class="none">Sobald du oben Tag und Uhrzeiten einträgst, erscheint hier die Vorschau.</div>'}`;
         const btn = dlg.querySelector('#mehrfacherfassung_submit');
         if (btn) { btn.title = nE ? nE + ' Fehler in der Vorschau – bitte prüfen' : ''; btn.classList.toggle('zp-mfe-err', nE > 0); }
     }
