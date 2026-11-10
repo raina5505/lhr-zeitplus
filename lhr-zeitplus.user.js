@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.26.8
+// @version      5.26.9
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.26.8';
+    const VERSION = '5.26.9';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -398,7 +398,7 @@
                     name = leg ? leg.name : (KAL_NAMES[letter[0]] || letter);
                 }
                 days.push({
-                    d: i + 1, dt, key: dayKey(dt), wd, letter, col, kind, name, pend,
+                    d: i + 1, dt, key: dayKey(dt), wd, letter, col, kind, name, pend, half: kind === 'abs' && /halb|½|0[.,]5\s*tag/i.test(name || ''),
                     we: wd === 0 || wd === 6 || /kalTag_sa/.test(cls),
                     hol: (/kalTag_so_fe/.test(cls) && wd !== 0) || letter === 'F',
                     past: dt < t0, today: /kalTagHeute/.test(cls) || dt.getTime() === t0.getTime(),
@@ -544,9 +544,10 @@
         const inTxt = n => n === 0 ? 'heute' : n === 1 ? 'morgen' : 'in ' + n + ' Tagen';
         // Urlaubstage im Jahr: schon genommen / noch verplant (Wochenenden und Feiertage zählen nicht)
         const urlDays = all.filter(d => d.kind === 'abs' && /urlaub/i.test(d.name || '') && !/sonder/i.test(d.name || '') && !d.we && !d.hol);
-        const urTaken = urlDays.filter(d => d.dt < t0 && !d.pend).length, urPlan = urlDays.filter(d => d.dt >= t0 && !d.pend).length, urPend = urlDays.filter(d => d.pend).length;
-        const urSub = urlDays.length ? [urTaken + ' gebucht', urPlan + ' verplant', urPend ? urPend + ' beantragt' : ''].filter(Boolean).join(' · ') : (ruNum[1] ? 'noch kein Urlaub eingetragen' : 'wird von LHR ermittelt');
-        if (ruNum[1] && k.y === new Date().getFullYear()) { try { localStorage.setItem('zplus_ruy', JSON.stringify({ y: k.y, val: ruNum[1], unit: ruNum[2] || 'Tage', per: ruPer, plan: urPlan, pend: urPend, taken: urTaken, ts: Date.now() })); } catch (e) { } }
+        const wsum = a => a.reduce((x, d) => x + (d.half ? .5 : 1), 0), nfmt = v => String(Math.round(v * 2) / 2).replace('.', ',');      // Urlaub halbtags = 0,5
+        const urTaken = wsum(urlDays.filter(d => d.dt < t0 && !d.pend)), urPlan = wsum(urlDays.filter(d => d.dt >= t0 && !d.pend)), urPend = wsum(urlDays.filter(d => d.pend));
+        const urSub = urlDays.length ? [nfmt(urTaken) + ' gebucht', nfmt(urPlan) + ' verplant', urPend ? nfmt(urPend) + ' beantragt' : ''].filter(Boolean).join(' · ') : (ruNum[1] ? 'noch kein Urlaub eingetragen' : 'wird von LHR ermittelt');
+        if (ruNum[1] && k.y === new Date().getFullYear()) { try { localStorage.setItem('zplus_ruy', JSON.stringify({ y: k.y, val: ruNum[1], unit: ruNum[2] || 'Tage', per: ruPer, plan: nfmt(urPlan), pend: urPend ? nfmt(urPend) : 0, taken: nfmt(urTaken), ts: Date.now() })); } catch (e) { } }
         const stat = (icon, label, val, sub, cls) => `<div class="zk-st ${cls || ''}"><small>${ico(icon, 13)}${label}</small><b class="num">${val}</b><span>${sub}</span></div>`;
         const stats = `<div class="zk-stats">
             ${stat('sun', 'Resturlaub ' + k.y, ruNum[1] ? esc(ruNum[1]) + ' <em>' + esc(ruNum[2] || 'Tage') + '</em>' : (/ermittelt/i.test(k.ru) || !k.ru ? '…' : esc(k.ru)), urSub, 'acc')}
@@ -566,6 +567,7 @@
             if (d.kind === 'abs') { cls += ' abs'; style = `--c:${cssRgb(d.col)};--ink:${inkOf(d.col)}`; tip += ' · ' + d.name; }
             else if (d.kind === 'work') { cls += ' work'; tip += ' · ' + d.name; }
             if (d.pend) { cls += ' pend'; tip += ' (beantragt)'; }
+            if (d.half) { cls += ' half'; tip += ' · halber Tag (0,5)'; }
             if (d.br) { cls += ' brd'; tip += ' · Bereitschaft'; }
             if (d.kind === 'abs' && /remote|home/i.test(d.name || '')) cls += ' rem';
             if (bridgeDays.has(d.key)) { cls += ' bridge'; tip += ' · Brückentag-Tipp'; }
@@ -580,8 +582,8 @@
                 const first = m.days[0] ? (m.days[0].wd + 6) % 7 : 0;
                 const cur = m.days.some(d => d.today);
                 const cnt = new Map();
-                m.days.forEach(d => { if (d.kind === 'abs' && d.letter !== 'F') { const c = cnt.get(d.name) || { n: 0, col: d.col }; c.n++; cnt.set(d.name, c); } });
-                const badges = [...cnt].map(([nm, c]) => `<span class="zk-bd" style="--c:${cssRgb(c.col)}" title="${esc(nm)}: ${c.n} Tag${c.n === 1 ? '' : 'e'}"><i></i>${c.n}</span>`).join('');
+                m.days.forEach(d => { if (d.kind === 'abs' && d.letter !== 'F') { const c = cnt.get(d.name) || { n: 0, col: d.col }; c.n += d.half ? .5 : 1; cnt.set(d.name, c); } });
+                const badges = [...cnt].map(([nm, c]) => `<span class="zk-bd" style="--c:${cssRgb(c.col)}" title="${esc(nm)}: ${String(c.n).replace('.', ',')} Tag${c.n === 1 ? '' : 'e'}"><i></i>${String(c.n).replace('.', ',')}</span>`).join('');
                 const isPast = m.days.length && m.days[m.days.length - 1].past;
                 return `<div class="zk-m${cur ? ' cur' : ''}${isPast ? ' gone' : ''}">
                     <div class="zk-mh"><b>${m.name}</b><span>${badges}</span></div>
@@ -2247,6 +2249,9 @@ input,select{font-size:13px;margin:0}
 .zk-d.we{color:var(--zp-muted);background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--zp-muted) 13%,transparent) 0 2px,transparent 2px 6px)}
 .zk-d.hol:not(.abs):not(.brd){color:var(--zp-warn);background:color-mix(in srgb,var(--zp-warn) 13%,transparent)}
 .zk-d.work::after{content:'';position:absolute;bottom:3px;left:50%;width:4px;height:4px;margin-left:-2px;border-radius:50%;background:color-mix(in srgb,var(--zp-ok) 75%,transparent)}
+.zk-d.abs.half:not(.pend){background:linear-gradient(135deg,color-mix(in srgb,var(--c) 84%,var(--zp-surf)) 0 50%,color-mix(in srgb,var(--c) 26%,var(--zp-surf)) 50% 100%)}
+.zk-d.pend.half{background:linear-gradient(135deg,color-mix(in srgb,var(--c) 30%,transparent) 0 50%,transparent 50% 100%)}
+.zk-d.half::after{content:'½';position:absolute;left:4px;bottom:1px;font-size:9px;font-weight:800;line-height:1;opacity:.85}
 .zk-d.abs{background:color-mix(in srgb,var(--c) 84%,var(--zp-surf));color:var(--ink);font-weight:700}
 .zk-d.abs i{position:absolute;top:1px;right:4px;font-style:normal;font-size:8.5px;font-weight:800;opacity:.7}
 .zk-d.past:not(.abs):not(.today){opacity:.5}

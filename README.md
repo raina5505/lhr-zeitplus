@@ -85,6 +85,7 @@ Es gibt auch eine PDF-Anleitung mit Screenshots (Installation und Bedienung). Di
 
 ### Kalender
 - Jahresansicht mit Farben aus LHR, Bereitschaftstagen (dünner roter Rahmen), Remote (türkis), BR + Remote (Neon-Rahmen).
+- **Urlaub halbtags** (in LHR „… halb…“) wird schräg halb gefüllt mit **½** angezeigt und zählt überall als **0,5 Tage** (gebucht, verplant, beantragt, Monats-Zähler).
 - **Resturlaub-Kachel:** Resturlaub, gebucht und verplant.
 - **Brückentage:** Es werden nur echte Brücken zwischen Feiertag und Wochenende vorgeschlagen (1–3 Arbeitstage). Eigener Urlaub zählt nicht mit, schon komplett genommene Brücken verschwinden.
 
@@ -176,6 +177,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 
 | Version | Änderungen |
 |---|---|
+| 5.26.9 | Kalender: **Urlaub halbtags** erkennbar (½, halb gefüllt) und zählt als 0,5 Tage. |
 | 5.26.8 | Zeitdatenliste: an Bereitschaftstagen (z. B. Sonntag) wird keine Mittagspause mehr erkannt/angezeigt. |
 | 5.26.7 | Team-Leiste: **B1/B2-Kennzeichen** bei Kollegen mit Bereitschaft (aus dem Planer). |
 | 5.26.6 | Mehrfacherfassung: Dialog scrollt bei vielen Zeilen, Buttons (Beantragen/Abbrechen) bleiben unten sichtbar; Vorschau-Achse erweitert sich bei späten Zeiten (z. B. bis 22:30). |
