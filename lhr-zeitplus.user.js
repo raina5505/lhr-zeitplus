@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.26.9
+// @version      5.27.0
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.26.9';
+    const VERSION = '5.27.0';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -2803,7 +2803,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
 
     let ruBusy = false;
     async function ruYearFetch() {           // Kalender unsichtbar laden und „Resturlaub per Ende 12.JJJJ“ auslesen
-        if (ruBusy || Date.now() - (ruYearFetch.t || 0) < 5 * 60e3) return; ruBusy = true; ruYearFetch.t = Date.now();
+        if (ruBusy || Date.now() - (ruYearFetch.t || 0) < 5 * 60e3) return; ruBusy = true; ruYearFetch.t = Date.now(); const rel = await bgLock();
         const a = document.getElementById('zm_kalender');
         const fr = hiddenFrame('zp-kal', a ? a.getAttribute('href') : '/Self/kalender?modulId=0');
         try {
@@ -2817,7 +2817,7 @@ button.zk-li:hover{border-color:var(--zp-accent)}
                 safe('Render', render);
             }
         } catch (e) { }
-        ruBusy = false; setTimeout(() => fr.remove(), 500);
+        rel(); ruBusy = false; setTimeout(() => fr.remove(), 500);
     }
     function readUrlaub() {
         const e = document.getElementById('resturlaub') || document.getElementById('resturlaub_kalender');
@@ -4262,7 +4262,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     }
     let tbrBusy = false;
     async function planerBg(done) {           // Planer unsichtbar laden und Bereitschaften auslesen
-        if (tbrBusy) return; tbrBusy = true;
+        if (tbrBusy) return; tbrBusy = true; const rel = await bgLock();
         const a = document.getElementById('zm_planer');
         const fr = hiddenFrame('zp-planer', a ? a.getAttribute('href') : '/Self/Urlaubsplaner?modulId=0');
         try {
@@ -4271,7 +4271,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             await zsleep(1500);
             planerScan(d());
         } catch (e) { }
-        tbrBusy = false; setTimeout(() => fr.remove(), 500); if (done) done();
+        rel(); tbrBusy = false; setTimeout(() => fr.remove(), 500); if (done) done();
     }
     function planerMarks() {
         const tab = document.getElementById('tabdiv'); if (!tab) return;
@@ -5057,6 +5057,15 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         Object.entries(b.days).forEach(([dk, ppl]) => { const t = a.days[dk] = a.days[dk] || {}; Object.entries(ppl).forEach(([k, v]) => { if (rk(v) >= rk(t[k])) t[k] = v; }); });
         Object.assign(a.names, b.names); a.ts = Math.max(a.ts, b.ts); return a;
     }
+    // Hintergrund-Seiten nacheinander laden (gleichzeitig wäre auf schwachen Laptops sehr langsam); Stempel-Status hat Vorrang
+    let bgQ = Promise.resolve(), bgPrio = [];
+    function bgLock(prio) {
+        let rel; const mine = new Promise(r => { rel = r; });
+        const prev = bgQ; bgQ = prev.then(() => mine);
+        let done = false; const release = () => { if (!done) { done = true; rel(); } };
+        setTimeout(release, 90000);              // Sicherheitsnetz
+        return prio ? Promise.resolve(release) : prev.then(() => release);
+    }
     function hiddenFrame(name, src) {
         const fr = document.createElement('iframe'); fr.name = name; fr.setAttribute('aria-hidden', 'true');
         fr.style.cssText = 'position:fixed;left:-9999px;top:0;width:1400px;height:900px;border:0;visibility:hidden';
@@ -5064,7 +5073,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     }
     const setSel = (w, x, val, fn) => { if (!x || x.value === val || ![...x.options].some(o => o.value === val)) return false; x.value = val; try { if (typeof w[fn] === 'function') w[fn](x); else x.dispatchEvent(new Event('change', { bubbles: true })); } catch (e) { try { x.dispatchEvent(new Event('change', { bubbles: true })); } catch (e2) { } } return true; };
     async function teamRefresh(done) {
-        if (teamBusy) return; teamBusy = true;
+        if (teamBusy) return; teamBusy = true; const rel = await bgLock();
         const a = document.getElementById('zm_abw_uebersicht');
         const fr = hiddenFrame('zp-team', a ? a.getAttribute('href') : '/Self/Abwesenheitsuebersicht?modulId=0');
         let ok = false, restore = null;
@@ -5115,7 +5124,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             if (acc) { teamSave(acc); ok = true; }
         } catch (e) { }
         if (restore) await restore();
-        teamBusy = false; setTimeout(() => fr.remove(), 500); if (done) done(ok);
+        rel(); teamBusy = false; setTimeout(() => fr.remove(), 500); if (done) done(ok);
     }
     /* Tableau: Status von Favoriten aus anderen Abteilungen im Hintergrund holen */
     const TST_KEY = 'zplus_tstat';
@@ -5126,7 +5135,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
     };
     let tstBusy = false;
     async function tableauRefresh(done) {
-        if (tstBusy || Date.now() - (tableauRefresh.last || 0) < 80e3) { if (done) done(); return; } tstBusy = true; tableauRefresh.last = Date.now();
+        if (tstBusy || Date.now() - (tableauRefresh.last || 0) < 80e3) { if (done) done(); return; } tstBusy = true; tableauRefresh.last = Date.now(); const rel = await bgLock(true);
         const a = document.getElementById('zm_tableau');
         const fr = hiddenFrame('zp-tst', a ? a.getAttribute('href') : '/Self/Tableau?modulId=0');
         let restoreT = null;
@@ -5155,7 +5164,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             try { localStorage.setItem(TST_KEY, JSON.stringify(Object.assign(old, st))); } catch (e) { }
         } catch (e) { }
         if (restoreT) await restoreT();
-        tstBusy = false; setTimeout(() => fr.remove(), 500); if (done) done();
+        rel(); tstBusy = false; setTimeout(() => fr.remove(), 500); if (done) done();
     }
     const TEAM_CSS = `
 .tm{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 16px;border-radius:16px;background:var(--zp-surf);border:1px solid var(--zp-line);font:13px/1.3 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
@@ -5199,7 +5208,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const age = data ? Date.now() - data.ts : 0;
         let tsx = {}; try { tsx = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
         const tsMax = Math.max(0, ...favs.map(f => (tsx[f.k] || {}).ts || 0));
-        const busy = tstBusy || teamBusy || tLiveBusy() || Date.now() - teamFlash < 700;
+        const busy = teamManual && Date.now() - teamFlash < 30000 && (tstBusy || tLiveBusy() || Date.now() - teamFlash < 800);      // nur nach Klick auf ↻ – Hintergrund läuft still
         const ss = t => { const x = new Date(t); return clock(t) + ':' + pad(x.getSeconds()); };
         const stTxt = busy ? '<b class="ld">Aktualisiere …</b>' : (Date.now() - teamFlash < 4000 ? '<b class="ok">✓ aktuell</b> · ' : '') + (tsMax && Date.now() - tsMax < 60 * 60e3 ? '<i class="lv"></i>Live ' + ss(tsMax) : 'Stempel-Status: noch keiner');
         const foot = `<span class="sp"></span><span class="f">${stTxt} · ${data ? 'Stand ' + clock(data.ts) + (age > 864e5 ? ' (' + pad(new Date(data.ts).getDate()) + '.' + pad(new Date(data.ts).getMonth() + 1) + '.)' : '') : 'noch keine Daten'} · Abwesenheitsübersicht<button type="button" data-tr="1" class="${busy ? 'spin' : ''}" title="Jetzt aktualisieren">${ico('refresh', 13)}</button></span>`;
@@ -5229,7 +5238,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
             ${missing ? `<span class="h" title="Nicht in der aktuellen Abwesenheitsübersicht (Filter/Firma)">+${missing} ohne Daten</span>` : ''}${foot}</div>`;
     }
     /* Live-Stempelstatus: Tableau bleibt unsichtbar offen und wird alle 20 s von LHR selbst neu geladen (nur Daten, keine ganze Seite) */
-    let tLive = null, teamFlash = 0;
+    let tLive = null, teamFlash = 0, teamManual = false;
     const tLiveBusy = () => !!(tLive && tLive.busy);
     function tableauLive(onUpdate) {
         if (tLive) return tLive;
@@ -5255,10 +5264,11 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                 await zwait(() => cells().length && sig() !== s0, 4000); await zwait(() => cells().length, 8000); await zsleep(300);
                 save();
             } catch (e) { }
-            tLive.busy = false; if (onUpdate) onUpdate();
+            tLive.busy = false; teamManual = false; if (onUpdate) onUpdate();
         };
         tLive.now = pull;
         (async () => {
+            const rel = await bgLock(true);
             try {
                 if (!await zwait(() => d() && cells().length, 25000)) throw 'leer';
                 const sSel = d().getElementById('tableau_dropdown_status'), pSel = d().getElementById('per_page_count'), aSel = d().getElementById('tableau_dropdown_abt');
@@ -5275,7 +5285,7 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
                 }
                 save();
             } catch (e) { }
-            tLive.ready = true; tLive.busy = false; if (onUpdate) onUpdate();
+            rel(); tLive.ready = true; tLive.busy = false; teamManual = false; if (onUpdate) onUpdate();
             setInterval(() => { if (!document.hidden) pull(); }, 20000);
         })();
         return tLive;
@@ -5287,7 +5297,12 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         const box = el('div', 'zp-font'); root.appendChild(box);
         box.addEventListener('click', e => {
             const t = e.target.closest('[data-td]'); if (t) { teamDay = +t.dataset.td; renderTeam(box); return; }
-            if (e.target.closest('[data-tr]')) { teamFlash = Date.now(); teamRefresh(() => { teamFlash = Date.now(); renderTeam(box); }); if (tLive && tLive.now) tLive.now(); else tableauLive(() => renderTeam(box)); renderTeam(box); }
+            if (e.target.closest('[data-tr]')) {
+                teamFlash = Date.now(); teamManual = true;
+                if (tLive && tLive.ready) tLive.now(); else { tableauRefresh.last = 0; tableauRefresh(() => { teamManual = false; teamFlash = Date.now(); renderTeam(box); }); }
+                const td = teamStore(); if (!td || Date.now() - td.ts > 15 * 60e3) teamRefresh(() => renderTeam(box));
+                renderTeam(box); setTimeout(() => { teamManual = false; renderTeam(box); }, 30000);
+            }
         });
         renderTeam(box);
         const data = teamStore();
@@ -5295,6 +5310,12 @@ ${row('Leere Tabellenspalten ausblenden', '', tgl('hideEmpty'))}
         setInterval(() => { if (!document.hidden) renderTeam(box); }, 5 * 60e3);
         // Ein-/Ausgestempelt-Punkte live (alle 20 s)
         setTimeout(() => { if (favList().length) tableauLive(() => renderTeam(box)); }, 1500);
+        setInterval(() => {               // Sicherheitsnetz: liefert der Live-Rahmen nichts, klassisch nachladen
+            if (document.hidden || tstBusy || !favList().length) return;
+            let tst = {}; try { tst = JSON.parse(localStorage.getItem(TST_KEY) || '{}') || {}; } catch (e) { }
+            const newest = Math.max(0, ...favList().map(f => (tst[f.k] || {}).ts || 0));
+            if (Date.now() - newest > 2.5 * 60e3 && !tLiveBusy()) tableauRefresh(() => renderTeam(box));
+        }, 30e3);
         setInterval(() => { if (!document.hidden) renderTeam(box); }, 15e3);
     }
     function watchDialog() {

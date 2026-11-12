@@ -177,6 +177,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 
 | Version | Änderungen |
 |---|---|
+| 5.27.0 | Team-Leiste schneller: Hintergrund-Seiten laden nacheinander (Stempel-Status zuerst), „Aktualisiere …“ nur noch nach Klick auf ↻, Ersatz-Abfrage falls der Live-Status hängt. |
 | 5.26.9 | Kalender: **Urlaub halbtags** erkennbar (½, halb gefüllt) und zählt als 0,5 Tage. |
 | 5.26.8 | Zeitdatenliste: an Bereitschaftstagen (z. B. Sonntag) wird keine Mittagspause mehr erkannt/angezeigt. |
 | 5.26.7 | Team-Leiste: **B1/B2-Kennzeichen** bei Kollegen mit Bereitschaft (aus dem Planer). |
