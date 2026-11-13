@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.27.1
+// @version      5.27.2
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.27.1';
+    const VERSION = '5.27.2';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1213,7 +1213,7 @@
     const KEY = 'zplus_settings';
     const DEF = {
         v: 9,
-        theme: 'saison', accent: '', fx: true, fxAmount: 'normal', density: 'normal', radius: 'round', width: 'breit', heroPos: 'top',
+        theme: 'saison', accent: '', fx: true, fxAmount: 'normal', density: 'compact', radius: 'round', width: 'breit', heroPos: 'top',
         pflicht: 30, abH: 6, lunchFrom: '11:30', lunchTo: '14:00', lunchMinLen: 10, planLunch: 30,
         earliest: '06:30', maxDay: 10, kern: true, kzMoDo: '15:00', kzFr: '12:00',
         notif: { saldo: { on: true, lead: 5 }, soll: { on: false, lead: 5 }, max: { on: true, lead: 15 }, lunch: { on: false, at: '12:00' }, sound: false },
@@ -1235,7 +1235,8 @@
         }
         DEF_LAYOUT.forEach(d => { if (!lay.find(x => x.id === d.id)) lay.push(Object.assign({}, d)); });
         o.layout = lay;
-        if (!s.wMig) { o.wMig = 1; if (!s.width || s.width === 'limited') o.width = 'breit'; }      // 5.27.1: Standard „Breit“ (weniger schwarzer Rand)
+        if (!s.dMig) { o.dMig = 1; if (!s.density || s.density === 'normal') o.density = 'compact'; }      // 5.27.2: Standard „kompakt“ – Dashboard braucht weniger Platz
+        if (!s.wMig) { o.wMig = 1; if (!s.width || s.width === 'limited') o.width = 'breit'; }      // 5.27.2: Standard „Breit“ (weniger schwarzer Rand)
         if (old < 3 && (!s.lunchFrom || s.lunchFrom === '11:00')) o.lunchFrom = '11:30';
         if (old < 4) {                                   // v4: neue, ruhigere Standards
             if (!s.theme || s.theme === 'saison') o.theme = 'dark';
@@ -1413,7 +1414,7 @@
         r.style.setProperty('--zp-scheme', t.dark ? 'dark' : 'light');
         r.style.setProperty('--zp-rem', t.dark ? '#2dd4bf' : '#0d9488');
         r.style.setProperty('--zp-shadow', t.dark ? '0 1px 0 rgba(255,255,255,.03) inset,0 12px 32px rgba(0,0,0,.35)' : '0 1px 2px rgba(16,24,40,.04),0 8px 24px rgba(16,24,40,.07)');
-        r.style.setProperty('--zp-zoom', { compact: .9, normal: 1, large: 1.1 }[S.density] || 1);
+        r.style.setProperty('--zp-zoom', { compact: .86, normal: 1, large: 1.1 }[S.density] || 1);
         r.style.setProperty('--zp-r', { square: '6px', soft: '11px', round: '16px' }[S.radius] || '16px');
         r.classList.toggle('zp-dark', !!t.dark);
         r.classList.toggle('zp-hidecols', !!S.hideEmpty);
@@ -3451,7 +3452,7 @@ ${row('Eigene Akzentfarbe', 'überschreibt die Farbe des Themes', `<span class="
 ${row('Animierte Effekte', 'Schnee, Blätter, Blüten, Funken, Blasen, Sterne – je nach Theme', tgl('fx'))}
 ${row('Effekte zeigen auf', '', segCtl('fxScope', [['page', 'ganzer Seite'], ['dash', 'nur Dashboard']]))}
 ${row('Effekt-Menge', '', segCtl('fxAmount', [['low', 'wenig'], ['normal', 'normal'], ['high', 'viel']]))}
-${row('Größe', '', segCtl('density', [['compact', 'kompakt'], ['normal', 'normal'], ['large', 'groß']]))}
+${row('Größe', 'Wie groß das Dashboard dargestellt wird', segCtl('density', [['compact', 'kompakt'], ['normal', 'normal'], ['large', 'groß']]))}
 ${row('Ecken', '', segCtl('radius', [['square', 'eckig'], ['soft', 'weich'], ['round', 'rund']]))}
 ${row('Breite', 'Wie breit Dashboard, Liste und Leisten werden (weniger schwarzer Rand)', segCtl('width', [['limited', 'Schmal'], ['breit', 'Breit'], ['full', 'Volle Breite']]))}
 ${row('Feierabend-Block', 'oben quer oder als Spalte links', segCtl('heroPos', [['top', 'oben'], ['left', 'links']]))}

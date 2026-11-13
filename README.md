@@ -122,6 +122,7 @@ Es gibt auch eine PDF-Anleitung mit Screenshots (Installation und Bedienung). Di
 ## 5. Einstellungen
 
 ⚙ öffnet die Einstellungen:
+- **Größe:** kompakt (Standard) / normal / groß – wie groß das Dashboard dargestellt wird.
 - **Breite:** Schmal / Breit / Volle Breite – wie viel vom Bildschirm genutzt wird (weniger schwarzer Rand links und rechts).
 - **Layout:** Kacheln ein-/ausblenden, breit/schmal, Reihenfolge. Auch per Drag & Drop direkt im Dashboard („Im Dashboard anordnen“).
 - **Theme & Effekte:** Effekt an/aus, Menge, nur Dashboard oder ganze Seite.
@@ -178,6 +179,7 @@ Alle Einstellungen werden im Browser gespeichert (siehe unten).
 
 | Version | Änderungen |
 |---|---|
+| 5.27.2 | Dashboard standardmäßig **kompakt** (kleiner, braucht weniger Bildschirm); umstellbar unter ⚙ → Größe. |
 | 5.27.1 | Seitenbreite einstellbar (⚙ → Breite: Schmal 1240 px / **Breit 1600 px (neuer Standard)** / Volle Breite); Dashboard, Team-Leiste, Liste und obere Leiste sind jetzt immer bündig. |
 | 5.27.0 | Team-Leiste schneller: Hintergrund-Seiten laden nacheinander (Stempel-Status zuerst), „Aktualisiere …“ nur noch nach Klick auf ↻, Ersatz-Abfrage falls der Live-Status hängt. |
 | 5.26.9 | Kalender: **Urlaub halbtags** erkennbar (½, halb gefüllt) und zählt als 0,5 Tage. |
