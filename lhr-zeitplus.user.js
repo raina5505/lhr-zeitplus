@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         LHR Zeit+
 // @namespace    lhr-zeitplus
-// @version      5.27.0
+// @version      5.27.1
 // @description  High-End-Dashboard für die LHR-Zeitdatenliste: Live-Arbeitszeit, Feierabend, Saldo, Mittag/Raucherpausen, Woche, Monat, Timer, Hinweise, frei anordnen, Themes mit Effekten
 // @match        *://lohnselfservice/*
 // @include      /^https?:\/\/lohnselfservice(\.[^\/]+)*(:\d+)?\/.*$/
@@ -15,7 +15,7 @@
 (function () {
     'use strict';
     if (window.top !== window && /^zp-/.test(window.name || '')) return;     // Hintergrund-Rahmen für den Jahres-PDF-Export: Zeit+ dort nicht starten
-    const VERSION = '5.27.0';
+    const VERSION = '5.27.1';
     try { console.info('%c[Zeit+] v' + VERSION + ' geladen', 'color:#7c8cff;font-weight:bold'); } catch (e) { }
 
     /* ════════════════════ ICONS (SVG, Lucide-Stil) ════════════════════ */
@@ -1213,7 +1213,7 @@
     const KEY = 'zplus_settings';
     const DEF = {
         v: 9,
-        theme: 'saison', accent: '', fx: true, fxAmount: 'normal', density: 'normal', radius: 'round', width: 'limited', heroPos: 'top',
+        theme: 'saison', accent: '', fx: true, fxAmount: 'normal', density: 'normal', radius: 'round', width: 'breit', heroPos: 'top',
         pflicht: 30, abH: 6, lunchFrom: '11:30', lunchTo: '14:00', lunchMinLen: 10, planLunch: 30,
         earliest: '06:30', maxDay: 10, kern: true, kzMoDo: '15:00', kzFr: '12:00',
         notif: { saldo: { on: true, lead: 5 }, soll: { on: false, lead: 5 }, max: { on: true, lead: 15 }, lunch: { on: false, at: '12:00' }, sound: false },
@@ -1235,6 +1235,7 @@
         }
         DEF_LAYOUT.forEach(d => { if (!lay.find(x => x.id === d.id)) lay.push(Object.assign({}, d)); });
         o.layout = lay;
+        if (!s.wMig) { o.wMig = 1; if (!s.width || s.width === 'limited') o.width = 'breit'; }      // 5.27.1: Standard „Breit“ (weniger schwarzer Rand)
         if (old < 3 && (!s.lunchFrom || s.lunchFrom === '11:00')) o.lunchFrom = '11:30';
         if (old < 4) {                                   // v4: neue, ruhigere Standards
             if (!s.theme || s.theme === 'saison') o.theme = 'dark';
@@ -1383,6 +1384,9 @@
     const themeLabel = () => S.theme === 'saison' ? 'Saison · ' + theme().name : S.theme === 'auto' ? 'System · ' + theme().name : theme().name;
 
     function applyTheme() {
+        { const W = S.width === 'full' ? 'none' : S.width === 'limited' ? '1240px' : '1600px';      // Seitenbreite (Einstellungen → Breite)
+          const rr = document.documentElement; rr.style.setProperty('--zp-maxw', W); rr.style.setProperty('--zp-maxw2', S.width === 'full' ? 'none' : S.width === 'limited' ? '1600px' : '1760px');
+          ['limited', 'breit', 'full'].forEach(w => rr.classList.toggle('zp-w-' + w, (S.width || 'breit') === w)); }
         const r = document.documentElement;
         if (!r) return;
         const t = theme();
@@ -1440,7 +1444,7 @@
     /* ════════════════════ CSS: SEITE (global) ════════════════════ */
     const PAGE_CSS = `
 :root{--zp-soft:color-mix(in srgb,var(--zp-accent) 12%,transparent)}
-#zp-host{display:block;margin:12px 0 16px;max-width:1240px}
+#zp-host{display:block;margin:12px 0 16px;max-width:var(--zp-maxw,1240px)}
 #zp-host.wide{max-width:none}
 html.zp-hidecols .zp-colhide{display:none !important}
 html.zp-todayhl.zp-zdl table.tabelle tbody tr.zp-today > td:first-child{box-shadow:inset 3px 0 0 var(--zp-accent) !important}
@@ -1493,7 +1497,7 @@ html.zp-shell #zp-shell-host{margin:0 -16px 0}
 html.zp-shell body > header,html.zp-shell nav.nav_head,html.zp-shell .navmenu.nav_body,html.zp-shell .zp-hide-orig,html.zp-shell #user-links,html.zp-shell #ul-user-links,html.zp-shell #custom-user-links,html.zp-shell #custom-ul-user-links{display:none !important}
 html.zp-shell #zp-host,html.zp-shell #zp-list-host{margin-left:auto;margin-right:auto}
 html.zp-shell #zp-host{margin-top:18px}
-html.zp-shell:not(.zp-zdl) section#content,html.zp-shell:not(.zp-zdl) #content{margin:18px auto 0 !important;max-width:1600px}
+html.zp-shell:not(.zp-zdl) section#content,html.zp-shell:not(.zp-zdl) #content{margin:18px auto 0 !important;max-width:var(--zp-maxw2,1600px)}
 html.zp-shell .info_extra p:not(.hidden),html.zp-shell #info_zeitdatenliste_div p:not(.hidden),html.zp-shell .error_urlaubmaxdate_extra p:not(.hidden){max-width:1240px;margin:14px auto 0 !important;padding:11px 15px !important;border-radius:12px !important;
   background:var(--zp-surf,#f6f7fa) !important;border:1px solid var(--zp-line,#e3e6ec) !important;font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;font-size:13px !important}
 html.zp-shell .success:not(.hidden){border-color:color-mix(in srgb,var(--zp-ok) 45%,transparent) !important;color:var(--zp-ok) !important}
@@ -1521,9 +1525,9 @@ html.zp-dark body:not(#zp-a):not(#zp-b) [data-zp-cf="d"],html.zp-dark body:not(#
 html.zp-dark body:not(#zp-a):not(#zp-b) [data-zp-ink]{color:var(--zp-text) !important}
 html.zp-dark body:not(#zp-a):not(#zp-b) th[data-zp-cf]{background-color:var(--zp-th) !important;background-image:none !important;color:var(--zp-muted) !important}
 /* Kalender: Zeit+ Ansicht statt Original-Tabelle */
-#zp-kal-host{display:block;margin:0 auto 28px;max-width:1240px}
+#zp-kal-host{display:block;margin:0 auto 28px;max-width:var(--zp-maxw,1240px)}
 html.zp-kalview section#content > :not(#zp-kal-host):not(#error_urlaubmaxdate_div){display:none !important}
-html.zp-shell.zp-p-kal section#content{max-width:1240px !important}
+html.zp-shell.zp-p-kal section#content{max-width:var(--zp-maxw,1240px) !important}
 html:not(.zp-kalview) #zp-kal-host{margin-bottom:14px}
 /* Seiten mit Listen/Filtern (Anträge, Mitteilungen, Abwesenheiten, Tableau, Planer) */
 html.zp-shell.zp-p-other section#content{font-family:'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif}
@@ -1607,8 +1611,9 @@ html.zp-pretty.zp-zdl #content table td,html.zp-pretty.zp-zdl #content table tr,
 html.zp-pretty.zp-zdl #content table th{border-color:var(--zp-grid,#e8eaf0) !important}
 /* Original-Tabelle ausblenden, wenn die Zeit+ Liste aktiv ist (bleibt im Layout, damit LHR-Scripts weiter rechnen) */
 html.zp-hidetable section#content{position:absolute !important;left:-30000px !important;top:0 !important;visibility:hidden !important;pointer-events:none !important}
-#zp-list-host{display:block;margin:0 0 28px;max-width:1240px}
-#zp-list-host.wide,#zp-list-host.xwide{max-width:none}
+#zp-list-host{display:block;margin:0 0 28px;max-width:var(--zp-maxw,1240px)}
+#zp-list-host.wide{max-width:none}
+html.zp-w-limited #zp-list-host.xwide{max-width:none}
 /* Navi oben ausblenden */
 html.zp-nonav .nav_main,html.zp-nonav #ul-user-links{display:none !important}
 
@@ -1863,7 +1868,7 @@ html.zp-planer body:not(#zp-a):not(#zp-b) #colHide > img{width:22px !important;h
 html.zp-planer body:not(#zp-a):not(#zp-b) #behebenBtn{height:38px !important;padding:0 16px !important;border-radius:12px !important;border:0 !important;background:var(--zp-accent,#4f7cff) !important;color:#fff !important;font:700 13px 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif !important;cursor:pointer;margin:0 !important;box-shadow:none !important}
 html.zp-planer body:not(#zp-a):not(#zp-b) #behebenBtn:hover{filter:brightness(1.08)}
 html.zp-planer #tabdivup .grid-container p#buttons{margin:0 !important}
-#zp-team-host{display:block;max-width:1240px;margin:0 auto 16px}
+#zp-team-host{display:block;max-width:var(--zp-maxw,1240px);margin:0 auto 16px}
 #zp-host.wide ~ #zp-team-host{max-width:none}
 #zp-abw-bar{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:10px 0 12px;font:13px/1.2 'Segoe UI Variable Text','Segoe UI',system-ui,sans-serif;color:var(--zp-text)}
 #zp-abw-bar .t{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--zp-muted);margin-right:2px}
@@ -2117,7 +2122,7 @@ input,select{font-size:13px;margin:0}
 
 /* ───── App-Leiste ───── */
 #zs{background:color-mix(in srgb,var(--zp-bg) 84%,transparent);backdrop-filter:blur(16px) saturate(1.4);-webkit-backdrop-filter:blur(16px) saturate(1.4);border-bottom:1px solid var(--zp-line);color:var(--zp-text)}
-.zs-in{max-width:1240px;margin:0 auto;padding:0 16px;box-sizing:content-box}
+.zs-in{max-width:var(--zp-maxw,1240px);margin:0 auto;padding:0 16px;box-sizing:content-box}
 .zs-bar{display:flex;align-items:center;gap:14px;height:60px}
 .zs-upd{display:inline-flex;align-items:center;gap:7px;height:34px;padding:0 13px;border-radius:11px;border:1px solid var(--zp-accent);background:color-mix(in srgb,var(--zp-accent) 16%,transparent);color:var(--zp-text);font:600 13px/1 inherit;cursor:pointer;animation:zsupd 2.4s ease-in-out infinite}
 .zs-upd:hover{background:var(--zp-accent);color:var(--zp-onacc,#fff)}
@@ -3448,7 +3453,7 @@ ${row('Effekte zeigen auf', '', segCtl('fxScope', [['page', 'ganzer Seite'], ['d
 ${row('Effekt-Menge', '', segCtl('fxAmount', [['low', 'wenig'], ['normal', 'normal'], ['high', 'viel']]))}
 ${row('Größe', '', segCtl('density', [['compact', 'kompakt'], ['normal', 'normal'], ['large', 'groß']]))}
 ${row('Ecken', '', segCtl('radius', [['square', 'eckig'], ['soft', 'weich'], ['round', 'rund']]))}
-${row('Breite', '', segCtl('width', [['limited', 'begrenzt'], ['full', 'volle Breite']]))}
+${row('Breite', 'Wie breit Dashboard, Liste und Leisten werden (weniger schwarzer Rand)', segCtl('width', [['limited', 'Schmal'], ['breit', 'Breit'], ['full', 'Volle Breite']]))}
 ${row('Feierabend-Block', 'oben quer oder als Spalte links', segCtl('heroPos', [['top', 'oben'], ['left', 'links']]))}
 ${row('Ansicht', 'Kompakt zeigt nur das Wichtigste in einer Zeile', segCtl('view', [['full', 'alles'], ['compact', 'kompakt']]))}`,
             layout: `
